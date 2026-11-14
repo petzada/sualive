@@ -18,6 +18,9 @@ function metaTags(pageUrl: string, imageUrl: string): string {
     ["property", "og:description", description],
     ["property", "og:url", pageUrl],
     ["property", "og:image", imageUrl],
+    ["property", "og:image:type", "image/png"],
+    ["property", "og:image:width", "1200"],
+    ["property", "og:image:height", "630"],
     ["property", "og:image:alt", imageAlt],
     ["name", "twitter:card", "summary_large_image"],
     ["name", "twitter:title", title],
@@ -51,6 +54,13 @@ export async function roomPagePreview(request: Request, env: AppEnv): Promise<Re
     .on("head > title", {
       element(element) {
         element.setInnerContent(title);
+      },
+    })
+    // O index.html já traz tags genéricas (para o início); na sala valem só as injetadas abaixo,
+    // senão os aplicativos de mensagem leem a primeira (título genérico e imagem relativa).
+    .on('meta[property^="og:"], meta[name^="twitter:"], meta[name="description"]', {
+      element(element) {
+        element.remove();
       },
     })
     .on("head", {
