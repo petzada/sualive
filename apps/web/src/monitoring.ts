@@ -11,3 +11,12 @@ export function initMonitoring(): void {
     environment: import.meta.env.VITE_ENVIRONMENT || undefined,
   });
 }
+
+/**
+ * Records a failed Turnstile check with Cloudflare's error code only (e.g. "110200", "300030",
+ * "timeout", "unsupported", "script"): evidence for the next investigation, no personal data.
+ * Does nothing when Sentry was not started.
+ */
+export function reportTurnstileError(code: string): void {
+  Sentry.captureMessage("turnstile_error", { level: "warning", tags: { turnstile_error: code } });
+}
