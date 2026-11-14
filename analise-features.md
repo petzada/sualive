@@ -138,7 +138,7 @@ Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md`
 | F19.5 Conta para reservar o nome | Atende | Entrega 2, @nome único | — |
 | F19.6, F30.6 Lista de salas públicas | Atende | Entrega 4, vitrine | Nossa vitrine só lista salas do Plus, pagas em ouro. |
 | F19.7 Seletor de qualidade | Pós-MVP | A7 | — |
-| F20.1 2K a 120 fps grátis | **Fora** | "Fora do produto: resolução acima de 1080p60"; grátis 720p30 | Diferença de modelo. Ver pergunta Q13. |
+| F20.1 2K a 120 fps grátis | **Fora** | "Fora do produto: resolução acima de 1080p60"; grátis 720p30 | Diferença de modelo. Ver DF12. |
 | F20.2, F20.3, F22.5, F25.5, F30.5 Layout | Parcial | Entrega 1: destaque e miniaturas; B1, B9 | — |
 | F20.4 Instalar como app (PWA) | **Não atende** | — | Barato: manifesto e ícone. Responde em parte a "quero um app". |
 | F20.5 Links clicáveis no chat | **Não atende** | Entrega 1 proíbe "link com prévia"; link clicável sem prévia não é citado | Pequeno. |
@@ -157,7 +157,7 @@ Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md`
 | F27.1 Som por programa (app) | Pós-MVP | S1, A2, Grupo C (desktop) | A web tenta primeiro com `windowAudio`. |
 | F30.1 Música sincronizada | **Fora** | D20 (música ambiente) | O D20 tratou de música de fundo; música sincronizada é "ouvir junto". |
 | F30.2 Expulsar e banir | Atende | Entrega 1 | — |
-| F30.3 Arquivo local como fonte | **Não atende** | — | Duas formas possíveis (ver Q5); uma delas conflita com "não guardar nada". |
+| F30.3 Arquivo local como fonte | **Não atende** | — | Subir o arquivo conflitaria com "não guardar nada". Tocar o vídeo numa aba e compartilhar a aba já funciona. |
 | F30.4 Limite de pessoas pelo dono | Parcial | Entrega 4 (dono escolhe o máximo no SFU); sala direta fixa em 6 | — |
 | F01/09.1 App de celular | Pós-MVP | Grupo C, Android | — |
 | F13/09.1 Ligar para amigo | Pós-MVP | Social: "amigos e convite direto" | Tocar o aparelho exige notificação (Android, PWA). |
@@ -185,5 +185,4 @@ Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md`
 - **Arriscadas, para não copiar sem decisão:** mapa com localização (F26.1), arquivo local e música
   (F30.1, F30.3: direitos autorais), temas da comunidade (F13/09.3: moderação), ferramentas (F17/10.1:
   escopo) e reações por gesto (F29/10.3: desempenho).
-- **Decisões pendentes:** as perguntas Q1 a Q13, feitas ao dono do produto. As respostas viram o
-  `POS-MVP-FEATURES.md`.
+- **Decisões:** as respostas do dono do produto estão no `POS-MVP-FEATURES.md` (DF1 a DF17).
