@@ -40,6 +40,16 @@ const SCENES = [
   { label: "Sala: sem vídeo", query: "fase=connected&pessoas=4&videos=0" },
   { label: "Sala: celular (sem tela)", query: "fase=connected&pessoas=4&videos=2&celular=1" },
   { label: "Sala: aviso", query: "fase=connected&pessoas=3&videos=1&aviso=videoPersonLimit" },
+  {
+    label: 'Sala de 9: vídeos em cartão "Assistir", um bloqueado por retransmissão',
+    query: "fase=connected&pessoas=9&videos=5",
+  },
+  {
+    label: "Sala protegida: dono Plus, medidor de saldo correndo",
+    query: "fase=connected&dono=1&pessoas=5&videos=2&protegida=1&conta=1&plus=1",
+  },
+  { label: "Sala protegida: convidado", query: "fase=connected&pessoas=4&videos=1&protegida=1" },
+  { label: "Sala: você é moderador", query: "fase=connected&pessoas=7&videos=3&moderador=1" },
   { label: "Lobby: logado", query: "fase=lobby&conta=1" },
   {
     label: "Sala fixa: dono Plus, tema Oceano, 2 vídeos",
@@ -191,6 +201,8 @@ export default function DemoPage() {
         fixedHandle: read.get("fixa"),
         theme: ROOM_THEMES.find((name) => name === read.get("tema")),
         account: logged ? { nickname: "Marina", handle: "marina", avatarUrl, plus } : null,
+        protected: read.get("protegida") === "1",
+        moderator: read.get("moderador") === "1",
       }),
     };
   }, [query]);

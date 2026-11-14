@@ -488,3 +488,28 @@ describe("watchPlusPayment", () => {
     expect(state().status).toBe("anonymous");
   });
 });
+
+describe("sala protegida no link fixo", () => {
+  it("liga pelo PATCH /api/me e atualiza a conta", async () => {
+    await loaded(meUser({ plan: PLUS_PLAN }));
+    h.server.on("PATCH", "/api/me", {
+      status: 200,
+      body: meUser({ plan: PLUS_PLAN, fixedRoomProtected: true }),
+    });
+    expect(await store.actions.setFixedRoomProtected(true)).toEqual({ ok: true, value: undefined });
+    expect(h.server.callsTo("PATCH", "/api/me")[0]?.body).toEqual({ fixedRoomProtected: true });
+    expect(state().user?.fixedRoomProtected).toBe(true);
+  });
+
+  it.each([
+    [403, "plus_required", "plusRequired"],
+    [409, "room_in_use", "roomInUse"],
+    [401, "unauthorized", "unauthorized"],
+    [500, "internal_error", "error"],
+  ] as const)("erro %i %s vira %s e a conta não muda", async (status, error, reason) => {
+    await loaded(meUser({ plan: PLUS_PLAN }));
+    h.server.on("PATCH", "/api/me", { status, body: { error } });
+    expect(await store.actions.setFixedRoomProtected(true)).toEqual({ ok: false, reason });
+    if (error !== "unauthorized") expect(state().user?.fixedRoomProtected).toBe(false);
+  });
+});

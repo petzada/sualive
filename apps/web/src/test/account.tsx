@@ -89,6 +89,9 @@ export function makeAccountActions(): AccountActionMocks {
     checkHandle: vi.fn<AccountActions["checkHandle"]>(() =>
       Promise.resolve({ ok: true, value: { available: true } }),
     ),
+    setFixedRoomProtected: vi.fn<AccountActions["setFixedRoomProtected"]>(() =>
+      Promise.resolve({ ok: true, value: undefined }),
+    ),
     markTermsSeen: vi.fn<AccountActions["markTermsSeen"]>(() =>
       Promise.resolve({ ok: true, value: undefined }),
     ),

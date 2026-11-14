@@ -246,12 +246,23 @@ describe("mídia", () => {
     h.media.emit("peer", { peerId: "bob", state: "connected", relayed: true });
     h.media.emit("remoteAudio", "bob", audio);
     h.media.emit("speaking", "bob", true);
+    h.socket.receive({ type: "video.watch.state", videoId: "v1", state: "watching" });
     h.media.emit("remoteVideoAdded", { peerId: "bob", videoId: "v1", stream: video });
     const bob = state().participants.find((p) => p.id === "bob");
     expect(bob).toMatchObject({ connection: "connected", relayed: true, speaking: true });
     expect(bob?.audioStream).toBe(audio);
     expect(state().videos).toEqual([
-      { id: "v1", kind: "camera", ownerId: "bob", stream: video, isLocal: false },
+      {
+        id: "v1",
+        kind: "camera",
+        ownerId: "bob",
+        stream: video,
+        isLocal: false,
+        watch: "watching",
+        blockedReason: null,
+        viewers: [],
+        blockedViewers: [],
+      },
     ]);
     expect(state().featuredVideoId).toBe("v1");
   });
@@ -413,12 +424,17 @@ describe("destaque", () => {
       participant("bob", { videos: [{ id: "cam-bob", kind: "camera" }] }),
       participant("carol"),
     ]);
+    // Só entra no destaque o que a pessoa assiste.
+    expect(state().featuredVideoId).toBeNull();
+    h.socket.receive({ type: "video.watch.state", videoId: "cam-bob", state: "watching" });
     expect(state().featuredVideoId).toBe("cam-bob");
 
     h.socket.receive({
       type: "participant.updated",
       participant: participant("carol", { videos: [{ id: "scr-carol", kind: "screen" }] }),
     });
+    expect(state().featuredVideoId).toBe("cam-bob");
+    h.socket.receive({ type: "video.watch.state", videoId: "scr-carol", state: "watching" });
     expect(state().featuredVideoId).toBe("scr-carol");
 
     client.actions.setFeaturedVideo("cam-bob");

@@ -16,6 +16,9 @@ export function noticeText(notice: RoomNotice, maxOwnVideos: number = VIDEOS_PER
         : texts.notices.videoPersonLimit;
     case "mediaPermissionDenied":
       return texts.notices.mediaPermissionDenied[notice.device];
+    case "watchLimit":
+      // Entrega 4 (telas): texto próprio do limite de vídeos assistidos.
+      return texts.notices.videoRoomLimit;
     default:
       return texts.notices[notice.kind];
   }

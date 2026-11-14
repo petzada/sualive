@@ -12,6 +12,19 @@ import { useTurnstileAction } from "./useTurnstileAction";
 
 type CreateFailure = Extract<CreateRoomResult, { ok: false }>["reason"];
 
+/** Os motivos da sala protegida só aparecem quando ela é pedida, o que este botão não faz. */
+function failureText(failure: CreateFailure): string {
+  switch (failure) {
+    case "turnstileFailed":
+    case "rateLimited":
+    case "error":
+      return texts.home.errors[failure];
+    default:
+      // Entrega 4 (telas): textos dos erros da sala protegida.
+      return texts.home.errors.error;
+  }
+}
+
 interface CreateRoomProps {
   /** Extra classes for the block of the button, e.g. spacing. */
   className?: string;
@@ -72,7 +85,7 @@ export function CreateRoom({ className = "", afterButton, below }: CreateRoomPro
 
       {failure && (
         <p role="alert" className="max-w-md text-body-sm font-medium text-notice">
-          {texts.home.errors[failure]}
+          {failureText(failure)}
         </p>
       )}
 
