@@ -2,7 +2,7 @@ import { captureException } from "@sentry/cloudflare";
 import { healthResponseSchema } from "@sualive/protocol";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { ROOM_PATH_PREFIX } from "@sualive/config";
+import { FIXED_ROOM_PATH_PREFIX, ROOM_PATH_PREFIX } from "@sualive/config";
 import { handles, me } from "./account/routes";
 import { auth } from "./auth/routes";
 import { plus, webhooks } from "./billing/routes";
@@ -36,6 +36,8 @@ app.route("/api/webhooks", webhooks);
 
 // Página da sala com a prévia do link (Open Graph). Passa pelo Worker por `run_worker_first`.
 app.get(`${ROOM_PATH_PREFIX}*`, (c) => roomPagePreview(c.req.raw, c.env));
+// Sala de link fixo (`/@nome`): mesma prévia, sem revelar se a conta existe.
+app.get(`${FIXED_ROOM_PATH_PREFIX}*`, (c) => roomPagePreview(c.req.raw, c.env));
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
