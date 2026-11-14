@@ -104,15 +104,30 @@ export class FakeStream extends EventTarget {
 
 export class FakeSender {
   track: FakeTrack | null;
-  readonly streamIds: string[];
+  streamIds: string[];
+  /** Tipo fixo do transceptor (o track pode virar `null`). */
+  readonly kind: "audio" | "video";
   params: { encodings: RTCRtpEncodingParameters[]; degradationPreference?: RTCDegradationPreference };
   setParametersCalls = 0;
+  /** Todos os parâmetros aceitos, em ordem. */
+  readonly paramsHistory: RTCRtpEncodingParameters[][] = [];
   private transactionId = "";
 
-  constructor(track: FakeTrack, streamIds: string[]) {
+  constructor(
+    track: FakeTrack,
+    streamIds: string[],
+    private readonly onChange: () => void = () => undefined,
+  ) {
     this.track = track;
+    this.kind = track.kind;
     this.streamIds = streamIds;
     this.params = { encodings: [{ active: true }] };
+  }
+
+  /** Troca os streams associados: muda o `msid`, então pede negociação. */
+  setStreams(...streams: FakeStream[]): void {
+    this.streamIds = streams.map((s) => s.id);
+    this.onChange();
   }
 
   getParameters(): RTCRtpSendParameters {
@@ -134,7 +149,18 @@ export class FakeSender {
     if (params.transactionId !== this.transactionId) {
       throw new DOMException("transactionId velho", "InvalidModificationError");
     }
+    if (this.kind === "audio") {
+      // Parâmetros de vídeo não têm sentido para áudio. O navegador costuma ignorá-los; o dublê é
+      // mais estrito de propósito, para que o teste pegue o engano.
+      const videoOnly = params.encodings.some(
+        (e) => e.scaleResolutionDownBy !== undefined || e.maxFramerate !== undefined,
+      );
+      if (videoOnly || params.degradationPreference) {
+        throw new DOMException("parâmetro de vídeo em sender de áudio", "InvalidModificationError");
+      }
+    }
     this.setParametersCalls += 1;
+    this.paramsHistory.push(params.encodings.map((e) => ({ ...e })));
     this.params = {
       encodings: params.encodings.map((e) => ({ ...e })),
       ...(params.degradationPreference ? { degradationPreference: params.degradationPreference } : {}),
@@ -143,6 +169,38 @@ export class FakeSender {
 
   async replaceTrack(track: FakeTrack | null): Promise<void> {
     this.track = track;
+  }
+}
+
+/** Transceptor mínimo: só o que a sessão usa para reaproveitar um sender parado. */
+export class FakeTransceiver {
+  currentDirection: RTCRtpTransceiverDirection | null = null;
+  private dir: RTCRtpTransceiverDirection = "sendrecv";
+  readonly receiver: { track: { kind: "audio" | "video" } };
+
+  constructor(
+    readonly sender: FakeSender,
+    private readonly onChange: () => void,
+  ) {
+    this.receiver = { track: { kind: sender.kind } };
+  }
+
+  get direction(): RTCRtpTransceiverDirection {
+    return this.dir;
+  }
+  set direction(value: RTCRtpTransceiverDirection) {
+    if (value === this.dir) return;
+    this.dir = value;
+    this.onChange();
+  }
+
+  /** Usado por `removeTrack`, que muda a direção como o navegador (sem disparar duas vezes). */
+  setDirectionSilently(value: RTCRtpTransceiverDirection): void {
+    this.dir = value;
+  }
+
+  get sending(): boolean {
+    return this.dir === "sendrecv" || this.dir === "sendonly";
   }
 }
 
@@ -227,6 +285,7 @@ export class FakePeerConnection extends EventTarget {
   private pendingLocal: RTCSessionDescriptionInit | null = null;
   private pendingRemote: RTCSessionDescriptionInit | null = null;
   readonly senders: FakeSender[] = [];
+  readonly transceivers: FakeTransceiver[] = [];
   readonly receivers = new Map<string, { receiver: FakeReceiver; streamId: string | null }>();
   readonly remoteStreams = new Map<string, FakeStream>();
   readonly addedCandidates: (RTCIceCandidateInit | null)[] = [];
@@ -275,11 +334,14 @@ export class FakePeerConnection extends EventTarget {
   addTrack(track: FakeTrack, ...streams: FakeStream[]): FakeSender {
     if (this.closed) throw new DOMException("fechada", "InvalidStateError");
     if (this.senders.some((s) => s.track === track)) throw new DOMException("repetido", "InvalidAccessError");
+    const onChange = (): void => this.markDirty();
     const sender = new FakeSender(
       track,
       streams.map((s) => s.id),
+      onChange,
     );
     this.senders.push(sender);
+    this.transceivers.push(new FakeTransceiver(sender, onChange));
     this.markDirty();
     return sender;
   }
@@ -287,11 +349,23 @@ export class FakePeerConnection extends EventTarget {
   removeTrack(sender: FakeSender): void {
     if (this.closed) throw new DOMException("fechada", "InvalidStateError");
     sender.track = null;
+    const transceiver = this.transceivers.find((t) => t.sender === sender);
+    if (transceiver?.direction === "sendrecv") transceiver.setDirectionSilently("recvonly");
+    else if (transceiver?.direction === "sendonly") transceiver.setDirectionSilently("inactive");
     this.markDirty();
   }
 
   getSenders(): FakeSender[] {
     return [...this.senders];
+  }
+
+  getTransceivers(): FakeTransceiver[] {
+    return [...this.transceivers];
+  }
+
+  /** Senders que estão enviando agora (track presente e direção com envio). */
+  sendingSenders(): FakeSender[] {
+    return this.transceivers.filter((t) => t.sending && t.sender.track).map((t) => t.sender);
   }
 
   getReceivers(): FakeReceiver[] {
@@ -321,7 +395,7 @@ export class FakePeerConnection extends EventTarget {
   }
 
   private localSdp(): string {
-    const tracks: SdpTrack[] = this.senders.flatMap((s) =>
+    const tracks: SdpTrack[] = this.sendingSenders().flatMap((s) =>
       s.track ? [{ trackId: s.track.id, kind: s.track.kind, streamId: s.streamIds[0] ?? null }] : [],
     );
     return buildSdp(this.cert, this.ufrag, tracks);
