@@ -142,6 +142,13 @@ export const PaletteIcon = () => (
   </Icon>
 );
 
+/** The plan, where its name does not fit (the pill of the room on a phone). */
+export const PlanIcon = () => (
+  <Icon>
+    <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z" fill="currentColor" />
+  </Icon>
+);
+
 /** Badge glyphs: smaller than the control icons, to sit beside a name. */
 const BADGE_ICON_SIZE = 14;
 

@@ -186,7 +186,7 @@ test("visitante: entrada da conta, login, páginas legais e Plus sem cobrança",
 
   await page.goto("/plus");
   await expect(page.getByRole("heading", { name: texts.plus.title, level: 1 })).toBeVisible();
-  await expect(page.getByTestId("billing-disabled")).toHaveText(texts.plus.billingDisabled);
+  await expect(page.getByTestId("payments-note")).toHaveText(texts.plus.paymentsNote);
   for (const name of [texts.plus.cycles.monthly.choose, texts.plus.cycles.annual.choose]) {
     await expect(page.getByRole("button", { name })).toHaveCount(0);
   }

@@ -1,12 +1,12 @@
 import { Button } from "@heroui/react";
 import { PLUS_ANNUAL_PRICE_CENTS, PLUS_MONTHLY_PRICE_CENTS } from "@sualive/config";
-import type { MeUser, Plan, PlusCheckoutResponse, PlusCycle } from "@sualive/protocol";
+import type { MeUser, PlusCheckoutResponse, PlusCycle } from "@sualive/protocol";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { PageShell, useAccountGate } from "../components/account/PageShell";
 import { loginPath, PATHS } from "../components/account/paths";
-import { annualExpiryNotice, CopyButton, planStatusText, useNow } from "../components/account/plan";
+import { annualDiscountPercent, CopyButton, PlanStatus } from "../components/account/plan";
 import {
   CARD,
   FIELD,
@@ -15,12 +15,12 @@ import {
   OUTLINE_PILL,
   PRIMARY_LINK,
   PRIMARY_PILL,
+  TEXT_LINK,
 } from "../components/account/styles";
 import {
   CPF_LENGTH,
   cpfDigits,
   formatCents,
-  formatDate,
   formatDateTime,
   isValidCpf,
   maskCpf,
@@ -38,6 +38,11 @@ const PRICES: Record<PlusCycle, number> = {
 /** `?ciclo=mensal|anual`: comes back from the login with the cycle already chosen. */
 const CYCLE_PARAM = "ciclo";
 const CYCLE_SLUGS: Record<PlusCycle, string> = { monthly: "mensal", annual: "anual" };
+const ANNUAL_DISCOUNT = annualDiscountPercent(PLUS_MONTHLY_PRICE_CENTS, PLUS_ANNUAL_PRICE_CENTS);
+
+/** Small centered line under a block (the early supporters, who processes the payments). */
+const NOTE = "text-center text-body-sm text-muted";
+
 const cycleFromSlug = (slug: string | null) => CYCLES.find((cycle) => CYCLE_SLUGS[cycle] === slug) ?? null;
 
 type Step =
@@ -65,102 +70,7 @@ function Benefits() {
           </li>
         ))}
       </ul>
-      <p className="text-body-sm text-muted">{texts.plus.earlySupporter}</p>
-    </section>
-  );
-}
-
-interface PlanStatusProps {
-  plan: Plan;
-  actions: AccountActions;
-  onChange: (plan: Plan) => void;
-}
-
-/** State of the subscription, the annual expiry warning and the cancellation. */
-function PlanStatus({ plan, actions, onChange }: PlanStatusProps) {
-  const now = useNow();
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<AccountErrorReason | null>(null);
-  const titleId = useId();
-
-  const status = planStatusText(plan);
-  if (!status) return null;
-  const expiry = annualExpiryNotice(plan, now);
-  // Only a recurring subscription has something to cancel: the annual plan never renews.
-  const cancelable = plan.cycle === "monthly" && (plan.status === "active" || plan.status === "past_due");
-  const periodEnd = plan.periodEnd === null ? "" : formatDate(plan.periodEnd);
-
-  const cancel = async () => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      const result = await actions.cancelPlus();
-      if (result.ok) {
-        onChange(result.value);
-        setConfirming(false);
-      } else setFailure(result.reason);
-    } catch {
-      setFailure("error");
-    }
-    setBusy(false);
-  };
-
-  return (
-    <section aria-labelledby={titleId} className={`flex flex-col gap-3 ${CARD}`} data-testid="plan-status">
-      <h2 id={titleId} className="font-display text-title font-semibold">
-        {texts.plus.status.title}
-      </h2>
-      <p data-status={plan.status} role={plan.status === "past_due" ? "alert" : undefined}>
-        {status}
-      </p>
-      {expiry && (
-        <p data-testid="annual-expiry" className="font-medium text-notice">
-          {expiry}
-        </p>
-      )}
-      {plan.status === "canceled" && (
-        <p className="text-body-sm text-muted">{texts.plus.status.resubscribeLater}</p>
-      )}
-
-      {cancelable &&
-        (confirming ? (
-          <div role="group" aria-label={texts.plus.cancel.start} className="flex flex-col gap-3">
-            <p className="text-body-sm">{texts.plus.cancel.explain(periodEnd)}</p>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                className="min-h-11 rounded-button bg-ink px-5 text-body-sm text-canvas"
-                isDisabled={busy}
-                onPress={() => void cancel()}
-              >
-                {busy && <Spinner />}
-                {busy ? texts.plus.cancel.canceling : texts.plus.cancel.confirm}
-              </Button>
-              <Button
-                variant="outline"
-                className={OUTLINE_PILL}
-                isDisabled={busy}
-                autoFocus
-                onPress={() => setConfirming(false)}
-              >
-                {texts.plus.cancel.keep}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            className={`self-start ${OUTLINE_PILL}`}
-            onPress={() => setConfirming(true)}
-          >
-            {texts.plus.cancel.start}
-          </Button>
-        ))}
-      {failure && (
-        <p role="alert" className={FIELD_ERROR}>
-          {texts.account.errors[failure]}
-        </p>
-      )}
+      <p className={NOTE}>{texts.plus.earlySupporter}</p>
     </section>
   );
 }
@@ -182,12 +92,28 @@ function Cycles({ onChoose }: CyclesProps) {
           const copy = texts.plus.cycles[cycle];
           return (
             <li key={cycle} data-testid={`cycle-${cycle}`} className={`flex flex-col gap-3 ${CARD}`}>
-              <h3 className="font-display text-title font-semibold">{copy.name}</h3>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h3 className="font-display text-title font-semibold">{copy.name}</h3>
+                {cycle === "annual" && ANNUAL_DISCOUNT > 0 && (
+                  <span
+                    data-testid="annual-discount"
+                    className="rounded-button bg-ink px-3 py-1 text-compact font-medium text-canvas"
+                  >
+                    {texts.plus.annualDiscount(ANNUAL_DISCOUNT)}
+                  </span>
+                )}
+              </div>
               <p className="flex items-baseline gap-2">
                 <span className="font-display text-heading font-semibold">{formatCents(PRICES[cycle])}</span>
                 <span className="text-body-sm text-muted">{copy.per}</span>
               </p>
-              <p className="flex-1 text-body-sm">{copy.how}</p>
+              <p className="flex-1 text-body-sm">
+                {copy.how.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
+              </p>
               {onChoose && (
                 <Button
                   variant="primary"
@@ -256,7 +182,7 @@ function TaxIdForm({ cycle, actions, onBack, onCheckout }: TaxIdFormProps) {
       </h2>
       <p>
         <span className="font-semibold">{formatCents(PRICES[cycle])}</span> {texts.plus.cycles[cycle].per}.{" "}
-        <span className="text-body-sm text-muted">{texts.plus.cycles[cycle].how}</span>
+        <span className="text-body-sm text-muted">{texts.plus.cycles[cycle].how.join(" ")}</span>
       </p>
 
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-2">
@@ -432,9 +358,7 @@ interface PlusContentProps {
 function PlusContent({ user, state, actions }: PlusContentProps) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  // After a cancellation the answer of the server is shown at once, whatever the account refresh does.
-  const [canceledPlan, setCanceledPlan] = useState<Plan | null>(null);
-  const plan = canceledPlan ?? user?.plan ?? null;
+  const plan = user?.plan ?? null;
   const canSubscribe = state.billingEnabled && !plan?.plus;
 
   const [step, setStep] = useState<Step>(() => {
@@ -454,7 +378,16 @@ function PlusContent({ user, state, actions }: PlusContentProps) {
         <p className="max-w-xl">{texts.plus.lead}</p>
       </header>
 
-      {plan && step.kind !== "pay" && <PlanStatus plan={plan} actions={actions} onChange={setCanceledPlan} />}
+      {/* The own plan is managed on its page; here only the way there, or what became of an old one. */}
+      {plan?.plus && step.kind !== "pay" && (
+        <p className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${CARD}`} data-testid="plan-current">
+          <span className="font-medium">{texts.plus.current.text}</span>
+          <Link to={PATHS.plan} className={TEXT_LINK}>
+            {texts.plus.current.link}
+          </Link>
+        </p>
+      )}
+      {plan && !plan.plus && step.kind !== "pay" && <PlanStatus plan={plan} />}
 
       <Benefits />
 
@@ -485,8 +418,8 @@ function PlusContent({ user, state, actions }: PlusContentProps) {
         <>
           <Cycles onChoose={canSubscribe ? choose : null} />
           {!state.billingEnabled ? (
-            <p role="status" data-testid="billing-disabled" className="rounded-nav bg-mist p-5 font-medium">
-              {texts.plus.billingDisabled}
+            <p data-testid="payments-note" className={NOTE}>
+              {texts.plus.paymentsNote}
             </p>
           ) : (
             !user && <p className="text-body-sm text-muted">{texts.plus.loginToSubscribe}</p>

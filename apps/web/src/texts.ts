@@ -276,14 +276,9 @@ export const texts = {
     handleChangeHint: `Depois de trocar, a próxima troca só fica disponível em ${HANDLE_CHANGE_INTERVAL_DAYS} dias.`,
     handleSubmit: "Trocar @nome",
     handleSame: "Este já é o seu @nome.",
-    planTitle: "Plano",
-    planFree: "Conta gratuita.",
-    planLink: "Conhecer o Plus",
-    planManage: "Gerenciar o plano",
-    fixedLinkTitle: "Seu link fixo",
-    fixedLinkHint: "Uma sala permanente no seu @nome. Ela não expira quando esvazia.",
-    fixedLinkLabel: "Endereço do seu link fixo",
-    fixedLinkOpen: "Abrir a sala",
+    /** Discreet text link under the name: the plan has its own page. */
+    planLink: "Ver o meu plano",
+    plusLink: "Conheça o Plus",
     sessionTitle: "Sessão",
     logout: "Sair da conta",
     loggingOut: "Saindo…",
@@ -299,8 +294,8 @@ export const texts = {
   },
   plus: {
     title: "Plus",
-    lead: `O único plano pago do ${APP_NAME}. Pagamento só por Pix.`,
-    benefitsTitle: "O que o Plus dá",
+    lead: `O ${APP_NAME} oferece plano pago para ajudar no crescimento da plataforma.`,
+    benefitsTitle: "O que você ganha ajudando",
     benefits: [
       {
         title: `Vídeo em ${PLUS_QUALITY}`,
@@ -320,17 +315,24 @@ export const texts = {
       monthly: {
         name: "Mensal",
         per: "por mês",
-        how: "Pix Automático: um QR Code autoriza a recorrência e já paga o primeiro mês. Depois renova sozinho todo mês, até você cancelar.",
+        /** One entry per line: the break between them is part of the copy. */
+        how: [
+          "Pix Automático: um QR Code autoriza a recorrência e já paga o primeiro mês. Depois renova sozinho todo mês, até você cancelar.",
+        ],
         choose: "Assinar o mensal",
       },
       annual: {
         name: "Anual",
         per: "por ano",
-        how: `Pix único: paga uma vez e vale ${PLUS_ANNUAL_PERIOD_DAYS} dias. Não renova sozinho.`,
+        how: [`Pix único: paga uma vez e vale ${PLUS_ANNUAL_PERIOD_DAYS} dias.`, "Não renova sozinho."],
         choose: "Assinar o anual",
       },
     },
-    billingDisabled: "A assinatura do Plus ainda não está disponível. Em breve você poderá assinar por aqui.",
+    /** On the annual card: how much less than twelve months of the monthly plan. */
+    annualDiscount: (percent: number) => `${percent}% de desconto`,
+    paymentsNote: `Os pagamentos são processados por provedores externos e nenhum dado fica com a plataforma ${APP_NAME}.`,
+    /** For who already has the Plus: the offer page points to the page of the plan. */
+    current: { text: "Você já tem o Plus.", link: "Ver o meu plano" },
     loginToSubscribe: "Você entra na sua conta antes de pagar.",
     status: {
       title: "Sua assinatura",
@@ -385,6 +387,44 @@ export const texts = {
       failed: "O pagamento não foi concluído.",
       retry: "Gerar outro QR Code",
     },
+  },
+  plan: {
+    title: "Seu plano",
+    badgesLabel: "Selos do plano",
+    details: {
+      state: "Situação",
+      states: { active: "Ativo", past_due: "Em atraso", canceled: "Cancelado", ended: "Encerrado" },
+      cycle: "Ciclo",
+      renewsOn: "Renova em",
+      validUntil: "Vale até",
+    },
+    fixedLinkTitle: "Seu link fixo",
+    fixedLinkHint: "Uma sala permanente no seu @nome. Ela não expira quando esvazia.",
+    fixedLinkLabel: "Endereço do seu link fixo",
+    fixedLinkOpen: "Abrir a sala",
+  },
+  welcome: {
+    title: (nickname: string) => `Boas-vindas, ${nickname}!`,
+    ready: (handle: string) => `Sua conta está pronta. Seu @nome é @${handle}.`,
+    /** One sentence: only the middle part is the link. */
+    manifesto: {
+      before: "Quer saber por que este lugar existe? ",
+      link: "Leia o nosso manifesto",
+      after: ".",
+    },
+    plansOpen: "Conhecer o Plus",
+    plans: {
+      title: "O que o Plus oferece",
+      benefits: (fixedLinkPath: string) => [
+        `Vídeo em ${PLUS_QUALITY}`,
+        `${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo`,
+        `Link fixo em ${fixedLinkPath}`,
+        "Tema de sala",
+        "Selo ao lado do nome",
+      ],
+      action: "Conhecer os planos",
+    },
+    home: "Ir para o início",
   },
   legal: {
     version: (version: string) => `Versão de ${version}`,
@@ -563,6 +603,13 @@ export const texts = {
     copyShort: "Copiar link",
     leave: "Sair da sala",
     leaveShort: "Sair",
+    /** At the right of the actions: both open in another tab, so the call goes on. */
+    accountLabel: "Conta e plano",
+    profile: "Abrir o seu perfil em outra aba",
+    planShort: "Plus",
+    plan: "Plus: abrir o seu plano em outra aba",
+    plusOfferShort: "Conheça o Plus",
+    plusOffer: "Conheça o Plus (abre em outra aba)",
   },
   chat: {
     label: "Mensagens do chat",
