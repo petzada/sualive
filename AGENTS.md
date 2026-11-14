@@ -79,8 +79,10 @@ o produto faz hoje. Sempre com esses nomes, com as maiúsculas, onde forem citad
 - Toda entrega que mudar algo descrito neles (dado coletado ou guardado, operador novo, pagamento,
   moderação, sala pública, denúncia, moeda, envio de arquivo) revisa os dois textos no mesmo PR e muda
   `TERMS_VERSION` em `packages/config`.
-- Prometido no texto e ainda não implementado: guarda do registro de acesso (IP, data e hora) por 6 meses
-  e a caixa de entrada de `contato@sualive.com.br` (depende do domínio, fim do MVP).
+- O registro de acesso (conta ou sessão, IP, data e hora de login e de entrada em sala, por 6 meses)
+  existe desde a entrega 4: `apps/api/src/access/log.ts`, tabela `access_log`, consulta direto no D1.
+- Prometido no texto e ainda não implementado: a caixa de entrada de `contato@sualive.com.br` (depende
+  do domínio, fim do MVP).
 - O nome do produto aparece sempre em negrito nos textos: use o componente `Brand`
   (`apps/web/src/components/Brand.tsx`) ao renderizar um texto que cita o `APP_NAME`.
 
