@@ -1,0 +1,72 @@
+/*
+ * Entrada de estilos: Tailwind 4, HeroUI 3 e os tokens do tema.
+ * A ordem importa: tokens.css vem por último para que os nomes em comum com o HeroUI
+ * (accent, link, muted, radius-field) fiquem com o valor dos tokens.
+ */
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "@fontsource-variable/inter";
+@import "./tokens.css";
+
+/*
+ * Variáveis de tema do HeroUI 3 (conferidas em @heroui/styles/dist/themes/default/variables.css)
+ * apontadas para os tokens. Só tema claro.
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* Primitivas */
+    --white: var(--color-canvas);
+    --snow: var(--color-canvas);
+    --eclipse: var(--color-ink);
+
+    /* Base e superfícies */
+    --background: var(--color-canvas);
+    --foreground: var(--color-ink);
+    --surface: var(--color-canvas);
+    --surface-secondary: var(--color-mist);
+    --surface-tertiary: var(--color-control);
+    --overlay: var(--color-frost);
+    --muted: var(--color-muted);
+    --default: var(--color-mist);
+    --default-foreground: var(--color-ink);
+    --segment: var(--color-canvas);
+    --segment-foreground: var(--color-ink);
+
+    /* Acentos */
+    --accent: var(--color-accent);
+    --accent-foreground: var(--color-on-accent);
+    --focus: var(--color-accent);
+    --link: var(--color-link);
+
+    /* Linhas */
+    --border: var(--color-hairline);
+    --separator: var(--color-hairline);
+
+    /* Campos */
+    --field-background: var(--color-canvas);
+    --field-foreground: var(--color-ink);
+    --field-placeholder: var(--color-muted);
+    --field-border: var(--color-outline);
+    --field-border-width: 1px;
+    --field-radius: var(--radius-field);
+
+    /* Raio: o HeroUI deriva a escala de --radius; 3x (cartões e botões) dá o raio de cartão */
+    --radius: calc(var(--radius-card) / 3);
+
+    /* Sem sombra projetada: no máximo contorno de 1px */
+    --surface-shadow: var(--shadow-flat);
+    --field-shadow: var(--shadow-flat);
+    --overlay-shadow: var(--shadow-outline-soft);
+  }
+
+  body {
+    @apply min-h-dvh bg-canvas font-sans text-body text-ink antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
