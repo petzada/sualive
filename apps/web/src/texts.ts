@@ -10,8 +10,9 @@ import {
 const TAGLINE =
   "Sala de chamada com compartilhamento de tela que abre por um link, sem cadastro e sem anúncio.";
 
-/** Someone shown on the manifesto page. Only real people who agreed to appear. */
+/** Someone shown on the manifesto page. */
 export interface ManifestoPerson {
+  /** First name only. */
   name: string;
   /** City and state, e.g. "Recife, PE". */
   city: string;
@@ -20,10 +21,14 @@ export interface ManifestoPerson {
 }
 
 /**
- * People on the manifesto page, in the order they appear (three fit one row). While the list is
- * empty the page has no people section. Never fill it with made-up names.
+ * People on the manifesto page, in the order they appear (three fit one row). Each card shows up
+ * once its photo is in `apps/web/public/images`; until then the person is left out.
  */
-const MANIFESTO_PEOPLE: readonly ManifestoPerson[] = [];
+const MANIFESTO_PEOPLE: readonly ManifestoPerson[] = [
+  { name: "Camila", city: "Recife, PE", image: "camila.jpg" },
+  { name: "Rafael", city: "Curitiba, PR", image: "rafael.jpg" },
+  { name: "Bianca", city: "Belo Horizonte, MG", image: "bianca.jpg" },
+];
 
 /** Every user-visible string lives here (pt-BR). Components never hardcode copy. */
 export const texts = {

@@ -83,10 +83,24 @@ describe("manifesto page", () => {
     await waitFor(() => expect(createRoom).toHaveBeenCalledWith(TEST_TOKEN));
   });
 
-  it("has no people section while the list is empty", () => {
+  it("shows the three people by first name, after the button and before the age notice", () => {
     renderManifesto();
 
-    expect(texts.manifesto.people).toHaveLength(0);
+    expect(texts.manifesto.people.map((person) => person.name)).toEqual(["Camila", "Rafael", "Bianca"]);
+    const cards = screen.getAllByRole("listitem");
+    expect(cards).toHaveLength(3);
+    expect(isBefore(screen.getByRole("button", { name: texts.home.create }), cards[0]!)).toBe(true);
+    expect(isBefore(cards[2]!, screen.getByText(texts.manifesto.ageNotice))).toBe(true);
+  });
+
+  it("drops the people section while no photo is there", () => {
+    renderManifesto();
+
+    screen
+      .getAllByRole("listitem")
+      .map((card) => card.querySelector("img")!)
+      .forEach((photo) => fireEvent.error(photo));
+
     expect(screen.queryByRole("list")).toBeNull();
   });
 });
@@ -113,6 +127,15 @@ describe("people cards", () => {
       // Not a link or a button: the highlight is the whole interaction.
       expect(card.querySelector("a, button")).toBeNull();
     });
+  });
+
+  it("leaves out a person whose photo is missing", () => {
+    render(<PeopleCards people={people} />);
+
+    fireEvent.error(screen.getAllByRole("listitem")[1]!.querySelector("img")!);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByText("Pessoa Dois")).toBeNull();
   });
 
   it("renders nothing for an empty list", () => {

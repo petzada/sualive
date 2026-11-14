@@ -77,27 +77,28 @@ componente.
 
 ### Cartões de pessoas
 
-- Foto de fundo, nome em cima e cidade embaixo (ex.: "Recife, PE"), no canto inferior esquerdo.
+- Foto de fundo, primeiro nome em cima e cidade embaixo (ex.: "Recife, PE"), no canto inferior esquerdo.
+- Pessoas: Camila, Rafael e Bianca.
 - Ao passar o ponteiro ou focar um cartão, ele cresce e os outros recuam, esmaecem e desfocam. Sem
   movimento para quem pede movimento reduzido.
 - Não são clicáveis.
 - Canto de 28px (`rounded-card`) e nenhuma sombra projetada, pelos tokens de `DESIGN.md`. Sem dependência
   nova: o efeito é só CSS.
-- **Só pessoas reais que autorizaram nome, cidade e foto.** Enquanto a lista estiver vazia, a seção não
-  aparece. Nomes fictícios nunca vão ao ar.
+- Só pessoas reais que autorizaram nome, cidade e foto.
+- O cartão de cada pessoa só aparece quando a foto dela existe; sem nenhuma foto, a seção não aparece.
 - As fotos ficam em `apps/web/public/images`.
 
 ## Como incluir as pessoas
 
-1. Coloque as fotos em `apps/web/public/images` (retrato ou quadrada; o cartão corta para caber).
-2. Preencha `MANIFESTO_PEOPLE` em `apps/web/src/texts.ts`, uma linha por pessoa:
-   `{ name: "Nome Sobrenome", city: "Cidade, UF", image: "arquivo.jpg" }`.
+Coloque as fotos em `apps/web/public/images` com estes nomes (retrato ou quadrada; o cartão corta para
+caber): `camila.jpg`, `rafael.jpg` e `bianca.jpg`. Cada cartão aparece quando a foto dele existe.
 
-Com a lista vazia a seção não aparece.
+Nomes, cidades e arquivos ficam em `MANIFESTO_PEOPLE`, em `apps/web/src/texts.ts`. As cidades de hoje
+(Recife, Curitiba e Belo Horizonte) vieram do mockup e precisam ser conferidas pelo dono.
 
 ## O que ainda falta
 
-- Três fotos e três nomes com cidade, de pessoas que autorizaram (dono do produto).
+- As três fotos e a conferência das cidades (dono do produto).
 - Termos de uso e política de privacidade publicados: quando existirem, entram os dois links na segunda
   linha do rodapé. Hoje o rodapé tem só a linha da maioridade.
 - Denúncia existindo no produto: quando existir, o último parágrafo ganha a frase "E quem vê algo errado
