@@ -2,14 +2,78 @@
 
 Sala de chamada com compartilhamento de tela que abre por um link, sem cadastro e sem anúncio.
 
-O projeto está em fase de especificação; ainda não há código de produto.
+Em andamento: entrega 0 (fundação) — monorepo, esteira de CI e deploy, e os dois ambientes no ar com uma
+página provisória. Ainda não há funcionalidade de produto.
 
 | Arquivo | Para quê |
 |---|---|
 | [DECISOES.md](DECISOES.md) | Especificação de implementação, dividida em entregas |
 | [DESIGN.md](DESIGN.md) | Tokens, paleta e padrões visuais |
+| [AGENTS.md](AGENTS.md) | Convenções para agentes de código (resumo de `DECISOES.md`) |
 | [PROMPT-ORQUESTRADOR.md](PROMPT-ORQUESTRADOR.md) | Instrução para o agente que orquestra cada entrega |
 | [SEGREDOS.md](SEGREDOS.md) | Nomes das credenciais de cada entrega e onde consegui-las |
+
+## Requisitos
+
+- Node 22 (veja `.nvmrc`)
+- pnpm 12 (a versão exata está em `packageManager` no `package.json`)
+
+Não há banco local nem Docker: o Worker roda no simulador do Wrangler.
+
+## Estrutura
+
+| Pasta | O que é |
+|---|---|
+| `apps/web` | Front: React 19, Vite, HeroUI 3 e Tailwind 4 |
+| `apps/api` | Worker da Cloudflare (Hono, Durable Object, D1); também serve o front |
+| `packages/protocol` | Mensagens do WebSocket da sala, com esquemas validados |
+| `packages/media` | Camada de WebRTC do front |
+| `packages/config` | Valores numéricos do produto (limites, preços, prazos) |
+| `scripts/` | Scripts da esteira: testes ligados ao diff e verificação pós-deploy |
+
+## Comandos
+
+```bash
+pnpm install                       # dependências (instala também os hooks do lefthook)
+pnpm --filter @sualive/web dev     # front em modo de desenvolvimento (Vite)
+pnpm --filter @sualive/api dev     # Worker no simulador do Wrangler (wrangler dev), com D1 e Durable Object locais
+```
+
+| Comando | O que faz |
+|---|---|
+| `pnpm typecheck` | Checagem de tipos de todos os pacotes |
+| `pnpm lint` | ESLint |
+| `pnpm test` | Testes (Vitest) |
+| `pnpm test:related` | Só os testes ligados ao que mudou desde `origin/main` |
+| `pnpm test:ci` | Suíte completa, como no CI |
+| `pnpm e2e` | Teste de fumaça no navegador (entra na entrega 1) |
+| `pnpm build` | Build do front e verificação do bundle do Worker |
+| `pnpm format` | Formata o repositório com o Prettier |
+
+Para o Worker servir o front localmente, rode `pnpm build` antes do `dev` da API (ele lê `apps/web/dist`).
+
+## Hooks locais (lefthook)
+
+- **pre-commit**, só nos arquivos em stage: Prettier (corrige e volta ao stage) e ESLint.
+- **pre-push**, para no primeiro erro: `pnpm typecheck` e `pnpm test:related`.
+
+O resto (lint, typecheck e testes completos, build) roda no CI.
+
+## CI, deploy e ambientes
+
+| Ambiente | Worker | Banco D1 |
+|---|---|---|
+| Produção | `sualive` | `sualive` |
+| Homologação | `sualive-staging` | `sualive-staging` |
+
+- **Pull request** (`.github/workflows/ci.yml`): formatação, lint, typecheck, testes e build, no check
+  `verificar`. Não usa segredo.
+- **Merge na main** (`.github/workflows/deploy.yml`): publica primeiro a homologação — build, migrations
+  do D1, deploy do Worker e verificação (`scripts/smoke.mjs` espera `GET /api/health` responder com o
+  commit publicado e confere a página inicial). Só se a homologação passar, repete a sequência em
+  produção.
+- Deploy só pelo CI; nunca da máquina de desenvolvimento. As credenciais ficam nos segredos do GitHub
+  Actions (nomes em [SEGREDOS.md](SEGREDOS.md)).
 
 ## Licença
 

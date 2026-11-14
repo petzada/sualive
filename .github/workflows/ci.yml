@@ -1,0 +1,36 @@
+name: CI
+
+# Só em PR. O deploy (merge na main) está em deploy.yml.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: verificar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Formatação
+        run: pnpm exec prettier --check .
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Testes
+        run: pnpm test:ci
+      # Sem segredo: sem DSN, sem token do Sentry, sem envio de sourcemaps.
+      - name: Build
+        run: pnpm build

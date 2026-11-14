@@ -1,1 +1,27 @@
-# Preenchido pela tarefa de esteira (pre-commit e pre-push).
+# Gates locais. O repositório inteiro (lint, typecheck, testes e build completos) roda no CI.
+# Nunca pule os hooks (`--no-verify`, LEFTHOOK=0).
+
+# Só os arquivos em stage. Meta: < 10 s.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format
+      glob: "*.{js,mjs,cjs,jsx,ts,tsx,json,jsonc,css,html,yml,yaml}"
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+    - name: lint
+      glob: "*.{js,mjs,cjs,jsx,ts,tsx}"
+      # Sem informação de tipos (os tipos ficam no pre-push e no CI).
+      run: pnpm exec eslint --cache --cache-location node_modules/.cache/eslint/ --no-warn-ignored {staged_files}
+
+# Diff contra origin/main. Para no primeiro erro. Meta: < 2 min.
+pre-push:
+  piped: true
+  jobs:
+    - name: 1_typecheck
+      # Incremental: o turbo reaproveita o cache dos pacotes que não mudaram.
+      run: pnpm typecheck
+    - name: 2_related
+      env:
+        TURBO_SCM_BASE: origin/main
+      run: pnpm test:related

@@ -10,11 +10,12 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test --concurrency=1",
-    "test:related": "turbo run test:related --concurrency=1 --affected",
+    "test:related": "node scripts/test-related.mjs",
     "test:ci": "turbo run test:ci --concurrency=1",
     "e2e": "turbo run e2e --concurrency=1",
     "build": "turbo run build",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare": "node -e \"if (require('fs').existsSync('.git')) require('child_process').execSync('lefthook install', { stdio: 'inherit' })\""
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
