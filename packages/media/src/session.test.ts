@@ -113,25 +113,34 @@ describe("malha", () => {
     expect(a.session.getPeers().map((p) => p.peerId)).toEqual(["b"]);
   });
 
-  it("perfect negotiation: ofertas simultâneas convergem", async () => {
+  it("perfect negotiation: só a ponta não educada abre; ofertas simultâneas depois convergem", async () => {
     const a = node("a");
     const b = node("b");
+    // A educada (b) já tem microfone: mesmo assim espera a primeira oferta da outra.
+    await b.session.enableMicrophone();
     await connectAll([a, b]);
     const offers = hub.log.filter(
       (m) => m.data.kind === "description" && m.data.description.type === "offer",
     );
-    // As duas pontas ofereceram ao mesmo tempo (colisão real) e ainda assim conectaram.
-    expect(new Set(offers.map((m) => m.from))).toEqual(new Set(["a", "b"]));
+    // Sem colisão na primeira negociação: a educada nunca desfaz uma oferta com o canal de dados.
+    expect(new Set(offers.map((m) => m.from))).toEqual(new Set(["a"]));
     expect(onlyPc(a).signalingState).toBe("stable");
     expect(onlyPc(b).signalingState).toBe("stable");
 
-    // Renegociação disparada pelos dois ao mesmo tempo também converge.
-    await a.session.enableMicrophone();
-    await b.session.enableMicrophone();
-    await settle();
-    expect(onlyPc(a).signalingState).toBe("stable");
     expect(a.events.remoteAudio.filter((e) => e.stream)).toHaveLength(1);
+
+    // Renegociação disparada pelos dois ao mesmo tempo (colisão real) converge.
+    const before = offers.length;
+    await Promise.all([a.session.enableMicrophone(), b.session.publishVideo("v1", "camera")]);
+    await settle();
+    const renegotiation = hub.log
+      .filter((m) => m.data.kind === "description" && m.data.description.type === "offer")
+      .slice(before);
+    expect(new Set(renegotiation.map((m) => m.from))).toEqual(new Set(["a", "b"]));
+    expect(onlyPc(a).signalingState).toBe("stable");
+    expect(onlyPc(b).signalingState).toBe("stable");
     expect(b.events.remoteAudio.filter((e) => e.stream)).toHaveLength(1);
+    expect(a.events.added.map((v) => v.videoId)).toEqual(["v1"]);
   });
 
   it("guarda candidatos que chegam antes da descrição remota", async () => {
