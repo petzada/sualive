@@ -80,6 +80,9 @@ describe("App", () => {
 
     await waitFor(() => expect(api.render).toHaveBeenCalled());
     expect(api.render.mock.calls[0]?.[1].appearance).toBe("interaction-only");
+    // Rendered in the mode that asks Cloudflare for nothing until the person acts.
+    expect(api.render.mock.calls[0]?.[1].execution).toBe("execute");
+    expect(api.execute).not.toHaveBeenCalled();
     const container = screen.getByTestId("turnstile");
     expect(container.getAttribute("role")).toBeNull();
     expect(container.className).toContain("empty:hidden");
@@ -105,6 +108,12 @@ describe("App", () => {
     const widget = screen.getByTestId("turnstile");
     const classes = () => overlay.className.split(" ");
 
+    // Only after the click: the check runs, and whatever Cloudflare draws is visible and clickable.
+    fireEvent.click(createButton());
+    expect(api.execute).toHaveBeenCalledTimes(1);
+    expect(widget.className.split(" ")).not.toContain("invisible");
+    expect(widget.className.split(" ")).toContain("pointer-events-auto");
+
     act(() => callbacks.beforeInteractive?.());
     expect(overlay.dataset.interactive).toBe("true");
     // Covers the window, centered both ways, above everything else on the page.
@@ -124,19 +133,21 @@ describe("App", () => {
     // Never a focus trap: nothing in the veil is focusable besides what the widget brings.
     expect(overlay.getAttribute("tabindex")).toBeNull();
 
-    // Over: the veil goes and so does the widget, even if Cloudflare leaves its "success" drawn.
+    // The interaction is over but there is no token yet: the veil goes, the widget stays reachable.
     act(() => callbacks.afterInteractive?.());
     expect(overlay.dataset.interactive).toBe("false");
     expect(classes()).toContain("pointer-events-none");
-    expect(widget.className.split(" ")).toContain("invisible");
     expect(classes()).not.toContain("bg-stage/40");
+    expect(widget.className.split(" ")).not.toContain("invisible");
 
-    // Passing the check also ends it, even if the widget does not say that the interaction is over.
+    // Passing the check ends it, even if the widget does not say that the interaction is over, and
+    // hides the widget even if Cloudflare leaves its "success" drawn.
     act(() => callbacks.beforeInteractive?.());
     expect(classes()).toContain("bg-stage/40");
     act(() => callbacks.token?.("token-after-interaction"));
     expect(overlay.dataset.interactive).toBe("false");
     expect(classes()).toContain("pointer-events-none");
+    expect(widget.className.split(" ")).toContain("invisible");
   });
 
   it("creates a room with the Turnstile token and goes to its link", async () => {
@@ -191,17 +202,21 @@ describe("App", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(texts.home.errors.error);
   });
 
-  it("shows a Turnstile failure and lets the person ask for a new check", async () => {
+  it("shows a Turnstile failure and creates the room with one click on the retry", async () => {
     const { api, callbacks } = installTurnstileStub({ pass: false });
-    renderApp({ path: "/" });
+    const { createRoom } = renderApp({ path: "/" });
     await waitFor(() => expect(api.render).toHaveBeenCalled());
 
-    callbacks.error?.();
+    fireEvent.click(createButton());
+    act(() => void callbacks.error?.("300030"));
     expect(await screen.findByText(texts.turnstile.failed)).toBeTruthy();
+    expect(createButton()).toBeTruthy(); // out of "checking"
 
     fireEvent.click(screen.getByRole("button", { name: texts.turnstile.retry }));
-    expect(api.reset).toHaveBeenCalledWith("widget-1");
+    expect(api.execute).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(screen.queryByText(texts.turnstile.failed)).toBeNull());
+    act(() => callbacks.token?.("second-token"));
+    await waitFor(() => expect(createRoom).toHaveBeenCalledWith("second-token"));
   });
 
   it("shows the error page with a way back for unknown routes", () => {

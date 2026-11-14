@@ -4,12 +4,26 @@ import type { TurnstileHandle } from "./Turnstile";
 type Status = "idle" | "waiting" | "running";
 
 /**
- * Runs an action that needs a Turnstile token. If the token has not arrived yet, the action
- * waits for it; after each run the widget is reset, because a token is valid only once.
+ * A token lives 300 s at Cloudflare and is valid only once. One obtained and not used (the
+ * action did not run) is kept for the next action only while it still has a minute to spare for
+ * the request to reach the server.
+ */
+const TOKEN_REUSE_MS = 240_000;
+
+interface HeldToken {
+  token: string;
+  receivedAt: number;
+}
+
+/**
+ * Runs an action that needs a Turnstile token, one token per action. The check only starts on
+ * `trigger` (the person's click): nothing is asked of Cloudflare before that. When the token
+ * arrives, the action runs by itself. A token is handed to the action once and then dropped; the
+ * next one is only asked for at the next `trigger`.
  */
 export function useTurnstileAction(action: (token: string) => Promise<void>) {
   const widgetRef = useRef<TurnstileHandle>(null);
-  const tokenRef = useRef<string | null>(null);
+  const tokenRef = useRef<HeldToken | null>(null);
   const statusRef = useRef<Status>("idle");
   const actionRef = useRef(action);
   const [status, setStatusState] = useState<Status>("idle");
@@ -26,13 +40,12 @@ export function useTurnstileAction(action: (token: string) => Promise<void>) {
 
   const run = useCallback(
     async (token: string) => {
-      tokenRef.current = null;
+      tokenRef.current = null; // single-use: never handed out twice
       setStatus("running");
       try {
         await actionRef.current(token);
       } finally {
         setStatus("idle");
-        widgetRef.current?.reset();
       }
     },
     [setStatus],
@@ -40,10 +53,13 @@ export function useTurnstileAction(action: (token: string) => Promise<void>) {
 
   const onToken = useCallback(
     (token: string | null) => {
-      tokenRef.current = token;
-      if (!token) return;
+      if (!token) {
+        tokenRef.current = null;
+        return;
+      }
       setFailed(false);
       if (statusRef.current === "waiting") void run(token);
+      else tokenRef.current = { token, receivedAt: Date.now() };
     },
     [run],
   );
@@ -54,26 +70,25 @@ export function useTurnstileAction(action: (token: string) => Promise<void>) {
     if (statusRef.current === "waiting") setStatus("idle");
   }, [setStatus]);
 
-  const retry = useCallback(() => {
-    setFailed(false);
-    widgetRef.current?.reset();
-  }, []);
-
   const trigger = useCallback(() => {
     if (statusRef.current !== "idle") return;
-    if (tokenRef.current) {
-      void run(tokenRef.current);
+    setFailed(false);
+    const held = tokenRef.current;
+    tokenRef.current = null;
+    if (held && Date.now() - held.receivedAt < TOKEN_REUSE_MS) {
+      void run(held.token);
       return;
     }
     setStatus("waiting");
-    if (failed) retry();
-  }, [failed, retry, run, setStatus]);
+    widgetRef.current?.execute();
+  }, [run, setStatus]);
 
   return {
     /** Spread on `<Turnstile />`. */
     turnstileProps: { ref: widgetRef, onToken, onError },
     trigger,
-    retry,
+    /** After a failure: runs the check again and, with the token, the action (one click). */
+    retry: trigger,
     /** `waiting`: the user asked and the check is still running. `running`: the action is in flight. */
     status,
     failed,
