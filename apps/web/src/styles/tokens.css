@@ -31,9 +31,9 @@
   --text-nav: 12px;
   --text-nav--line-height: 1;
   --text-nav--letter-spacing: -0.12px;
-  --text-control: 12px;
-  --text-control--line-height: 1.33;
-  --text-control--letter-spacing: -0.12px;
+  --text-compact: 12px;
+  --text-compact--line-height: 1.33;
+  --text-compact--letter-spacing: -0.12px;
   --text-body-sm: 14px;
   --text-body-sm--line-height: 1.29;
   --text-body-sm--letter-spacing: -0.224px;
@@ -49,6 +49,9 @@
   --text-heading: 40px;
   --text-heading--line-height: 1;
   --text-heading--letter-spacing: 0px;
+  --text-display-sm: 48px; /* título principal em telas médias; em celular usa heading */
+  --text-display-sm--line-height: 1.08;
+  --text-display-sm--letter-spacing: -0.72px;
   --text-display: 80px;
   --text-display--line-height: 1.05;
   --text-display--letter-spacing: -1.2px;
@@ -68,6 +71,7 @@
   --radius-button: 9999px;
 
   /* Sombras: só contornos de 1px, nunca sombra projetada */
+  --shadow-flat: 0 0 0 0 transparent; /* superfície plana: anula sombras de biblioteca */
   --shadow-outline-soft: 0 0 0 1px #e6e6e8;
   --shadow-outline: 0 0 0 1px #86868b;
 }
