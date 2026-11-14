@@ -83,6 +83,28 @@ describe("lobby with an account", () => {
     );
   });
 
+  it("keeps the join button as far from 'joining as' as that block is from the title", () => {
+    renderApp({
+      state: makeState({ accountNickname: "Marina" }),
+      account: makeAccountState({ user: makeUser() }),
+    });
+
+    const title = screen.getByRole("heading", { level: 1, name: texts.lobby.title });
+    const joiningAs = screen.getByTestId("joining-as");
+    const button = screen.getByRole("button", { name: texts.lobby.join });
+    const form = button.closest("form")!;
+    const block = joiningAs.parentElement!;
+
+    // Title and block are neighbors in the form; "joining as" and the button's block are neighbors in the block.
+    expect(title.parentElement).toBe(form);
+    expect(title.nextElementSibling).toBe(block);
+    expect(joiningAs.nextElementSibling).toBe(button.parentElement);
+    // The same step in both.
+    expect(form.className.split(" ")).toContain("gap-10");
+    expect(block.className.split(" ")).toContain("gap-10");
+    expect(block.className.split(" ")).not.toContain("gap-gap");
+  });
+
   it("changes nothing for who has no account, besides a discreet link to log in and come back", () => {
     renderApp({ path: "/s/abcdefghjk" });
 

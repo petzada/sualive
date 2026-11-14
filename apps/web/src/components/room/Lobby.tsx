@@ -76,11 +76,8 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
     setRequest("done");
   };
 
-  // Nothing asked yet: the card only offers the test, and the line under it says it is optional.
-  const offering = !preview && request !== "done";
-
   return (
-    <section aria-label={texts.lobby.previewTitle} className="flex w-full flex-col gap-3">
+    <section aria-label={texts.lobby.previewTitle} className="relative flex w-full flex-col gap-3">
       <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-card bg-mist">
         {preview?.cameraStream ? (
           <StreamVideo
@@ -105,24 +102,30 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
               {request === "starting" && <Spinner />}
               {request === "starting" ? texts.lobby.previewStarting : texts.lobby.previewStart}
             </Button>
-            {/* One line wherever it fits; a narrow phone may break it. */}
-            <p className="text-body-sm text-muted sm:whitespace-nowrap">{texts.lobby.mutedHint}</p>
+            {/* Goes away with the button, once the test ran. */}
+            <p className="text-body-sm text-muted">{texts.lobby.previewOptional}</p>
           </div>
         )}
       </div>
-      {preview &&
-        (preview.hasMicrophone ? (
-          <div className="flex items-center gap-3 px-1 text-body-sm text-muted">
-            <span className="shrink-0">{texts.lobby.micLevelLabel}</span>
-            <MicrophoneMeter preview={preview} />
-          </div>
-        ) : (
-          <p className="px-1 text-body-sm text-muted">{texts.lobby.previewNoMicrophone}</p>
-        ))}
-      {/* Outside the card and centered under it. Once the test ran, the muted reminder takes the place. */}
-      <p className="mx-auto mt-2 max-w-sm text-center text-body-sm text-muted">
-        {offering ? texts.lobby.previewIntro : texts.lobby.mutedHint}
-      </p>
+      {/*
+        Under the card. Side by side with the form (from `md`) it hangs out of the flow, so the card
+        alone is what gets centered against the form.
+      */}
+      <div className="flex flex-col gap-3 md:absolute md:inset-x-0 md:top-full md:pt-3">
+        {preview &&
+          (preview.hasMicrophone ? (
+            <div className="flex items-center gap-3 px-1 text-body-sm text-muted">
+              <span className="shrink-0">{texts.lobby.micLevelLabel}</span>
+              <MicrophoneMeter preview={preview} />
+            </div>
+          ) : (
+            <p className="px-1 text-body-sm text-muted">{texts.lobby.previewNoMicrophone}</p>
+          ))}
+        {/* Always there, outside the gray and centered with the card; one line wherever it fits. */}
+        <p className="mx-auto mt-2 text-center text-body-sm text-muted sm:whitespace-nowrap">
+          {texts.lobby.mutedHint}
+        </p>
+      </div>
     </section>
   );
 }
@@ -166,8 +169,13 @@ export function Lobby({ state, actions }: LobbyProps) {
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center gap-6 px-5 py-10">
-      <NoticeBanner notice={state.notice} onDismiss={actions.dismissNotice} />
+    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col justify-center px-5 py-10">
+      {/* Takes room only while there is a notice, so the two columns stay in the middle of the window. */}
+      <NoticeBanner
+        notice={state.notice}
+        onDismiss={actions.dismissNotice}
+        className={state.notice ? "mb-6" : ""}
+      />
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
         <DevicePreviewCard state={state} actions={actions} />
 
@@ -175,8 +183,13 @@ export function Lobby({ state, actions }: LobbyProps) {
         <form noValidate onSubmit={submit} className="flex flex-col items-center gap-10">
           <h1 className="text-center font-display text-heading font-semibold">{texts.lobby.title}</h1>
 
-          {/* The field and the button keep the distance they always had. */}
-          <div className="flex w-full flex-col items-center gap-gap">
+          {/*
+            The field and the button keep the distance they always had. Logged in, the button is as
+            far from "joining as" as that block is from the title.
+          */}
+          <div
+            className={`flex w-full flex-col items-center ${accountNickname !== null ? "gap-10" : "gap-gap"}`}
+          >
             {accountNickname !== null ? (
               <p
                 data-testid="joining-as"

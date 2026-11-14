@@ -9,7 +9,7 @@ import { PlanIcon } from "../icons";
 /** Leaving the page ends the call, so both shortcuts open in another tab. */
 const NEW_TAB = { target: "_blank", rel: "noopener" } as const;
 
-/** Same height and rounding as the action buttons of the row. */
+/** Same height and rounding as the buttons around them. */
 const ROUND = "h-11 shrink-0 rounded-button no-underline hover:no-underline";
 
 /** The picture of the account filling the round button; the initial when there is none or it fails. */
@@ -32,53 +32,84 @@ function Picture({ nickname, avatarUrl }: { nickname: string; avatarUrl: string 
   );
 }
 
+/** What the shortcuts need from the account; `null` until it is known, so nothing changes under the pointer. */
+function useShortcutAccount() {
+  const { state } = useAccountClient().useAccount();
+  return state.status === "loading" ? null : { user: state.user };
+}
+
+interface ShortcutProps {
+  /** Side of the hint: below in the header, above in the row of the actions. */
+  hint?: "top" | "bottom";
+}
+
 /**
- * At the right of the actions of the room: the picture of who is logged (to the profile) and the
- * pill of the plan ("Plus" to the own plan, or the invitation to know it, also for a visitor).
+ * The pill of the plan: "Plus" to the own plan, or the invitation to know it, also for a visitor.
+ * `compact`: only the glyph, in a round button as big as its neighbors (the header, on a phone).
+ */
+export function PlanShortcut({ compact = false, hint = "top" }: ShortcutProps & { compact?: boolean }) {
+  const account = useShortcutAccount();
+  if (!account) return null;
+  const hasPlus = account.user?.plan.plus === true;
+  const label = hasPlus ? texts.controls.plan : texts.controls.plusOffer;
+
+  return (
+    <Hint text={label} placement={hint}>
+      <Link
+        href={hasPlus ? PATHS.plan : PATHS.plus}
+        {...NEW_TAB}
+        aria-label={label}
+        data-testid="plan-pill"
+        className={`justify-center bg-plan text-body-sm font-medium text-on-plan ${compact ? "w-11" : "px-4"} ${ROUND}`}
+      >
+        {compact ? (
+          // The name stays in the label and in the hint.
+          <PlanIcon />
+        ) : (
+          <span className="whitespace-nowrap">
+            {hasPlus ? texts.controls.planShort : texts.controls.plusOfferShort}
+          </span>
+        )}
+      </Link>
+    </Hint>
+  );
+}
+
+/** The picture of who is logged, to the profile. Nothing for a visitor. */
+export function ProfileShortcut({ hint = "top" }: ShortcutProps) {
+  const user = useShortcutAccount()?.user;
+  if (!user) return null;
+
+  return (
+    <Hint text={texts.controls.profile} placement={hint}>
+      <Link
+        href={PATHS.profile}
+        {...NEW_TAB}
+        aria-label={texts.controls.profile}
+        data-testid="account-photo"
+        className={`w-11 justify-center overflow-hidden bg-control font-semibold text-ink ${ROUND}`}
+      >
+        <Picture nickname={user.nickname} avatarUrl={user.avatarUrl} />
+      </Link>
+    </Hint>
+  );
+}
+
+/**
+ * Both shortcuts side by side, round and of the same size: in the header of the room on a phone,
+ * before the theme and leave buttons. On wider screens they are apart, at the two ends of the row
+ * of the actions (see `ControlBar`).
  */
 export function AccountShortcuts({ className = "" }: { className?: string }) {
-  const { state } = useAccountClient().useAccount();
-  // Nothing until the account is known, so the pill never changes under the pointer.
-  if (state.status === "loading") return null;
-  const { user } = state;
-  const hasPlus = user?.plan.plus === true;
-  const planLabel = hasPlus ? texts.controls.plan : texts.controls.plusOffer;
+  if (!useShortcutAccount()) return null;
 
   return (
     <nav
       aria-label={texts.controls.accountLabel}
-      className={`flex shrink-0 items-center gap-1 sm:gap-2 ${className}`}
+      className={`flex shrink-0 items-center gap-1.5 ${className}`}
     >
-      <Hint text={planLabel}>
-        <Link
-          href={hasPlus ? PATHS.plan : PATHS.plus}
-          {...NEW_TAB}
-          aria-label={planLabel}
-          data-testid="plan-pill"
-          className={`w-11 justify-center bg-plan text-body-sm font-medium text-on-plan sm:w-auto sm:px-4 ${ROUND}`}
-        >
-          {/* Phones: only the glyph, so the row fits; the name stays in the label and in the hint. */}
-          <span className="inline-flex sm:hidden">
-            <PlanIcon />
-          </span>
-          <span className="hidden whitespace-nowrap sm:inline">
-            {hasPlus ? texts.controls.planShort : texts.controls.plusOfferShort}
-          </span>
-        </Link>
-      </Hint>
-      {user && (
-        <Hint text={texts.controls.profile}>
-          <Link
-            href={PATHS.profile}
-            {...NEW_TAB}
-            aria-label={texts.controls.profile}
-            data-testid="account-photo"
-            className={`w-11 justify-center overflow-hidden bg-control font-semibold text-ink ${ROUND}`}
-          >
-            <Picture nickname={user.nickname} avatarUrl={user.avatarUrl} />
-          </Link>
-        </Hint>
-      )}
+      <PlanShortcut compact hint="bottom" />
+      <ProfileShortcut hint="bottom" />
     </nav>
   );
 }

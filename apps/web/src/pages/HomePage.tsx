@@ -9,34 +9,45 @@ import { SplitPage } from "../components/SplitPage";
 import { texts } from "../texts";
 
 /**
- * The way into the account: a plain line of text close under the create button, never a button.
- * A visitor gets "Já tem conta? Entrar"; who is logged gets the nickname, leading to the profile.
+ * The way into the account for a visitor: "Já tem conta? Entrar", a plain line of text close under
+ * the create button, never a button. Nothing for who is logged (see `HomeAccount`).
  */
-function HomeAccount() {
+function HomeLogin() {
   const { state } = useAccountClient().useAccount();
-  if (state.status === "loading") return null;
-  const { user } = state;
+  if (state.status === "loading" || state.user) return null;
 
   return (
     <p className="flex min-h-11 items-center gap-1.5 text-body-sm text-muted" data-testid="home-account">
-      {user ? (
-        <Link
-          to={PATHS.profile}
-          aria-label={texts.nav.profile(user.nickname)}
-          className={`inline-flex min-h-11 max-w-56 items-center gap-2 ${TEXT_LINK}`}
-        >
-          <Avatar nickname={user.nickname} avatarUrl={user.avatarUrl} size="xs" />
-          <span className="truncate">{user.nickname}</span>
-        </Link>
-      ) : (
-        <>
-          {texts.home.account.question}
-          <Link to={PATHS.login} className={`inline-flex min-h-11 items-center ${TEXT_LINK}`}>
-            {texts.home.account.login}
-          </Link>
-        </>
-      )}
+      {texts.home.account.question}
+      <Link to={PATHS.login} className={`inline-flex min-h-11 items-center ${TEXT_LINK}`}>
+        {texts.home.account.login}
+      </Link>
     </p>
+  );
+}
+
+/**
+ * Who is logged: a block of its own after the create button (as far from it as the other blocks of
+ * the column are from each other), in two lines: the text, then the picture and the nickname,
+ * leading to the profile.
+ */
+function HomeAccount() {
+  const { state } = useAccountClient().useAccount();
+  if (state.status === "loading" || !state.user) return null;
+  const { user } = state;
+
+  return (
+    <div className="flex flex-col items-center text-body-sm text-muted" data-testid="home-account">
+      <p>{texts.home.account.continue}</p>
+      <Link
+        to={PATHS.profile}
+        aria-label={texts.nav.profile(user.nickname)}
+        className={`inline-flex min-h-11 max-w-56 items-center gap-2 ${TEXT_LINK}`}
+      >
+        <Avatar nickname={user.nickname} avatarUrl={user.avatarUrl} size="xs" />
+        <span className="truncate">{user.nickname}</span>
+      </Link>
+    </div>
   );
 }
 
@@ -55,7 +66,7 @@ export function HomePage() {
       </p>
       <p className="text-body-sm text-muted">{texts.home.hint}</p>
 
-      <CreateRoom className="mt-2" afterButton={<HomeAccount />} />
+      <CreateRoom className="mt-2" afterButton={<HomeLogin />} below={<HomeAccount />} />
     </SplitPage>
   );
 }

@@ -165,6 +165,17 @@ export function Stage({ state, onFeature, className = "" }: StageProps) {
         <EmptyStage participants={participants} />
       )}
       <ReactionsOverlay reactions={state.reactions} nameOf={nameOf} />
+      {/*
+        How full the room is, always over whatever the stage shows (video, empty state, reactions):
+        top right corner on a phone, top left from `md`. Its own filled pair keeps it readable.
+      */}
+      <span
+        data-testid="occupancy"
+        className="absolute top-3 right-3 z-20 rounded-button bg-accent px-2.5 py-1 text-compact font-medium text-on-accent md:right-auto md:left-3"
+        aria-label={texts.room.occupancyLabel(state.occupancy.participants, state.occupancy.capacity)}
+      >
+        {texts.room.occupancy(state.occupancy.participants, state.occupancy.capacity)}
+      </span>
     </section>
   );
 }
