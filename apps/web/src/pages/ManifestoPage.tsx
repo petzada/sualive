@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { SiteFooter } from "../components/account/PageShell";
+import { Brand } from "../components/Brand";
 import { CreateRoom } from "../components/CreateRoom";
 import { PeopleCards } from "../components/PeopleCards";
 import { texts } from "../texts";
@@ -10,7 +11,7 @@ import { texts } from "../texts";
  */
 export const MANIFESTO_PHOTOS = ["manifesto-1.jpg", "manifesto-2.jpg", "manifesto-3.jpg"] as const;
 
-/** The manifesto: no name at the top; the photos, a reading column, the "create room" button, the age line and the legal links. */
+/** The manifesto: no name at the top; the photos, a reading column, the "create room" button, the age line and the footer (home and legal links); no back arrow. */
 export function ManifestoPage() {
   useEffect(() => {
     const previous = document.title;
@@ -34,7 +35,7 @@ export function ManifestoPage() {
           <div className="mt-14 flex flex-col gap-7">
             {texts.manifesto.paragraphs.map((paragraph) => (
               <p key={paragraph} className="text-kicker leading-[1.45] text-pretty md:text-justify">
-                {paragraph}
+                <Brand>{paragraph}</Brand>
               </p>
             ))}
           </div>
@@ -49,8 +50,10 @@ export function ManifestoPage() {
         </article>
       </main>
 
-      <p className="px-5 pt-18 pb-2 text-center text-compact text-muted">{texts.manifesto.ageNotice}</p>
-      <SiteFooter />
+      <p className="px-5 pt-18 pb-2 text-center text-compact text-muted">
+        <Brand>{texts.manifesto.ageNotice}</Brand>
+      </p>
+      <SiteFooter home />
     </div>
   );
 }

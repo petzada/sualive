@@ -141,7 +141,7 @@ describe("login", () => {
     }
     const photos = [...faces.querySelectorAll("img")];
     expect(photos.map((photo) => photo.getAttribute("src"))).toEqual(
-      [1, 2, 3].map((index) => `/images/manifesto-${index}.jpg`),
+      [1, 2, 3].map((index) => `/images/feliz-${index}.jpg`),
     );
     for (const photo of photos) {
       expect(photo.getAttribute("alt")).toBe("");
@@ -247,7 +247,7 @@ describe("first access", () => {
     renderApp({ path: "/boas-vindas", account: newcomer() });
 
     expect(heading()).toBe("Só falta mais um passo");
-    expect(screen.getByText("Escolha seu @nome e aceite os termos.")).toBeTruthy();
+    expect(screen.getByText("Escolha seu @nome e aceite os Termos de Uso.")).toBeTruthy();
     expect(screen.queryByRole("banner")).toBeNull();
     expect(screen.queryByRole("navigation")).toBeNull();
     expect(screen.queryByRole("link", { name: texts.nav.home })).toBeNull();
@@ -363,14 +363,18 @@ describe("first access", () => {
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
     const label = document.querySelector(`label[for="${consent().id}"]`);
     expect(label?.textContent).toBe(
-      `Declaro que sou maior de ${MINIMUM_AGE} anos e aceito os Termos de Uso e a Política de Privacidade.`,
+      `Declaro que sou maior de ${MINIMUM_AGE} anos e aceito os Termos de Uso e as Políticas de Privacidade.`,
     );
-    expect(screen.getByRole("link", { name: texts.onboarding.consent.terms }).getAttribute("href")).toBe(
-      "/termos",
-    );
-    expect(screen.getByRole("link", { name: texts.onboarding.consent.privacy }).getAttribute("href")).toBe(
-      "/privacidade",
-    );
+    expect(
+      within(label as HTMLElement)
+        .getByRole("link", { name: texts.onboarding.consent.terms })
+        .getAttribute("href"),
+    ).toBe("/termos");
+    expect(
+      within(label as HTMLElement)
+        .getByRole("link", { name: texts.onboarding.consent.privacy })
+        .getAttribute("href"),
+    ).toBe("/privacidade");
   });
 
   it("does not finish without the consent, and ties the error to the checkbox", () => {
@@ -654,9 +658,10 @@ describe("plan", () => {
     renderApp({ path: "/plus" });
 
     expect(heading()).toBe(texts.plus.title);
-    expect(
-      screen.getByText("O sualive oferece plano pago para ajudar no crescimento da plataforma."),
-    ).toBeTruthy();
+    const lead = screen.getByText(/oferece plano pago/);
+    expect(lead.textContent).toBe("O sualive oferece plano pago para ajudar no crescimento da plataforma.");
+    // The name of the product is always in bold.
+    expect(lead.querySelector("strong")?.textContent).toBe("sualive");
     expect(screen.getByRole("heading", { level: 2, name: "O que você ganha ajudando" })).toBeTruthy();
     for (const benefit of texts.plus.benefits) expect(screen.getByText(benefit.title)).toBeTruthy();
     const monthly = within(screen.getByTestId("cycle-monthly"));
@@ -1031,15 +1036,33 @@ describe("legal pages", () => {
     expect(document.body.textContent).toContain(`declara ter ${MINIMUM_AGE} anos ou mais`);
   });
 
-  it("marks, in plain sight, what still depends on the operator", () => {
-    renderApp({ path: "/termos" });
-    const pending = screen.getAllByTestId("legal-pending");
-    const expected = texts.legal.terms.sections.flatMap((section) =>
-      section.blocks.filter((block) => typeof block !== "string"),
+  it.each(["terms", "privacy"] as const)(
+    "leaves nothing pending in the %s: every block is final text",
+    (kind) => {
+      renderApp({ path: kind === "terms" ? "/termos" : "/privacidade" });
+
+      expect(
+        texts.legal[kind].sections.flatMap((section) => section.blocks).every((b) => typeof b === "string"),
+      ).toBe(true);
+      expect(screen.queryAllByTestId("legal-pending")).toEqual([]);
+      // Who operates the service and how to reach it, and the name of the product in bold.
+      expect(document.body.textContent).toContain("63.940.273/0001-36");
+      expect(document.body.textContent).toContain("contato@sualive.com.br");
+      const names = [...screen.getByRole("main").querySelectorAll("strong")];
+      expect(names.length).toBeGreaterThan(0);
+      for (const name of names) expect(name.textContent).toBe("sualive");
+    },
+  );
+
+  it("calls the two documents by their names, with the capitals, everywhere", () => {
+    expect(texts.nav.terms).toBe("Termos de Uso");
+    expect(texts.nav.privacy).toBe("Políticas de Privacidade");
+    expect(texts.legal.terms.title).toBe("Termos de Uso");
+    expect(texts.legal.privacy.title).toBe("Políticas de Privacidade");
+    const copy = JSON.stringify(texts);
+    expect(copy).not.toMatch(
+      /[Tt]ermos de uso|estes termos|aceite dos termos|olítica de [Pp]rivacidade|esta política/,
     );
-    expect(pending).toHaveLength(expected.length);
-    expect(pending.length).toBeGreaterThan(0);
-    for (const block of pending) expect(block.textContent).toContain(texts.legal.pendingLabel);
   });
 });
 
