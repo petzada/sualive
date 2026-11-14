@@ -26,6 +26,7 @@ pnpm 12 + turbo, Node 22.
 | `packages/media` | A única parte do front que conhece WebRTC; interface única para os dois caminhos de mídia |
 | `packages/config` | Único lugar para valores numéricos do produto (limites, preços, prazos) |
 | `scripts/` | Scripts da esteira (`test-related.mjs`, `smoke.mjs`) |
+| `e2e` | Teste de fumaça com Playwright contra o produto no simulador do Wrangler |
 
 ## Scripts padronizados
 
@@ -38,7 +39,7 @@ Os mesmos nomes na raiz e em todos os pacotes. Use-os em vez de inventar comando
 | `pnpm test` | Vitest (`--run`), suítes em série |
 | `pnpm test:related` | Só os testes ligados ao diff contra `origin/main` (o pre-push usa este) |
 | `pnpm test:ci` | Suíte completa, como no CI |
-| `pnpm e2e` | Teste de fumaça com Playwright (entra na entrega 1; hoje não faz nada) |
+| `pnpm e2e` | Teste de fumaça com Playwright (`e2e/`): build, Worker no simulador do Wrangler e Chromium com mídia falsa. Só sob demanda e no CI, nunca nos hooks |
 | `pnpm build` | Build do front e verificação do bundle do Worker (`wrangler deploy --dry-run`) |
 
 Vitest sempre com `--run`; nunca em modo watch. Um job pesado por vez (não rode lint e testes juntos).
@@ -98,8 +99,8 @@ em produção. Seguem **expand/contract**:
 | Produção | `sualive` | `sualive` | nível de cima do `wrangler.jsonc` |
 | Homologação | `sualive-staging` | `sualive-staging` | `--env staging`; usa o ambiente de teste da Woovi (entrega 2) |
 
-- **PR** (`.github/workflows/ci.yml`, check `verificar`): prettier, lint, typecheck, testes e build. Sem
-  segredo.
+- **PR** (`.github/workflows/ci.yml`): check `verificar` (prettier, lint, typecheck, testes e build) e
+  check `e2e` (teste de fumaça com Playwright). Sem segredo.
 - **Merge na main** (`.github/workflows/deploy.yml`): homologação (build → migrations do D1 → deploy →
   verificação com `scripts/smoke.mjs`) e, só se ela passar, produção na mesma ordem. A verificação espera
   `GET /api/health` responder `status: "ok"` com o commit publicado e `GET /` devolver HTML.
