@@ -1070,7 +1070,10 @@ describe("legal pages", () => {
 
     const page = screen.getByRole("main").textContent;
     expect(page).toContain("faixa de aviso no topo do serviço, com a data da mudança e o link");
-    expect(page).toContain("Continuar usando o serviço depois da mudança vale como aceite");
+    // O aceite pelo uso continuado é regra dos Termos de Uso, não das Políticas de Privacidade.
+    const continued = "Continuar usando o serviço depois da mudança vale como aceite";
+    if (path === "/termos") expect(page).toContain(continued);
+    else expect(page).not.toContain(continued);
   });
 
   it("calls the two documents by their names, with the capitals, everywhere", () => {
