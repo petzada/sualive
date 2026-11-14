@@ -8,12 +8,13 @@
   "workers_dev": true,
   "observability": { "enabled": true },
   "upload_source_maps": true,
-  // O mesmo Worker serve o front (apps/web/dist). /api/* sempre passa pelo Worker.
+  // O mesmo Worker serve o front (apps/web/dist). /api/* sempre passa pelo Worker; /s/* também,
+  // para injetar a prévia do link (Open Graph) no index.html.
   "assets": {
     "directory": "../web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"],
+    "run_worker_first": ["/api/*", "/s/*"],
   },
   // COMMIT_SHA é sobrescrito no deploy (`--var COMMIT_SHA:<sha>`).
   // DEBUG_ROUTES="1" liga a rota de erro proposital (só homologação).
@@ -28,6 +29,12 @@
   ],
   "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "Room" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  // Limite por IP em POST /api/rooms e POST /api/rooms/:code/join. Os valores espelham
+  // API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_SECONDS de @sualive/config (o binding só aceita
+  // período de 10 ou 60 s). namespace_id é único por conta: produção 1001, homologação 1002.
+  "ratelimits": [
+    { "name": "API_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
+  ],
   "env": {
     "staging": {
       "name": "sualive-staging",
@@ -42,6 +49,9 @@
       ],
       "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "Room" }] },
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+      "ratelimits": [
+        { "name": "API_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } },
+      ],
     },
   },
 }
