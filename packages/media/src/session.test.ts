@@ -9,7 +9,7 @@ import {
   type FakePeerConnection,
   FakeTrack,
 } from "./testing/fakes";
-import type { MediaSession, PeerStatus, RemoteVideo } from "./types";
+import type { MediaSession, MediaSessionOptions, PeerStatus, RemoteVideo } from "./types";
 
 const QUALITY: VideoQuality = { width: 1280, height: 720, frameRate: 30, maxBitrate: 1_500_000 };
 const RELAY: VideoQuality = { width: 640, height: 360, frameRate: 24, maxBitrate: 500_000 };
@@ -36,12 +36,30 @@ interface Node {
   };
 }
 
-function makeNode(id: string, hub: FakeHub, options: FakeEnvOptions = {}): Node {
+type SessionOverrides = Partial<
+  Pick<MediaSessionOptions, "quality" | "relayQuality" | "relayOnly" | "relayScreenAudioMaxBitrate">
+>;
+
+function makeNode(
+  id: string,
+  hub: FakeHub,
+  options: FakeEnvOptions = {},
+  overrides: SessionOverrides = {},
+): Node {
   const fake = createFakeEnv(options);
   let calls = 0;
-  const getIceServers = vi.fn(async () => [{ urls: `turn:${id}.example`, credential: `c${++calls}` }]);
+  const getIceServers = vi.fn(async (): Promise<RTCIceServer[]> => [
+    { urls: `turn:${id}.example`, credential: `c${++calls}` },
+  ]);
   const session = createMeshSession(
-    { selfId: id, transport: hub.transport(id), getIceServers, quality: QUALITY, relayQuality: RELAY },
+    {
+      selfId: id,
+      transport: hub.transport(id),
+      getIceServers,
+      quality: QUALITY,
+      relayQuality: RELAY,
+      ...overrides,
+    },
     fake.env,
   );
   const events: Node["events"] = {
@@ -97,8 +115,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function node(id: string, options?: FakeEnvOptions): Node {
-  const n = makeNode(id, hub, { network: sharedNetwork, ...options });
+function node(id: string, options?: FakeEnvOptions, overrides?: SessionOverrides): Node {
+  const n = makeNode(id, hub, { network: sharedNetwork, ...options }, overrides);
   nodes.push(n);
   return n;
 }
@@ -138,6 +156,7 @@ describe("malha", () => {
 
     // Renegociação disparada pelos dois ao mesmo tempo (colisão real) converge.
     const before = offers.length;
+    b.session.setVideoViewers("v1", ["a"]);
     await Promise.all([a.session.enableMicrophone(), b.session.publishVideo("v1", "camera")]);
     await settle();
     const renegotiation = hub.log
@@ -187,6 +206,7 @@ describe("mapa de streams", () => {
     const b = node("b");
     await connectAll([a, b]);
     hub.hold((m) => m.to === "b" && m.data.kind === "streams");
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "camera");
     await settle();
     expect(onlyPc(b).remoteStreams.size).toBe(1);
@@ -204,6 +224,7 @@ describe("mapa de streams", () => {
     const b = node("b");
     await connectAll([a, b]);
     hub.hold((m) => m.to === "b" && m.data.kind === "description");
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "screen");
     await settle();
     expect(
@@ -298,6 +319,7 @@ describe("vídeo", () => {
     const a = node("a", { screenAudio: true });
     const b = node("b");
     await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
     const local = await a.session.publishVideo("v1", "screen");
     expect(a.fake.displayMediaCalls[0]).toEqual({
       video: { width: { max: 1280 }, height: { max: 720 }, frameRate: { max: 30 } },
@@ -366,6 +388,7 @@ describe("vídeo", () => {
     await connectAll([a, b]);
     const spy = vi.spyOn(FakeTrack.prototype, "applyConstraints");
     spy.mockRejectedValueOnce(new DOMException("não", "OverconstrainedError"));
+    a.session.setVideoViewers("v1", ["b"]);
     const local = await a.session.publishVideo("v1", "screen");
     spy.mockRestore();
     expect(local.stream.getAudioTracks()[0]!.contentHint).toBe("music");
@@ -377,6 +400,7 @@ describe("vídeo", () => {
     const a = node("a");
     const b = node("b");
     await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
     const local = await a.session.publishVideo("v1", "screen");
     expect(local.stream.getAudioTracks()).toHaveLength(0);
     expect(a.fake.displayMediaCalls).toHaveLength(1);
@@ -394,6 +418,7 @@ describe("vídeo", () => {
     const a = node("a", { screenAudio: true });
     const b = node("b");
     await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "screen");
     await settle();
     const pc = onlyPc(a);
@@ -412,6 +437,7 @@ describe("vídeo", () => {
     const a = node("a");
     const b = node("b");
     await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
     const local = await a.session.publishVideo("v1", "camera", { deviceId: "cam-1" });
     expect(a.fake.userMediaCalls[0]).toEqual({
       video: {
@@ -428,39 +454,11 @@ describe("vídeo", () => {
     expect(sender.params.degradationPreference).toBe("maintain-framerate");
   });
 
-  it("publicar vale para pares atuais e futuros; despublicar remove e solta a captura", async () => {
-    const a = node("a");
-    const b = node("b");
-    await connectAll([a, b]);
-    await a.session.publishVideo("v1", "camera");
-    await settle();
-    expect(b.events.added.map((v) => v.videoId)).toEqual(["v1"]);
-
-    const c = node("c");
-    a.session.setPeers(["a", "b", "c"]);
-    b.session.setPeers(["a", "b", "c"]);
-    c.session.setPeers(["a", "b", "c"]);
-    await settle();
-    expect(c.events.added).toHaveLength(1);
-    expect(c.events.added[0]).toMatchObject({ peerId: "a", videoId: "v1" });
-    const toC = a.fake.pcs[1]!;
-    expect(toC.senders.find((s) => s.track?.kind === "video")?.params.encodings[0]?.maxBitrate).toBe(
-      1_500_000,
-    );
-
-    a.session.unpublishVideo("v1");
-    await settle();
-    expect(b.events.removed).toEqual([{ peerId: "a", videoId: "v1" }]);
-    expect(c.events.removed).toEqual([{ peerId: "a", videoId: "v1" }]);
-    expect(a.fake.captured[0]!.readyState).toBe("ended");
-    expect(a.session.getLocalVideos()).toHaveLength(0);
-    expect(b.session.getRemoteVideos()).toHaveLength(0);
-  });
-
   it("parar pelo navegador despublica e avisa", async () => {
     const a = node("a");
     const b = node("b");
     await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "screen");
     await settle();
     (a.fake.captured[0] as FakeTrack).endByBrowser();
@@ -477,11 +475,400 @@ describe("vídeo", () => {
   });
 });
 
+/** Conexão de `from` com `to` (pela impressão digital da descrição remota). */
+function pcTo(from: Node, to: Node): FakePeerConnection {
+  const pc = openPcs(from).find((candidate) => {
+    const remote = /^a=fingerprint:sha-256 (.+)$/m.exec(candidate.currentRemoteDescription?.sdp ?? "")?.[1];
+    return to.fake.pcs.some((other) => other.cert === remote && !other.closed);
+  });
+  expect(pc).toBeDefined();
+  return pc!;
+}
+const sendingKinds = (pc: FakePeerConnection): string[] =>
+  pc
+    .sendingSenders()
+    .map((s) => s.track!.kind)
+    .sort();
+const streamsSentTo = (id: string): string[][] =>
+  hub.log.flatMap((m) =>
+    m.to === id && m.data.kind === "streams" ? [m.data.streams.map((s) => s.videoId)] : [],
+  );
+const descriptionsBetween = (x: string, y: string): number =>
+  hub.log.filter(
+    (m) => m.data.kind === "description" && ((m.from === x && m.to === y) || (m.from === y && m.to === x)),
+  ).length;
+
+describe("quem assiste", () => {
+  it("publicar não envia a ninguém; a lista abre só para os listados", async () => {
+    const a = node("a", { screenAudio: true });
+    const b = node("b");
+    const c = node("c");
+    await connectAll([a, b, c]);
+    await a.session.enableMicrophone();
+    await a.session.publishVideo("v1", "screen");
+    await settle();
+    // Nada de faixa de vídeo (nem do áudio da tela) para ninguém: só a voz.
+    expect(sendingKinds(pcTo(a, b))).toEqual(["audio"]);
+    expect(sendingKinds(pcTo(a, c))).toEqual(["audio"]);
+    expect(b.events.added).toHaveLength(0);
+    expect(c.events.added).toHaveLength(0);
+    expect(streamsSentTo("b").flat()).toEqual([]);
+
+    a.session.setVideoViewers("v1", ["b", "a"]); // a própria pessoa na lista é ignorada
+    await settle();
+    expect(sendingKinds(pcTo(a, b))).toEqual(["audio", "audio", "video"]);
+    expect(sendingKinds(pcTo(a, c))).toEqual(["audio"]);
+    expect(b.events.added.map((v) => [v.peerId, v.videoId])).toEqual([["a", "v1"]]);
+    expect(c.events.added).toHaveLength(0);
+    expect(streamsSentTo("b").at(-1)).toEqual(["v1"]);
+    expect(streamsSentTo("c").flat()).toEqual([]); // cada par só sabe dos vídeos que recebe
+    expect(c.session.getRemoteVideos()).toEqual([]);
+  });
+
+  it("fechar para quem sai da lista não toca na voz, renegocia só aquele par e reaproveita o transceptor", async () => {
+    const a = node("a", { screenAudio: true });
+    const b = node("b");
+    const c = node("c");
+    await connectAll([a, b, c]);
+    await a.session.enableMicrophone();
+    a.session.setVideoViewers("v1", ["b", "c"]);
+    await a.session.publishVideo("v1", "screen");
+    await settle();
+    const toB = pcTo(a, b);
+    const micSender = toB.senders[0]!;
+    const micTrack = micSender.track;
+    expect(micTrack?.id).toBe(a.fake.captured[0]!.id);
+    const voiceEvents = b.events.remoteAudio.length;
+    const transceivers = toB.transceivers.length;
+    const withC = descriptionsBetween("a", "c");
+
+    a.session.setVideoViewers("v1", ["c"]);
+    await settle();
+    expect(b.events.removed).toEqual([{ peerId: "a", videoId: "v1" }]);
+    expect(sendingKinds(toB)).toEqual(["audio"]);
+    expect(toB.closed).toBe(false);
+    expect(micSender.track).toBe(micTrack);
+    expect(b.events.remoteAudio).toHaveLength(voiceEvents); // a voz não caiu nem voltou
+    expect(stateOf(a, "b")?.state).toBe("connected");
+    expect(descriptionsBetween("a", "c")).toBe(withC); // a conexão com c não renegociou
+    expect(c.events.removed).toHaveLength(0);
+    expect(b.session.getRemoteVideos()).toEqual([]);
+
+    // Abrir de novo usa os transceptores parados: a descrição não cresce.
+    a.session.setVideoViewers("v1", ["b", "c"]);
+    await settle();
+    expect(b.events.added.map((v) => v.videoId)).toEqual(["v1", "v1"]);
+    expect(sendingKinds(toB)).toEqual(["audio", "audio", "video"]);
+    expect(toB.transceivers).toHaveLength(transceivers);
+    expect(b.events.remoteAudio).toHaveLength(voiceEvents);
+    for (let i = 0; i < 3; i += 1) {
+      a.session.setVideoViewers("v1", ["c"]);
+      await settle();
+      a.session.setVideoViewers("v1", ["b", "c"]);
+      await settle();
+    }
+    expect(toB.transceivers).toHaveLength(transceivers);
+    expect(b.session.getRemoteVideos().map((v) => v.videoId)).toEqual(["v1"]);
+  });
+
+  it("par que entra depois não recebe até entrar na lista; quem sai e volta precisa de lista nova", async () => {
+    const a = node("a");
+    const b = node("b");
+    await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
+    await a.session.publishVideo("v1", "camera");
+    await settle();
+
+    const c = node("c");
+    await connectAll([a, b, c]);
+    expect(c.events.added).toHaveLength(0);
+    expect(sendingKinds(pcTo(a, c))).toEqual([]);
+
+    a.session.setVideoViewers("v1", ["b", "c"]);
+    await settle();
+    expect(c.events.added.map((v) => v.videoId)).toEqual(["v1"]);
+    const toC = pcTo(a, c);
+    expect(toC.senders.find((s) => s.track?.kind === "video")?.params.encodings[0]?.maxBitrate).toBe(
+      1_500_000,
+    );
+
+    // c sai e volta com o mesmo id: sem lista nova, nada de vídeo.
+    a.session.setPeers(["a", "b"]);
+    b.session.setPeers(["a", "b"]);
+    c.session.close();
+    nodes = nodes.filter((n) => n !== c);
+    const c2 = node("c");
+    await connectAll([a, b, c2]);
+    expect(c2.events.added).toHaveLength(0);
+    expect(sendingKinds(pcTo(a, c2))).toEqual([]);
+    expect(b.session.getRemoteVideos().map((v) => v.videoId)).toEqual(["v1"]);
+  });
+
+  it("reconnect() reaplica as listas conhecidas", async () => {
+    const a = node("a");
+    const b = node("b");
+    const c = node("c");
+    await connectAll([a, b, c]);
+    a.session.setVideoViewers("v1", ["c"]);
+    await a.session.publishVideo("v1", "camera");
+    await settle();
+    expect(c.events.added).toHaveLength(1);
+    const toB = pcTo(a, b);
+    const toC = pcTo(a, c);
+
+    toC.setConnectionState("disconnected");
+    a.session.reconnect();
+    await settle();
+    expect(toC.closed).toBe(true);
+    expect(toB.closed).toBe(false);
+    expect(sendingKinds(pcTo(a, c))).toEqual(["video"]);
+    expect(c.events.added.map((v) => v.videoId)).toEqual(["v1", "v1"]);
+    expect(c.session.getRemoteVideos().map((v) => v.videoId)).toEqual(["v1"]);
+    // Quem não está na lista continua sem o vídeo, e o mapa reenviado a ele vem vazio.
+    expect(sendingKinds(toB)).toEqual([]);
+    expect(b.events.added).toHaveLength(0);
+    expect(streamsSentTo("b").flat()).toEqual([]);
+  });
+
+  it("unpublishVideo fecha para todos, solta a captura e esquece a lista", async () => {
+    const a = node("a");
+    const b = node("b");
+    const c = node("c");
+    await connectAll([a, b, c]);
+    a.session.setVideoViewers("v1", ["b", "c"]);
+    await a.session.publishVideo("v1", "camera");
+    await settle();
+    expect(b.events.added).toHaveLength(1);
+    expect(c.events.added).toHaveLength(1);
+
+    a.session.unpublishVideo("v1");
+    await settle();
+    expect(b.events.removed).toEqual([{ peerId: "a", videoId: "v1" }]);
+    expect(c.events.removed).toEqual([{ peerId: "a", videoId: "v1" }]);
+    expect(sendingKinds(pcTo(a, b))).toEqual([]);
+    expect(sendingKinds(pcTo(a, c))).toEqual([]);
+    expect(a.fake.captured[0]!.readyState).toBe("ended");
+    expect(a.session.getLocalVideos()).toHaveLength(0);
+    expect(b.session.getRemoteVideos()).toHaveLength(0);
+
+    // Publicar de novo o mesmo id não reaproveita a lista antiga.
+    await a.session.publishVideo("v1", "camera");
+    await settle();
+    expect(b.events.added).toHaveLength(1);
+    expect(sendingKinds(pcTo(a, b))).toEqual([]);
+  });
+
+  it("lista recebida durante a captura vale quando ela termina", async () => {
+    const a = node("a");
+    const b = node("b");
+    const c = node("c");
+    await connectAll([a, b, c]);
+    const publishing = a.session.publishVideo("v1", "camera");
+    a.session.setVideoViewers("v1", ["c"]);
+    await publishing;
+    await settle();
+    expect(c.events.added.map((v) => v.videoId)).toEqual(["v1"]);
+    expect(b.events.added).toHaveLength(0);
+  });
+});
+
+describe("sala protegida (relayOnly)", () => {
+  it("cria toda conexão só por retransmissão e trata todo par como retransmitido", async () => {
+    const a = node("a", {}, { relayOnly: true });
+    const b = node("b", {}, { relayOnly: true });
+    a.session.setPeers(["a", "b"]);
+    expect(a.events.peer[0]).toEqual({ peerId: "b", state: "connecting", relayed: true });
+    b.session.setPeers(["a", "b"]);
+    await settle();
+    expect(stateOf(a, "b")).toEqual({ peerId: "b", state: "connected", relayed: true });
+    for (const pc of [...a.fake.pcs, ...b.fake.pcs]) {
+      expect(pc.config.iceTransportPolicy).toBe("relay");
+    }
+
+    a.session.setVideoViewers("v1", ["b"]);
+    await a.session.publishVideo("v1", "camera");
+    await settle();
+    // O relatório diz "direto" (o dublê não marca relay), mas o par segue retransmitido.
+    const pc = onlyPc(a);
+    pc.setConnectionState("connected");
+    await settle();
+    expect(stateOf(a, "b")?.relayed).toBe(true);
+    const sender = pc.senders.find((s) => s.track?.kind === "video")!;
+    expect(sender.params.encodings[0]).toMatchObject({ maxBitrate: 500_000, maxFramerate: 24 });
+
+    // Renovar as credenciais mantém a política; a recuperação depois de falha também.
+    a.session.reconnect();
+    await settle();
+    expect(pc.config.iceTransportPolicy).toBe("relay");
+    pc.setConnectionState("failed");
+    onlyPc(b).setConnectionState("failed");
+    await settle(DEFAULT_MESH_TIMINGS.iceRestartTimeoutMs + 1_000);
+    expect(a.fake.pcs.every((p) => p.config.iceTransportPolicy === "relay")).toBe(true);
+    expect(a.events.peer.every((s) => s.relayed)).toBe(true);
+    expect(stateOf(a, "b")?.state).toBe("connected");
+  });
+
+  it("sem TURN nas credenciais não tenta o caminho direto: o par fica em failed", async () => {
+    const a = node("a", {}, { relayOnly: true });
+    const b = node("b", {}, { relayOnly: true });
+    a.getIceServers.mockResolvedValue([{ urls: ["stun:stun.example"] }]);
+    b.getIceServers.mockResolvedValue([{ urls: "stun:stun.example" }]);
+    a.session.setPeers(["a", "b"]);
+    b.session.setPeers(["a", "b"]);
+    await settle();
+    expect(a.fake.pcs).toHaveLength(0);
+    expect(b.fake.pcs).toHaveLength(0);
+    expect(stateOf(a, "b")).toEqual({ peerId: "b", state: "failed", relayed: true });
+
+    // Credenciais com TURN voltam: o reconnect() conecta (só por retransmissão).
+    a.getIceServers.mockResolvedValue([{ urls: ["stun:stun.example", "turns:turn.example:443"] }]);
+    b.getIceServers.mockResolvedValue([{ urls: "turn:turn.example" }]);
+    a.session.reconnect();
+    b.session.reconnect();
+    await settle();
+    expect(stateOf(a, "b")?.state).toBe("connected");
+    expect(onlyPc(a).config.iceTransportPolicy).toBe("relay");
+  });
+
+  it("sem relayOnly a política de ICE fica a padrão", async () => {
+    const a = node("a");
+    const b = node("b");
+    await connectAll([a, b]);
+    expect(onlyPc(a).config.iceTransportPolicy).toBeUndefined();
+    expect(stateOf(a, "b")?.relayed).toBe(false);
+  });
+});
+
+describe("teto do áudio da tela em par retransmitido", () => {
+  it("aplica no áudio da tela só com o par retransmitido, tira quando deixa de ser e nunca toca no microfone", async () => {
+    const a = node("a", { screenAudio: true }, { relayScreenAudioMaxBitrate: 64_000 });
+    const b = node("b");
+    await connectAll([a, b]);
+    await a.session.enableMicrophone();
+    a.session.setVideoViewers("v1", ["b"]);
+    await a.session.publishVideo("v1", "screen");
+    await settle();
+    const pc = onlyPc(a);
+    const mic = pc.senders.find((s) => s.track?.id === a.fake.captured[0]!.id)!;
+    const local = a.session.getLocalVideos()[0]!;
+    const screenAudioId = local.stream.getAudioTracks()[0]!.id;
+    const screenAudio = pc.senders.find((s) => s.track?.id === screenAudioId)!;
+    const video = pc.senders.find((s) => s.track?.kind === "video")!;
+    expect(screenAudio.setParametersCalls).toBe(0); // direto: sem teto
+
+    pc.relay = true;
+    pc.setConnectionState("disconnected");
+    pc.setConnectionState("connected");
+    await settle();
+    expect(screenAudio.params.encodings).toEqual([{ active: true, maxBitrate: 64_000 }]);
+    expect(video.params.encodings[0]).toMatchObject({ maxBitrate: 500_000, maxFramerate: 24 });
+    expect(mic.setParametersCalls).toBe(0);
+    expect(mic.params).toEqual({ encodings: [{ active: true }] });
+
+    pc.relay = false;
+    pc.setConnectionState("disconnected");
+    pc.setConnectionState("connected");
+    await settle();
+    expect(screenAudio.params.encodings).toEqual([{ active: true }]);
+    expect(video.params.encodings[0]).toMatchObject({ maxBitrate: 1_500_000, maxFramerate: 30 });
+    expect(mic.setParametersCalls).toBe(0);
+  });
+
+  it("na sala protegida o áudio da tela nasce com o teto", async () => {
+    const a = node("a", { screenAudio: true }, { relayOnly: true, relayScreenAudioMaxBitrate: 64_000 });
+    const b = node("b", {}, { relayOnly: true });
+    await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
+    await a.session.publishVideo("v1", "screen");
+    await settle();
+    const pc = onlyPc(a);
+    const audio = pc.senders.find((s) => s.track?.kind === "audio")!;
+    expect(audio.params.encodings).toEqual([{ active: true, maxBitrate: 64_000 }]);
+    expect(b.events.added).toHaveLength(1);
+  });
+});
+
+describe("tetos de vídeo por qualidade", () => {
+  const PLUS: VideoQuality = { width: 3840, height: 2160, frameRate: 240, maxBitrate: 32_000_000 };
+  const FREE: VideoQuality = { width: 1920, height: 1080, frameRate: 60, maxBitrate: 5_000_000 };
+  const RELAY_720: VideoQuality = { width: 1280, height: 720, frameRate: 30, maxBitrate: 1_500_000 };
+
+  it("Plus: captura pede 4K a 240 fps só como ideal/max e o envio respeita o teto e a retransmissão", async () => {
+    // A câmera entrega menos do que o pedido (4K a 60): a captura segue.
+    const a = node(
+      "a",
+      { cameraSettings: { width: 3840, height: 2160, frameRate: 60 } },
+      { quality: PLUS, relayQuality: RELAY_720 },
+    );
+    const b = node("b");
+    await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
+    await a.session.publishVideo("v1", "camera");
+    expect(a.fake.userMediaCalls[0]).toEqual({
+      video: {
+        width: { ideal: 3840, max: 3840 },
+        height: { ideal: 2160, max: 2160 },
+        frameRate: { ideal: 240, max: 240 },
+      },
+      audio: false,
+    });
+    expect(JSON.stringify(a.fake.userMediaCalls[0])).not.toContain("exact");
+    await settle();
+    const pc = onlyPc(a);
+    const sender = pc.senders.find((s) => s.track?.kind === "video")!;
+    expect(sender.params.encodings[0]).toMatchObject({
+      maxBitrate: 32_000_000,
+      maxFramerate: 240,
+      scaleResolutionDownBy: 1,
+    });
+
+    pc.relay = true;
+    pc.setConnectionState("disconnected");
+    pc.setConnectionState("connected");
+    await settle();
+    expect(sender.params.encodings[0]).toMatchObject({
+      maxBitrate: 1_500_000,
+      maxFramerate: 30,
+      scaleResolutionDownBy: 3,
+    });
+  });
+
+  it("Plus: tela pede até 4K a 240 fps sem exigir nada do navegador", async () => {
+    const a = node("a", { screenSettings: { width: 2560, height: 1440, frameRate: 60 } }, { quality: PLUS });
+    await a.session.publishVideo("v1", "screen");
+    expect(a.fake.displayMediaCalls[0]?.video).toEqual({
+      width: { max: 3840 },
+      height: { max: 2160 },
+      frameRate: { max: 240 },
+    });
+  });
+
+  it("sem Plus: 1080p60 a 5 Mbps; captura menor que o teto não é reduzida", async () => {
+    const a = node(
+      "a",
+      { cameraSettings: { width: 1280, height: 720, frameRate: 30 } },
+      { quality: FREE, relayQuality: RELAY_720 },
+    );
+    const b = node("b");
+    await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
+    await a.session.publishVideo("v1", "camera");
+    await settle();
+    const sender = onlyPc(a).senders.find((s) => s.track?.kind === "video")!;
+    expect(sender.params.encodings[0]).toMatchObject({
+      maxBitrate: 5_000_000,
+      maxFramerate: 60,
+      scaleResolutionDownBy: 1,
+    });
+  });
+});
+
 describe("retransmissão", () => {
   it("limita o envio ao par retransmitido e volta ao normal quando deixa de ser", async () => {
     const a = node("a");
     const b = node("b");
     await connectAll([a, b]);
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "camera");
     await settle();
     const pc = onlyPc(a);
@@ -528,6 +915,7 @@ describe("reconexão", () => {
     const network = new FakeNetwork();
     const a = node("a", { network });
     const b = node("b", { network });
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "camera");
     await connectAll([a, b]);
     expect(b.events.added).toHaveLength(1);
@@ -609,6 +997,7 @@ describe("close()", () => {
     const b = node("b");
     await connectAll([a, b]);
     await a.session.enableMicrophone();
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "screen");
     await settle();
     b.session.close();
@@ -628,6 +1017,7 @@ describe("close()", () => {
     const b = node("b");
     await connectAll([a, b]);
     await a.session.enableMicrophone();
+    a.session.setVideoViewers("v1", ["b"]);
     await a.session.publishVideo("v1", "camera");
     await settle();
     b.session.setPeers(["b"]);

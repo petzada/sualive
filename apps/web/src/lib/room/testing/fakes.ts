@@ -98,6 +98,11 @@ export class FakeMedia implements MediaSession {
   unpublishVideo = vi.fn((videoId: string) => {
     this.published.delete(videoId);
   });
+  /** Última lista de quem assiste cada vídeo local, como a sala mandou. */
+  readonly viewers = new Map<string, string[]>();
+  setVideoViewers = vi.fn((videoId: string, peerIds: string[]) => {
+    this.viewers.set(videoId, [...peerIds]);
+  });
   reconnect = vi.fn();
   close = vi.fn(() => {
     this.closed = true;
