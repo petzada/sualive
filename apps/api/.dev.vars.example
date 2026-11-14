@@ -8,6 +8,12 @@ TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 # Assina o cookie de sessão de quem não tem conta. Valor de exemplo, claramente falso.
 SESSION_SECRET=exemplo-falso-nao-use-em-producao-0000000000000000
 
+# Woovi (Plus). Sem os dois, a assinatura fica desligada (`billingEnabled: false`). Fora de produção a
+# API usada é o sandbox da Woovi. WOOVI_WEBHOOK_SECRET é o valor cadastrado no campo "authorization"
+# de cada webhook na Woovi. Valores claramente falsos; nunca coloque os reais aqui.
+# WOOVI_APP_ID=exemplo-falso-appid-woovi
+# WOOVI_WEBHOOK_SECRET=exemplo-falso-segredo-webhook-woovi
+
 # Sem TURN_KEY_ID e TURN_KEY_API_TOKEN, GET /api/rooms/:code/ice devolve só o STUN público.
 # TURN_KEY_ID=
 # TURN_KEY_API_TOKEN=
