@@ -107,6 +107,7 @@ function userOf(account: DemoAccount): MeUser | null {
     plan,
     roomTheme: "default",
     handleChangeAvailableAt: account === "cancelado" ? Date.now() + 12 * DAY_MS : null,
+    termsUpdate: null,
   };
 }
 
@@ -218,6 +219,12 @@ export function createDemoAccountClient(options: DemoAccountOptions): AccountCli
         if (options.payment !== "pending") onChange(options.payment);
       }, PAYMENT_DELAY_MS);
       return () => clearTimeout(timer);
+    },
+    async markTermsSeen() {
+      await wait();
+      if (!state.user) return { ok: false, reason: "unauthorized" };
+      patchUser({ termsUpdate: null });
+      return { ok: true, value: undefined };
     },
     async cancelPlus() {
       await wait();

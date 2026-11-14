@@ -3,7 +3,7 @@ import {
   MINIMUM_AGE,
   PLUS_ANNUAL_PRICE_CENTS,
   PLUS_MONTHLY_PRICE_CENTS,
-  TERMS_VERSION,
+  TERMS_DATE,
 } from "@sualive/config";
 import type { MeUser, Plan } from "@sualive/protocol";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -1025,7 +1025,7 @@ describe("legal pages", () => {
     renderApp({ path });
 
     expect(heading()).toBe(copy.title);
-    const [year, month, day] = TERMS_VERSION.split("-");
+    const [year, month, day] = TERMS_DATE.split("-");
     expect(screen.getByTestId("legal-version").textContent).toBe(
       texts.legal.version(`${day}/${month}/${year}`),
     );

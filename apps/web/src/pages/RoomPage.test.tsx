@@ -107,6 +107,7 @@ describe("room phases", () => {
       full: true,
       banned: true,
       kicked: true,
+      replaced: true,
       error: true,
     };
     for (const phase of Object.keys(phases) as RoomPhase[]) {

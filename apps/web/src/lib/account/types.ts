@@ -54,6 +54,8 @@ export interface AccountActions {
   completeOnboarding(input: { handle: string; adult: true; acceptTerms: true }): Promise<AccountResult>;
   updateProfile(input: { nickname?: string; handle?: string }): Promise<AccountResult>;
   checkHandle(handle: string): Promise<AccountResult<HandleAvailabilityResponse>>;
+  /** Grava que a conta viu a versão atual dos termos: a faixa de aviso some (`user.termsUpdate`). */
+  markTermsSeen(): Promise<AccountResult>;
   /** Apaga a conta e os dados pessoais; a pessoa volta a anônima. */
   deleteAccount(): Promise<AccountResult>;
   /** Cria a cobrança Pix do Plus e devolve o QR Code. */

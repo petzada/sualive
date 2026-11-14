@@ -207,6 +207,7 @@ export class RoomClient {
       setRoomTheme: (theme) => this.setRoomTheme(theme),
       join: (options) => this.join(options),
       leave: () => this.leave(),
+      useThisTab: () => this.useThisTab(),
       sendChat: (text) => void this.send({ type: "chat.send", text }),
       react: (reaction) => this.react(reaction),
       setHandRaised: (raised) => this.setHandRaised(raised),
@@ -458,6 +459,13 @@ export class RoomClient {
     this.backToLobby();
   }
 
+  /** Aba derrubada por outra da mesma pessoa: consulta a sala de novo e volta ao lobby. */
+  private useThisTab(): void {
+    if (this.disposed || this.state.phase !== "replaced") return;
+    this.update({ phase: "loading" });
+    void this.load();
+  }
+
   private backToLobby(): void {
     this.finish("lobby");
     void this.refreshOccupancy();
@@ -566,7 +574,7 @@ export class RoomClient {
       case WS_CLOSE.roomFull:
         return this.finish("full");
       case WS_CLOSE.replaced:
-        return this.finish("error");
+        return this.finish("replaced");
       case WS_CLOSE.unauthorized:
         return this.backToLobby();
       default:

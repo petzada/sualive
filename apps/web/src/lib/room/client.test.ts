@@ -493,7 +493,7 @@ describe("saídas", () => {
     ["banned", WS_CLOSE.banned],
     ["ended", WS_CLOSE.roomEnded],
     ["full", WS_CLOSE.roomFull],
-    ["error", WS_CLOSE.replaced],
+    ["replaced", WS_CLOSE.replaced],
   ] as const)("fechamento leva a %s e solta a mídia", async (phase, code) => {
     await connect();
     const media = h.media;

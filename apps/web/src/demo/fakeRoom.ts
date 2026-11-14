@@ -196,6 +196,7 @@ export function createDemoClient(options: DemoOptions): RoomClient {
             });
           },
           leave() {},
+          useThisTab() {},
           sendChat(text) {
             patch((current) => ({
               chat: [

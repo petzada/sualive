@@ -28,6 +28,16 @@ function roomThemeOf(value: string): RoomTheme {
   return (ROOM_THEMES as readonly string[]).includes(value) ? (value as RoomTheme) : "default";
 }
 
+/**
+ * Versão atual dos termos se a conta ainda não a viu (faixa de aviso), senão `null`. Antes do
+ * primeiro acesso não há aviso: o aceite acontece lá.
+ */
+export function pendingTermsUpdate(user: UserRow): string | null {
+  if (!isOnboarded(user)) return null;
+  const seen = user.termsSeenVersion ?? user.termsVersion;
+  return seen === TERMS_VERSION ? null : TERMS_VERSION;
+}
+
 /** Perfil completo da conta, como o front recebe. Plano e selos vêm da cobrança. */
 export async function toMeUser(env: AppEnv, user: UserRow): Promise<MeUser> {
   const { plan, badges } = await getPlanStatus(env, user.id);
@@ -41,6 +51,7 @@ export async function toMeUser(env: AppEnv, user: UserRow): Promise<MeUser> {
     plan,
     roomTheme: roomThemeOf(user.roomTheme),
     handleChangeAvailableAt: handleChangeAvailableAt(user),
+    termsUpdate: pendingTermsUpdate(user),
   });
 }
 

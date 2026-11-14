@@ -5,8 +5,8 @@ import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
- * Conta. Guarda só o necessário: nada de e-mail nem nome civil. Excluir a conta apaga a linha e,
- * em cascata, logins e sessões.
+ * Conta. Guarda só o necessário: nada de nome civil. Excluir a conta apaga a linha (e-mail
+ * inclusive) e, em cascata, logins e sessões.
  */
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -21,6 +21,16 @@ export const users = sqliteTable("users", {
   adultConfirmedAt: integer("adult_confirmed_at"),
   termsAcceptedAt: integer("terms_accepted_at"),
   termsVersion: text("terms_version"),
+  /**
+   * Última versão dos termos que a conta viu depois do aceite (fechou a faixa de aviso ou abriu o
+   * link). Nulo = só a versão aceita no primeiro acesso (`termsVersion`).
+   */
+  termsSeenVersion: text("terms_seen_version"),
+  /**
+   * E-mail vindo do Google ou do Discord, para contato e avisos de cobrança. Nulo até o primeiro
+   * login depois desta coluna existir, ou se o provedor não informar um e-mail verificado.
+   */
+  email: text("email"),
   /** Tema da sala de link fixo (um de ROOM_THEMES). */
   roomTheme: text("room_theme").notNull().default("default"),
   createdAt: integer("created_at").notNull(),

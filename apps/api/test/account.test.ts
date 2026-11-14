@@ -332,6 +332,7 @@ describe("GET /api/me", () => {
       plan: NO_PLAN.plan,
       roomTheme: "default",
       handleChangeAvailableAt: null,
+      termsUpdate: null,
     });
   });
 });

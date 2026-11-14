@@ -607,6 +607,11 @@ export const texts = {
       message: "O dono da sala removeu você. Se quiser, pode tentar entrar de novo.",
       action: "Entrar de novo",
     },
+    replaced: {
+      title: "Você abriu esta sala em outra aba",
+      message: "A sala continua aberta na outra aba. Para voltar a usá-la aqui, é só um clique.",
+      action: "Usar esta aba",
+    },
     error: {
       title: "Algo deu errado na sala",
       message: "Tivemos um problema inesperado. Tente abrir a sala de novo.",

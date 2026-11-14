@@ -74,6 +74,8 @@ export async function createTestUser(options: TestUserOptions = {}): Promise<Tes
     adultConfirmedAt: onboarded ? now : null,
     termsAcceptedAt: onboarded ? now : null,
     termsVersion: onboarded ? TERMS_VERSION : null,
+    termsSeenVersion: null,
+    email: null,
     createdAt: now,
   });
   if (options.oauth) {

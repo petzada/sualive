@@ -1,4 +1,4 @@
-import { TERMS_VERSION } from "@sualive/config";
+import { TERMS_DATE } from "@sualive/config";
 import { Brand } from "../components/Brand";
 import { PageShell } from "../components/account/PageShell";
 import { texts } from "../texts";
@@ -19,7 +19,7 @@ export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
         <header className="flex flex-col gap-3">
           <h1 className="font-display text-heading font-semibold">{copy.title}</h1>
           <p className="text-body-sm text-muted" data-testid="legal-version">
-            {texts.legal.version(versionLabel(TERMS_VERSION))}
+            {texts.legal.version(versionLabel(TERMS_DATE))}
           </p>
         </header>
 

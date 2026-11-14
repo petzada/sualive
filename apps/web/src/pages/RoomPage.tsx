@@ -12,7 +12,7 @@ import { Spinner } from "../components/icons";
 import { texts } from "../texts";
 import { ErrorPage } from "./ErrorPage";
 
-type EndPhase = Extract<RoomPhase, "ended" | "full" | "banned" | "kicked" | "error">;
+type EndPhase = Extract<RoomPhase, "ended" | "full" | "banned" | "kicked" | "replaced" | "error">;
 
 /**
  * Final states. "Try again" reloads the page: the contract has no action to go back to the lobby,

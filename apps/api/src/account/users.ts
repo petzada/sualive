@@ -127,6 +127,8 @@ export async function findOrCreateUser(
     adultConfirmedAt: null,
     termsAcceptedAt: null,
     termsVersion: null,
+    termsSeenVersion: null,
+    email: null,
     roomTheme: "default",
     createdAt: now,
   };
