@@ -30,11 +30,8 @@ function storeNickname(nickname: string) {
   }
 }
 
-function nicknameError(nickname: string): string | null {
-  const { length } = nickname;
-  if (length < NICKNAME_MIN_LENGTH) return texts.lobby.nicknameTooShort;
-  if (length > NICKNAME_MAX_LENGTH) return texts.lobby.nicknameTooLong;
-  return null;
+function isNicknameValid(nickname: string): boolean {
+  return nickname.length >= NICKNAME_MIN_LENGTH && nickname.length <= NICKNAME_MAX_LENGTH;
 }
 
 function MicrophoneMeter({ preview }: { preview: DevicePreview }) {
@@ -127,14 +124,15 @@ interface LobbyProps {
 /** Shown for `lobby` and `joining`, so the form keeps its place while the person enters. */
 export function Lobby({ state, actions }: LobbyProps) {
   const [nickname, setNickname] = useState(readStoredNickname);
-  const [showError, setShowError] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
-  const hintId = useId();
   const errorId = useId();
 
   const trimmed = nickname.trim();
-  const error = nicknameError(trimmed);
+  const valid = isNicknameValid(trimmed);
+  // The rule only shows while what was typed breaks it (or after trying to enter with nothing typed).
+  const showError = !valid && (submitted || nickname.length > 0);
 
   const turnstile = useTurnstileAction((turnstileToken) =>
     actions.join({ nickname: trimmed, turnstileToken }),
@@ -143,8 +141,8 @@ export function Lobby({ state, actions }: LobbyProps) {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (error) {
-      setShowError(true);
+    if (!valid) {
+      setSubmitted(true);
       inputRef.current?.focus();
       return;
     }
@@ -158,10 +156,11 @@ export function Lobby({ state, actions }: LobbyProps) {
       <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
         <DevicePreviewCard state={state} actions={actions} />
 
-        <form noValidate onSubmit={submit} className="flex flex-col gap-gap">
-          <h1 className="font-display text-heading font-semibold">{texts.lobby.title}</h1>
+        <form noValidate onSubmit={submit} className="flex flex-col items-center gap-gap">
+          <h1 className="text-center font-display text-heading font-semibold">{texts.lobby.title}</h1>
 
-          <div className="flex flex-col gap-2">
+          {/* Narrower than the column and centered under the title; the label follows the field's left edge. */}
+          <div className="flex w-full max-w-xs flex-col gap-2">
             <label htmlFor={inputId} className="text-body-sm font-medium">
               {texts.lobby.nicknameLabel}
             </label>
@@ -175,27 +174,24 @@ export function Lobby({ state, actions }: LobbyProps) {
               value={nickname}
               placeholder={texts.lobby.nicknamePlaceholder}
               disabled={joining}
-              aria-invalid={showError && error ? true : undefined}
-              aria-describedby={showError && error ? errorId : hintId}
+              aria-invalid={showError ? true : undefined}
+              aria-describedby={showError ? errorId : undefined}
               onChange={(event) => setNickname(event.target.value)}
               className="min-h-12 w-full rounded-field bg-canvas px-5 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
             />
-            {showError && error ? (
+            {showError && (
               <p id={errorId} role="alert" className="px-1 text-body-sm font-medium text-notice">
-                {error}
-              </p>
-            ) : (
-              <p id={hintId} className="px-1 text-body-sm text-muted">
-                {texts.lobby.nicknameHint}
+                {texts.lobby.nicknameInvalid}
               </p>
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col items-center gap-2">
+            {/* Same pill as "create room" on the home page: as wide as its text, whatever it says. */}
             <Button
               type="submit"
               variant="primary"
-              className="min-h-12 w-full rounded-button px-7 text-body font-medium"
+              className="min-h-12 rounded-button px-7 text-body font-medium"
               isDisabled={joining}
             >
               {joining && <Spinner />}

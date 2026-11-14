@@ -10,7 +10,10 @@
 
 /*
  * Variáveis de tema do HeroUI 3 (conferidas em @heroui/styles/dist/themes/default/variables.css)
- * apontadas para os tokens. Só tema claro.
+ * apontadas para os tokens. Como apontam para os tokens, acompanham o tema: com
+ * data-theme="dark" no <html> (o mesmo atributo que o HeroUI usa) os tokens mudam em tokens.css e
+ * estas variáveis mudam junto. Esta camada (base) vence a camada de tema do HeroUI, então os valores
+ * escuros do próprio HeroUI não entram.
  */
 @layer base {
   :root {
@@ -59,6 +62,10 @@
     --surface-shadow: var(--shadow-flat);
     --field-shadow: var(--shadow-flat);
     --overlay-shadow: var(--shadow-outline-soft);
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
   }
 
   body {

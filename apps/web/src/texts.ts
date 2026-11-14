@@ -45,9 +45,8 @@ export const texts = {
     title: "Entrar na sala",
     nicknameLabel: "Seu apelido",
     nicknamePlaceholder: "Como quer ser chamado",
-    nicknameHint: `De ${NICKNAME_MIN_LENGTH} a ${NICKNAME_MAX_LENGTH} caracteres.`,
-    nicknameTooShort: `O apelido precisa ter pelo menos ${NICKNAME_MIN_LENGTH} caracteres.`,
-    nicknameTooLong: `O apelido pode ter no máximo ${NICKNAME_MAX_LENGTH} caracteres.`,
+    /** Shown only while the nickname is outside the accepted length. */
+    nicknameInvalid: `De ${NICKNAME_MIN_LENGTH} a ${NICKNAME_MAX_LENGTH} caracteres.`,
     previewTitle: "Prévia de câmera e microfone",
     previewIntro: "Opcional: confira como você aparece e se o microfone capta sua voz antes de entrar.",
     previewStart: "Testar câmera e microfone",
@@ -66,6 +65,8 @@ export const texts = {
     loading: "Abrindo a sala…",
     reconnecting: "A conexão caiu. Reconectando…",
     codeLabel: "Código da sala:",
+    themeToDark: "Usar o tema escuro",
+    themeToLight: "Usar o tema claro",
     occupancy: (participants: number, capacity: number) => `${participants}/${capacity}`,
     occupancyLabel: (participants: number, capacity: number) =>
       `${participants} de ${capacity} pessoas na sala`,

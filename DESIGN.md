@@ -457,3 +457,91 @@ Create a floating #ffffff 28px-radius pricing callout over a product render usin
   --shadow-subtle-2: rgb(134, 134, 139) 0px 0px 0px 1px;
 }
 ```
+
+## Tema escuro
+
+Acréscimo ao documento original, que só descreve o tema claro. Os nomes abaixo são os nomes neutros
+de `apps/web/src/styles/tokens.css`, que é a fonte dos valores.
+
+### Regra para as próximas telas
+
+- **Toda tela nova nasce nos dois temas**: o claro exatamente como está hoje e o escuro.
+- O tema claro não muda. O escuro redefine os **mesmos** tokens sob `:root[data-theme="dark"]`; nenhum
+  componente escolhe cor por tema (nada de `dark:` nem de cor condicional no código). Quem usa só
+  tokens já funciona nos dois.
+- As variáveis do HeroUI apontam para os tokens (`styles/index.css`), então os componentes dele
+  acompanham sozinhos. O atributo fica no `<html>`, para valer também no que é desenhado fora da
+  árvore da tela (dicas, popovers).
+- Como no claro: sem gradiente e sem sombra projetada; no máximo contorno de 1px.
+
+### Tokens
+
+| Token | Papel | Claro | Escuro |
+|-------|-------|-------|--------|
+| `--color-canvas` | cartões e painéis; fundo padrão no claro | `#ffffff` | `#1c1c1e` |
+| `--color-mist` | fundo da sala, faixa alternada, blocos discretos | `#f5f5f7` | `#0e0e10` |
+| `--color-frost` | camada flutuante (dicas, popovers) | `#fafafc` | `#242426` |
+| `--color-control` | trilho de abas, avatar, controle desabilitado | `#e6e6e8` | `#2e2e31` |
+| `--color-hairline` | divisores de 1px | `#d6d6d6` | `#3a3a3d` |
+| `--color-outline` | contorno de campo e de controle | `#86868b` | `#8e8e93` |
+| `--color-ink` | títulos e corpo | `#1d1d1f` | `#f5f5f7` |
+| `--color-muted` | texto secundário | `#707070` | `#a8a8ad` |
+| `--color-link` | links em texto | `#0066cc` | `#5eadff` |
+| `--color-accent` | botão preenchido, pílula de lotação, anel de foco | `#0071e3` | `#3d9bff` |
+| `--color-on-accent` | texto e ícone sobre `accent` | `#ffffff` | `#06121f` |
+| `--color-notice` | aviso e erro em texto puro | `#b64400` | `#ff9d4d` |
+| `--color-stage` | fundo atrás do vídeo e etiquetas sobre ele | `#1d1d1f` | `#000000` |
+| `--color-on-stage` | texto sobre `stage` | `#ffffff` | `#ffffff` |
+| `--shadow-outline-soft` | contorno suave de 1px | 1px `control` | 1px `control` |
+| `--shadow-outline` | contorno de 1px | 1px `outline` | 1px `outline` |
+
+`stage` e `on-stage` existem porque o vídeo fica sobre fundo escuro nos dois temas; no claro valem o
+mesmo que `ink` e `canvas`. Os dois contornos são escritos a partir de `control` e `outline`, por isso
+acompanham o tema sem valor próprio.
+
+### Onde vale e onde fica o botão
+
+- Por enquanto **só dentro da sala** (conectado e reconectando). Página inicial, tela de entrada e as
+  telas de erro, sala acabou, cheia, removido e banido ficam sempre no claro.
+- O botão de alternar fica no topo da sala, à direita, ao lado do botão de sair: ícone de lua (ir para
+  o escuro) ou de sol (voltar ao claro), cor neutra (`canvas` + contorno suave), com rótulo acessível e
+  dica. Ele não aparece fora da sala.
+- Padrão: claro. O tema do sistema não é seguido. A escolha fica guardada no navegador
+  (`localStorage`, chave `sualive:theme`) e é aplicada ao entrar numa sala; ao sair, a interface volta
+  ao claro.
+
+### Contraste
+
+- Texto e ícones com significado: pelo menos **4,5:1** sobre a superfície em que aparecem (AA).
+  Contorno de campo e anel de foco: pelo menos **3:1**.
+- Cor nunca é o único sinal de um estado: o ícone, o texto ou o anel mudam junto.
+- Ao mudar um valor da tabela, refaça a conta dos pares abaixo (luminância relativa da WCAG 2).
+
+| Par (texto sobre fundo) | Claro | Escuro |
+|-------------------------|-------|--------|
+| `ink` sobre `canvas` | 16,8:1 | 15,6:1 |
+| `ink` sobre `mist` | 15,5:1 | 17,7:1 |
+| `ink` sobre `frost` (dica) | 16,1:1 | 14,2:1 |
+| `ink` sobre `control` | 13,5:1 | 12,4:1 |
+| `muted` sobre `canvas` | 5,0:1 | 7,2:1 |
+| `muted` sobre `mist` | 4,6:1 | 8,1:1 |
+| `muted` sobre `control` | 4,0:1 | 5,7:1 |
+| `link` sobre `canvas` | 5,6:1 | 7,2:1 |
+| `on-accent` sobre `accent` | 4,7:1 | 6,6:1 |
+| `accent` sobre `mist` (botão e anel de foco) | 4,3:1 | 6,7:1 |
+| `accent` sobre `canvas` | 4,7:1 | 5,9:1 |
+| `notice` sobre `canvas` | 5,5:1 | 8,3:1 |
+| `outline` sobre `canvas` (contorno de campo) | 3,6:1 | 5,2:1 |
+| `canvas` sobre `ink` (botão invertido) | 16,8:1 | 15,6:1 |
+| `on-stage` sobre `stage` a 70% (pior caso: vídeo branco atrás) | 6,2:1 | 8,5:1 |
+
+No claro, `muted` sobre `control` (aba não selecionada, em telas pequenas) fica em 4,0:1: é do tema
+original e não foi alterado. No escuro todos os pares de texto passam de 4,5:1.
+
+### Decisões do dono que superam o texto original
+
+- Os botões de ação da sala (microfone, câmera, tela, mão, reagir, copiar link) são **pílulas azuis
+  preenchidas** (`accent` com `on-accent`), apesar de o texto original reservar o azul preenchido a
+  controles compactos de conversão. Sair e alternar tema ficam neutros, no topo.
+- A lotação da sala (por exemplo `3/6`) é uma **pílula azul** (`accent` com `on-accent`), apesar de o
+  texto original pedir rótulos de estado sem pílula colorida.
