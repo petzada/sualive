@@ -13,7 +13,7 @@ Implementar UMA entrega de `DECISOES.md` por vez, na ordem (0 a 4), até ela est
    - Só interface e experiência de uso: modelo **Fable, esforço baixo**, seguindo `DESIGN.md`.
    - Um agente por vez em migrations, lockfile e configuração compartilhada (CI, wrangler, tsconfig, lefthook).
 4. **Instrução de cada subagente** (ele não vê esta conversa): objetivo; trechos de `DECISOES.md` que valem para a tarefa; arquivos que pode e que não pode tocar; contratos já commitados; o "O que não fazer" da entrega; critério de pronto. Ele implementa, revisa o próprio diff contra a especificação, roda lint, typecheck e testes ligados à mudança, corrige o que falhar, faz commit e push da própria branch e só então responde com: o que mudou, o que validou, branch e commit, e pendências.
-5. **Aguardar sem interferir.** Não consulte progresso nem refaça trabalho em andamento. Ao receber um resultado, confira o diff e os testes; relato não é prova. Se faltar algo, devolva ao mesmo subagente.
+5. **Aguardar sem interferir.** Não consulte progresso nem refaça trabalho em andamento. Ao receber um resultado, confira o diff e os testes; relato não é prova. Se faltar algo, devolva a ele.
 6. **Integrar em série.** Traga uma branch por vez para `entrega/<n>` com `git merge --no-ff`, resolva conflitos, rode os testes e dispare as tarefas bloqueadas.
 7. **Publicar.** Abra um único PR de `entrega/<n>` para a main, acompanhe o CI e corrija falhas num push só. Com o CI verde, valide em homologação cada item de "Entrega esperada". Só então faça squash merge; o deploy de produção roda pelo CI. Confirme o commit em `GET /api/health` e repita o teste de fumaça. Se falhar, reverta o app, nunca o banco.
 8. **Relatório final:** o que foi entregue, evidência de cada item de "Entrega esperada", commit, migrations, itens **[padrão]** interpretados e pendências.
@@ -36,4 +36,4 @@ Implementar UMA entrega de `DECISOES.md` por vez, na ordem (0 a 4), até ela est
 - A entrega em produção, com todos os itens de "Entrega esperada" de `DECISOES.md` demonstrados.
 - Um PR único, com squash merge e CI verde.
 - Worktrees dos subagentes removidos.
-- O relatório final do item 8, curto e factual.
+- O relatório final do item 8.
