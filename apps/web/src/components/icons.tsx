@@ -164,6 +164,17 @@ export const PlanIcon = () => (
   </Icon>
 );
 
+/**
+ * A coin, for the two currencies. Same color as the text around it (never gold or silver): gold is
+ * the filled one, silver the outlined one, and the name of the currency always comes with it.
+ */
+export const CoinIcon = ({ filled = false }: { filled?: boolean }) => (
+  <Icon size={18}>
+    <circle cx="12" cy="12" r="8.5" fill={filled ? "currentColor" : "none"} />
+    {!filled && <circle cx="12" cy="12" r="4.5" />}
+  </Icon>
+);
+
 /** Badge glyphs: smaller than the control icons, to sit beside a name. */
 const BADGE_ICON_SIZE = 14;
 

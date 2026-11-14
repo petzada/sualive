@@ -76,6 +76,37 @@ describe("page of the own plan", () => {
     expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
   });
 
+  it("describes a Plus received as a gift: valid until, nothing to cancel and nothing that renews", () => {
+    const plan = makeActivePlan({ cycle: "gift", renews: false, periodEnd });
+    renderApp({ path: "/plano", account: withPlan(plan) });
+
+    expect(heading()).toBe(texts.plan.title);
+    expect(
+      screen.getByText(texts.plus.status.activeUntil(texts.plus.status.cycle.gift, formatDate(periodEnd))),
+    ).toBeTruthy();
+    expect(details()).toBe(
+      `${texts.plan.details.state}${texts.plan.details.states.active}` +
+        `${texts.plan.details.cycle}${texts.plan.details.giftCycle}` +
+        `${texts.plan.details.validUntil}${formatDate(periodEnd)}`,
+    );
+    expect(screen.queryByText(texts.plan.details.renewsOn)).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
+    // It ends without an expiry warning, even close to the end.
+    expect(screen.queryByTestId("annual-expiry")).toBeNull();
+  });
+
+  it("does not warn about a gifted Plus close to its end, nor offers to subscribe over it", () => {
+    const plan = makeActivePlan({ cycle: "gift", renews: false, periodEnd: Date.now() + DAY_MS });
+    const view = renderApp({ path: "/plano", account: withPlan(plan) });
+    expect(screen.queryByTestId("annual-expiry")).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
+    view.unmount();
+
+    renderApp({ path: "/plus", account: withPlan(plan) });
+    expect(screen.queryByRole("button", { name: texts.plus.cycles.monthly.choose })).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.plus.cycles.annual.choose })).toBeNull();
+  });
+
   it("describes a plan with a payment that did not pass, as an alert, still cancelable", () => {
     const plan = makePlan({
       status: "past_due",

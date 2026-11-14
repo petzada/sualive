@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { useAccountClient } from "../components/account/AccountClient";
 import { PATHS } from "../components/account/paths";
 import { TEXT_LINK } from "../components/account/styles";
+import { WalletLinks } from "../components/account/WalletLinks";
 import { CreateRoom } from "../components/CreateRoom";
 import { ManifestoCard } from "../components/ManifestoCard";
 import { Avatar } from "../components/room/media";
@@ -28,7 +29,8 @@ function HomeLogin() {
 
 /**
  * Who is logged: a block of its own after the create button (as far from it as the other blocks of
- * the column are from each other): only the picture and the nickname, leading to the profile.
+ * the column are from each other): the picture and the nickname, leading to the profile, and under
+ * them the ways to the wallet and the shop.
  */
 function HomeAccount() {
   const { state } = useAccountClient().useAccount();
@@ -45,6 +47,7 @@ function HomeAccount() {
         <Avatar nickname={user.nickname} avatarUrl={user.avatarUrl} size="xs" />
         <span className="truncate">{user.nickname}</span>
       </Link>
+      <WalletLinks className="justify-center" />
     </div>
   );
 }
