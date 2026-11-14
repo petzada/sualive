@@ -583,7 +583,8 @@ idiomas e outros meios de pagamento.
 | Cosméticos | cores 70; degradês 200; molduras 200 a 400; pacotes de reações 280 |
 | Selo de apoiador inicial | 100 primeiros pagantes |
 | Avisos de saldo na sala protegida | 10 e 2 minutos; tolerância de 3 minutos |
-| Registro de acesso | 6 meses |
+| Registro de acesso | 6 meses (183 dias) |
+| Limites de frequência por pessoa | chat 5 a cada 5 s; reações 10 a cada 5 s; levantar ou baixar a mão 6 a cada 30 s; ligar ou desligar o microfone 10 a cada 10 s **[padrão]** |
 
 A tabela de preço da sala no servidor da versão anterior (150 a 4.300 de ouro por hora) foi retirada:
 ficava abaixo do custo do pior caso. A da sala grande será feita pela regra de preço quando a etapa chegar.
