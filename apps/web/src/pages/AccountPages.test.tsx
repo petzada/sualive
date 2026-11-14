@@ -407,7 +407,7 @@ describe("plan", () => {
 
   it("formats cents the Brazilian way", () => {
     expect(formatCents(1990).replace(/\s/g, " ")).toBe("R$ 19,90");
-    expect(formatCents(15920).replace(/\s/g, " ")).toBe("R$ 159,20");
+    expect(formatCents(15990).replace(/\s/g, " ")).toBe("R$ 159,90");
   });
 
   it("takes a visitor to the login when a cycle is chosen, to come back with it", () => {

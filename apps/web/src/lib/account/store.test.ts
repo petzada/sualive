@@ -290,7 +290,7 @@ describe("ações", () => {
     const checkout = {
       paymentId: "pay_1",
       cycle: "annual",
-      amountCents: 15920,
+      amountCents: 15990,
       brCode: "000201...",
       qrCodeImageUrl: "https://woovi.test/qr.png",
       expiresAt: 1_900_000_000_000,
