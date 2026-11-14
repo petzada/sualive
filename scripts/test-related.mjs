@@ -14,6 +14,8 @@ import { resolve } from "node:path";
 const CODE = /\.[cm]?[jt]sx?$/;
 // Acima disso a linha de comando fica longa demais (Windows); roda a suíte dos pacotes afetados.
 const MAX_FILES = 150;
+// O cmd do Windows aceita cerca de 8191 caracteres por linha; com folga para o resto do comando.
+const MAX_ARGS_LENGTH = 6000;
 
 const base = process.env.TURBO_SCM_BASE || "origin/main";
 const root = resolve(git(["rev-parse", "--show-toplevel"]));
@@ -51,7 +53,8 @@ if (changed.length === 0) {
 }
 
 console.log(`test:related: ${changed.length} arquivo(s) alterado(s) desde ${base}.`);
-if (changed.length > MAX_FILES) {
+const argsLength = changed.reduce((total, file) => total + file.length + 1, 0);
+if (changed.length > MAX_FILES || argsLength > MAX_ARGS_LENGTH) {
   turbo(["run", "test", "--affected", "--concurrency=1"]);
 } else {
   turbo(["run", "test:related", "--affected", "--concurrency=1", "--", ...changed]);

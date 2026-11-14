@@ -4,10 +4,12 @@ import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
 import { PATHS } from "./components/account/paths";
 import { DebugError } from "./components/DebugError";
+import { MANIFESTO_PATH } from "./components/ManifestoCard";
 import { ErrorPage } from "./pages/ErrorPage";
 import { HomePage } from "./pages/HomePage";
 import { LegalPage } from "./pages/LegalPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ManifestoPage } from "./pages/ManifestoPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { PlusPage } from "./pages/PlusPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -50,6 +52,7 @@ function AppRoutes() {
     <>
       <Routes>
         <Route path={PATHS.home} element={<HomePage />} />
+        <Route path={MANIFESTO_PATH} element={<ManifestoPage />} />
         <Route path={`${ROOM_PATH_PREFIX}:code`} element={<RoomPage />} />
         <Route path={PATHS.login} element={<LoginPage />} />
         <Route path={PATHS.onboarding} element={<OnboardingPage />} />

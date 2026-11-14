@@ -418,6 +418,23 @@ export const texts = {
       error: "Não foi possível criar a sala agora. Tente de novo em instantes.",
     },
   },
+  manifesto: {
+    /** Browser tab title while the page is open. */
+    pageTitle: `Manifesto · ${APP_NAME}`,
+    title: "Tela compartilhada é companhia.",
+    /**
+     * One entry per paragraph. When reporting exists in the product, the last paragraph ends with
+     * "E quem vê algo errado pode denunciar." (see MANIFESTO.md).
+     */
+    paragraphs: [
+      "A gente acredita que dividir a tela é uma forma de estar junto. Quem mostra, convida. Quem assiste, faz companhia.",
+      "Em agosto de 2026, uma decisão oficial suspendeu o vídeo e o compartilhamento de tela do Discord no Brasil. A medida veio depois de casos graves envolvendo menores. Proteger crianças e adolescentes é dever de toda plataforma, inclusive desta.",
+      "Com a suspensão, interrompeu-se um hábito de muita gente: o filme visto a dois em cidades diferentes, a partida acompanhada pelos amigos, o trabalho mostrado a quem pediu para ver.",
+      `A gente fez o ${APP_NAME} para isso. Aqui, nada é gravado. Quando a sala acaba, a conversa acaba com ela.`,
+    ],
+    closing: "A gente só quer se divertir junto.",
+    ageNotice: `O ${APP_NAME} é uma plataforma para maiores de 18 anos.`,
+  },
   lobby: {
     title: "Entrar na sala",
     nicknameLabel: "Seu apelido",

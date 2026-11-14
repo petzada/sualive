@@ -1,22 +1,12 @@
-import { Button } from "@heroui/react";
-import { ROOM_PATH_PREFIX } from "@sualive/config";
-import { useState } from "react";
-import { useNavigate } from "react-router";
 import { Link } from "react-router";
 import { useAccountClient } from "../components/account/AccountClient";
 import { SiteFooter } from "../components/account/PageShell";
 import { PATHS } from "../components/account/paths";
 import { TEXT_LINK } from "../components/account/styles";
-import { Avatar } from "../components/room/media";
+import { CreateRoom } from "../components/CreateRoom";
 import { ManifestoCard } from "../components/ManifestoCard";
-import { useRoomClient } from "../components/room/RoomClient";
-import { TurnstileField } from "../components/TurnstileField";
-import { useTurnstileAction } from "../components/useTurnstileAction";
-import type { CreateRoomResult } from "../lib/room";
-import { Spinner } from "../components/icons";
+import { Avatar } from "../components/room/media";
 import { texts } from "../texts";
-
-type CreateFailure = Extract<CreateRoomResult, { ok: false }>["reason"];
 
 /**
  * The way into the account: a plain line of text right under the create button, never a button.
@@ -51,26 +41,6 @@ function HomeAccount() {
 }
 
 export function HomePage() {
-  const { createRoom } = useRoomClient();
-  const navigate = useNavigate();
-  const [failure, setFailure] = useState<CreateFailure | null>(null);
-
-  const turnstile = useTurnstileAction(async (token) => {
-    let result: CreateRoomResult;
-    try {
-      result = await createRoom(token);
-    } catch {
-      result = { ok: false, reason: "error" };
-    }
-    if (result.ok) {
-      await navigate(ROOM_PATH_PREFIX + result.code);
-    } else {
-      setFailure(result.reason);
-    }
-  });
-
-  const busy = turnstile.status !== "idle";
-
   return (
     <div className="flex min-h-dvh flex-col">
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-5 py-8">
@@ -87,32 +57,7 @@ export function HomePage() {
               ))}
             </p>
 
-            <Button
-              variant="primary"
-              className="mt-2 min-h-12 rounded-button px-7 text-body font-medium"
-              isDisabled={busy}
-              onPress={() => {
-                setFailure(null);
-                turnstile.trigger();
-              }}
-            >
-              {busy && <Spinner />}
-              {turnstile.status === "running"
-                ? texts.home.creating
-                : turnstile.status === "waiting"
-                  ? texts.turnstile.checking
-                  : texts.home.create}
-            </Button>
-            <HomeAccount />
-            <p className="text-body-sm text-muted">{texts.home.hint}</p>
-
-            {failure && (
-              <p role="alert" className="max-w-md text-body-sm font-medium text-notice">
-                {texts.home.errors[failure]}
-              </p>
-            )}
-
-            <TurnstileField {...turnstile} />
+            <CreateRoom hint={texts.home.hint} className="mt-2" afterButton={<HomeAccount />} />
           </div>
 
           <ManifestoCard />
