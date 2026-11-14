@@ -170,7 +170,13 @@ rooms.post("/", rateLimit, async (c) => {
 });
 
 rooms.get("/:key", async (c) => {
-  const ended = { status: "ended" as const, participants: 0, capacity: ROOM_MAX_PEOPLE, fixed: false };
+  const ended = {
+    status: "ended" as const,
+    participants: 0,
+    capacity: ROOM_MAX_PEOPLE,
+    fixed: false,
+    protected: false,
+  };
   const key = parseKey(c);
   if (!key || !(await openTarget(c.env, key))) return c.json(roomInfoResponseSchema.parse(ended));
   const info = await roomStub(c.env, key).info();

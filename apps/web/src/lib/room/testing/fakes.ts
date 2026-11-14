@@ -7,7 +7,7 @@ import type {
   MediaSessionOptions,
   VideoKind,
 } from "@sualive/media";
-import { REACTIONS } from "@sualive/config";
+import { REACTIONS, ROOM_MAX_PEOPLE, WATCHED_VIDEOS_PER_PERSON } from "@sualive/config";
 import type { ClientMessage, MeUser, Participant, ServerMessage } from "@sualive/protocol";
 import { vi, type Mock } from "vitest";
 import type { AccountSource, RoomDeps, SocketHandlers, SocketLike, StorageLike } from "../deps";
@@ -242,6 +242,7 @@ export function meUser(overrides: Partial<MeUser> = {}): MeUser {
     roomTheme: "default",
     handleChangeAvailableAt: null,
     termsUpdate: null,
+    fixedRoomProtected: false,
     ...overrides,
   };
 }
@@ -371,12 +372,25 @@ export function participant(id: string, overrides: Partial<Participant> = {}): P
     badges: [],
     cosmetics: null,
     canReceiveGold: false,
+    isModerator: false,
     ...overrides,
   };
 }
 
 /** Campos do `welcome` que valem para a sala e para a própria pessoa, com os valores padrão. */
 export const welcomeDefaults = {
-  room: { theme: "default" as const, fixed: false, ownerHandle: null },
-  limits: { videosPerPerson: 1, reactions: [...REACTIONS] as string[] },
+  room: {
+    theme: "default" as const,
+    fixed: false,
+    ownerHandle: null,
+    protected: false,
+    capacity: ROOM_MAX_PEOPLE,
+    maxVideos: null as number | null,
+  },
+  limits: {
+    videosPerPerson: 1,
+    reactions: [...REACTIONS] as string[],
+    watchedVideos: WATCHED_VIDEOS_PER_PERSON,
+    relayVideo: false,
+  },
 };

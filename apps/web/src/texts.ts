@@ -580,6 +580,8 @@ export const texts = {
         welcome: "Prata de boas-vindas",
         plus_gold: "Ouro do Plus",
         gold_purchase: "Compra de ouro",
+        relay_video: "Vídeo em retransmissão",
+        protected_room: "Sala protegida",
         shop_purchase: (item: string | null) => (item ? `Compra na loja: ${item}` : "Compra na loja"),
         gift_sent: (who: string) => `Ouro enviado para ${who}`,
         gift_received: (who: string) => `Ouro recebido de ${who}`,

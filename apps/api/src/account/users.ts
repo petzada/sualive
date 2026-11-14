@@ -150,6 +150,7 @@ export async function findOrCreateUser(
     termsVersion: null,
     termsSeenVersion: null,
     email: profile.email,
+    fixedRoomProtected: 0,
     roomTheme: "default",
     createdAt: now,
   };

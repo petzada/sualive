@@ -28,6 +28,8 @@ export const ERROR_STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   self_gift: 400,
   already_owned: 409,
   not_owned: 409,
+  protected_unavailable: 503,
+  room_in_use: 409,
 };
 
 /** Resposta de erro da API: `{ error }` com o status do mapa. */

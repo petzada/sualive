@@ -6,6 +6,7 @@ import {
   ROOM_MAX_PEOPLE,
   ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
+  WATCHED_VIDEOS_PER_PERSON,
   type RoomTheme,
 } from "@sualive/config";
 import {
@@ -97,6 +98,7 @@ export interface RoomInfo {
   status: "open" | "ended";
   participants: number;
   fixed: boolean;
+  protected: boolean;
 }
 
 interface RoomMeta {
@@ -150,7 +152,15 @@ const CHAT_PREFIX = "chat:";
 /** Máximo de chaves por chamada de `storage.delete`. */
 const DELETE_BATCH = 128;
 
-const DEFAULT_ROOM: RoomSettings = { theme: "default", fixed: false, ownerHandle: null };
+// Entrega 4: valor provisório do contrato; a tarefa da sala troca pelo definitivo.
+const DEFAULT_ROOM: RoomSettings = {
+  theme: "default",
+  fixed: false,
+  ownerHandle: null,
+  protected: false,
+  capacity: ROOM_MAX_PEOPLE,
+  maxVideos: null,
+};
 
 function chatKey(seq: number): string {
   return `${CHAT_PREFIX}${seq.toString().padStart(12, "0")}`;
@@ -228,8 +238,13 @@ export class RoomBase extends DurableObject<AppEnv> {
 
   /** Estado público. Só lê: não cria nada no storage para código inexistente. */
   info(): RoomInfo {
-    if (!this.meta) return { status: "ended", participants: 0, fixed: false };
-    return { status: "open", participants: this.presentIds().size, fixed: Boolean(this.meta.fixed) };
+    if (!this.meta) return { status: "ended", participants: 0, fixed: false, protected: false };
+    return {
+      status: "open",
+      participants: this.presentIds().size,
+      fixed: Boolean(this.meta.fixed),
+      protected: false,
+    };
   }
 
   /** Registra a admissão de uma sessão (depois do Turnstile), recusando banidos e sala cheia. */
@@ -492,7 +507,13 @@ export class RoomBase extends DurableObject<AppEnv> {
     this.send(ws, {
       type: "welcome",
       room: this.settings(),
-      limits: { videosPerPerson: connection.videosPerPerson, reactions: reactionsOf(connection) },
+      // Entrega 4: valor provisório do contrato; a tarefa da sala troca pelo definitivo.
+      limits: {
+        videosPerPerson: connection.videosPerPerson,
+        reactions: reactionsOf(connection),
+        watchedVideos: WATCHED_VIDEOS_PER_PERSON,
+        relayVideo: false,
+      },
       self: connection.participantId,
       participants: this.readySockets().map((s) => toParticipant(attachmentOf(s))),
       chat: [...history.values()].slice(-CHAT_HISTORY_SIZE),
@@ -679,7 +700,7 @@ export class RoomBase extends DurableObject<AppEnv> {
   private settings(): RoomSettings {
     const fixed = this.meta?.fixed;
     if (!fixed) return DEFAULT_ROOM;
-    return { theme: fixed.theme, fixed: true, ownerHandle: fixed.handle };
+    return { ...DEFAULT_ROOM, theme: fixed.theme, fixed: true, ownerHandle: fixed.handle };
   }
 
   /** Aplica uma mudança no estado da conexão e avisa todos com `participant.updated`. */
@@ -778,6 +799,8 @@ function toParticipant(connection: Connection): Participant {
     // Lidos da conta ao conectar; trocar o que está equipado vale na próxima conexão.
     cosmetics: connection.userId !== null ? (connection.cosmetics ?? null) : null,
     canReceiveGold: connection.userId !== null,
+    // Entrega 4: valor provisório do contrato; a tarefa da sala troca pelo definitivo.
+    isModerator: false,
   };
 }
 

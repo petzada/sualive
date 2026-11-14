@@ -74,7 +74,7 @@ async function connect({
     participants: [self, ...others],
     chat: [],
     room,
-    limits: { videosPerPerson, reactions: [...welcomeDefaults.limits.reactions] },
+    limits: { ...welcomeDefaults.limits, videosPerPerson },
   });
   await flush();
 }
@@ -123,7 +123,7 @@ describe("sala de link fixo (@nome)", () => {
       self: "me",
       participants: [participant("me", { isOwner: true })],
       chat: [],
-      room: { theme: "ocean", fixed: true, ownerHandle: "ana" },
+      room: { ...welcomeDefaults.room, theme: "ocean", fixed: true, ownerHandle: "ana" },
       limits: welcomeDefaults.limits,
     });
     await flush();
@@ -279,14 +279,14 @@ describe("vídeos por pessoa", () => {
 });
 
 describe("tema da sala", () => {
-  const fixedRoom = { theme: "default", fixed: true, ownerHandle: "ana" } as const;
+  const fixedRoom = { ...welcomeDefaults.room, fixed: true, ownerHandle: "ana" };
 
   it("room.updated muda o tema para todos", async () => {
     await connect();
     expect(state().theme).toBe("default");
     const update: ServerMessage = {
       type: "room.updated",
-      room: { theme: "sunset", fixed: false, ownerHandle: null },
+      room: { ...welcomeDefaults.room, theme: "sunset" },
     };
     h.socket.receive(update);
     expect(state().theme).toBe("sunset");

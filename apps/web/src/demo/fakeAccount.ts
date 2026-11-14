@@ -110,6 +110,7 @@ function userOf(account: DemoAccount): MeUser | null {
     plan,
     roomTheme: "default",
     handleChangeAvailableAt: account === "cancelado" ? Date.now() + 12 * DAY_MS : null,
+    fixedRoomProtected: false,
     termsUpdate: account === "aviso" ? TERMS_VERSION : null,
   };
 }

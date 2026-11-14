@@ -83,6 +83,7 @@ export async function createTestUser(options: TestUserOptions = {}): Promise<Tes
       options.termsVersion !== undefined ? options.termsVersion : onboarded ? TERMS_VERSION : null,
     termsSeenVersion: options.termsSeenVersion ?? null,
     email: options.email ?? null,
+    fixedRoomProtected: 0,
     createdAt: now,
   });
   if (options.oauth) {

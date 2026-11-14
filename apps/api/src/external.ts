@@ -31,7 +31,11 @@ export async function verifyTurnstile(env: AppEnv, token: string, ip: string | n
 }
 
 function stunOnly(): IceServersResponse {
-  return { iceServers: [{ urls: CLOUDFLARE_STUN_URL }], ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS };
+  return {
+    iceServers: [{ urls: CLOUDFLARE_STUN_URL }],
+    ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS,
+    relayOnly: false,
+  };
 }
 
 /** A porta alternativa 53 é bloqueada pelos navegadores (só faz o ICE esperar o tempo limite). */
@@ -65,7 +69,11 @@ export async function generateIceServers(env: AppEnv): Promise<IceServersRespons
     const iceServers = parsed
       .map((server) => ({ ...server, urls: withoutPort53(server.urls) }))
       .filter((server) => server.urls.length > 0);
-    return iceServersResponseSchema.parse({ iceServers, ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS });
+    return iceServersResponseSchema.parse({
+      iceServers,
+      ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS,
+      relayOnly: false,
+    });
   } catch (error) {
     captureException(error);
     return stunOnly();

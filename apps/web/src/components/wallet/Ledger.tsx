@@ -18,6 +18,8 @@ function describe(entry: LedgerEntry): string {
     case "welcome":
     case "plus_gold":
     case "gold_purchase":
+    case "relay_video":
+    case "protected_room":
       return reasons[entry.reason];
     case "shop_purchase":
       return reasons.shop_purchase(entry.itemName);

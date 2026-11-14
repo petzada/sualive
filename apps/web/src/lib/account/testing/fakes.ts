@@ -97,6 +97,7 @@ export function meUser(overrides: Partial<MeUser> = {}): MeUser {
     roomTheme: "default",
     handleChangeAvailableAt: null,
     termsUpdate: null,
+    fixedRoomProtected: false,
     ...overrides,
   };
 }

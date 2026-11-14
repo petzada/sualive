@@ -52,6 +52,7 @@ export async function toMeUser(env: AppEnv, user: UserRow): Promise<MeUser> {
     roomTheme: roomThemeOf(user.roomTheme),
     handleChangeAvailableAt: handleChangeAvailableAt(user),
     termsUpdate: pendingTermsUpdate(user),
+    fixedRoomProtected: user.fixedRoomProtected === 1,
   });
 }
 
