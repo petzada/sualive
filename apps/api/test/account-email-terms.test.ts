@@ -1,5 +1,6 @@
 import { TERMS_VERSION } from "@sualive/config";
 import { apiErrorSchema, meResponseSchema, meUserSchema } from "@sualive/protocol";
+import { env } from "cloudflare:workers";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EMAIL_MAX_LENGTH, normalizeEmail } from "../src/auth/providers";
@@ -69,6 +70,34 @@ describe("normalizeEmail", () => {
 });
 
 describe("e-mail no login", () => {
+  it("cada login grava uma linha no registro de acesso, com a conta e sem derrubar o login", async () => {
+    const sub = `g-${crypto.randomUUID()}`;
+    mockOutboundFetch(
+      fakeOAuthProviders({ acesso: { body: { sub, name: "Ana", email_verified: false } } }).handler,
+    );
+    const before = Date.now();
+    expect((await completeLogin("google", "acesso")).accountCookie).not.toBeNull();
+    expect((await completeLogin("google", "acesso")).accountCookie).not.toBeNull();
+    const userId = await userIdOfLogin("google", sub);
+    const { results } = await (env as unknown as { DB: D1Database }).DB.prepare(
+      "SELECT kind, session_id, ip, room_key, created_at FROM access_log WHERE user_id = ?1",
+    )
+      .bind(userId)
+      .all<{
+        kind: string;
+        session_id: string | null;
+        ip: string;
+        room_key: string | null;
+        created_at: number;
+      }>();
+    expect(results).toHaveLength(2);
+    for (const row of results) {
+      expect(row).toMatchObject({ kind: "login", session_id: null, room_key: null });
+      expect(row.ip).toMatch(/^[0-9a-f.:]+$/i);
+      expect(row.created_at).toBeGreaterThanOrEqual(before);
+    }
+  });
+
   it("conta nova do Google grava o e-mail verificado, normalizado", async () => {
     const sub = `g-${crypto.randomUUID()}`;
     mockOutboundFetch(

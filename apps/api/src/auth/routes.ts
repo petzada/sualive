@@ -2,7 +2,9 @@ import { authProviderSchema, type AuthProvider } from "@sualive/protocol";
 import { generateCodeVerifier, generateState } from "arctic";
 import { Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
-import { apiError, type Ctx, type Env } from "../account/http";
+import { captureMessage } from "@sentry/cloudflare";
+import { recordAccess } from "../access/log";
+import { apiError, clientIp, type Ctx, type Env } from "../account/http";
 import { findOrCreateUser } from "../account/users";
 import { safeEqual } from "../crypto";
 import { sameOriginOnly } from "./csrf";
@@ -136,6 +138,18 @@ auth.get("/:provider/callback", async (c) => {
   // Sessão nova a cada login; a anterior deste navegador (se houver) deixa de valer.
   await deleteAccountSession(c);
   setAccountCookie(c, await createAccountSession(c.env, user.id));
+  // Registro de acesso (Marco Civil): conta, IP, data e hora do login. Não impede o login.
+  try {
+    await recordAccess(c.env, {
+      kind: "login",
+      userId: user.id,
+      sessionId: null,
+      ip: clientIp(c),
+      now: Date.now(),
+    });
+  } catch {
+    captureMessage("registro de acesso: falha ao gravar o login", "error");
+  }
 
   if (!isOnboarded(user)) {
     return c.redirect(`${ONBOARDING_PATH}?returnTo=${encodeURIComponent(flow.returnTo)}`, 302);
