@@ -44,6 +44,8 @@ const SEEDS = {
   receiver: { handle: "e2e_recebe", nickname: "Rita", silver: 300 },
   roomGiver: { handle: "e2e_sala_envia", nickname: "Caio", gold: 1000 },
   roomReceiver: { handle: "e2e_sala_recebe", nickname: "Nara" },
+  plusGiver: { handle: "e2e_plus_envia", nickname: "Otto", gold: 2000 },
+  plusReceiver: { handle: "e2e_plus_recebe", nickname: "Iris" },
 } satisfies Record<string, AccountSeed>;
 
 export type AccountName = keyof typeof SEEDS;

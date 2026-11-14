@@ -499,3 +499,133 @@ test("ouro enviado na sala: sai de quem envia, chega a quem recebe e a sala inte
   await expect(giver.page.getByRole("alert")).toContainText(texts.gifts.errors.insufficient_funds);
   expect(await walletOf(giver.page)).toMatchObject({ gold: 750, goldSentToday: 250 });
 });
+
+interface ShopEntry {
+  id: string;
+  owned: boolean;
+  equipped: boolean;
+}
+
+async function shopItem(page: Page, id: string): Promise<ShopEntry | undefined> {
+  const response = await page.request.get("/api/shop");
+  expect(response.ok()).toBe(true);
+  const { items } = (await response.json()) as { items: ShopEntry[] };
+  return items.find((item) => item.id === id);
+}
+
+test("loja: compra com prata e com ouro, equipa, e a sala mostra o nome colorido", async ({ browser }) => {
+  const shopper = await newPerson(browser, "shopper");
+  const { page } = shopper;
+  await page.goto("/");
+  await page.getByRole("link", { name: texts.nav.shop, exact: true }).click();
+  await expect(page.getByRole("heading", { name: texts.shop.title, level: 1 })).toBeVisible();
+
+  // Cor a 100, paga com prata.
+  const red = page.getByTestId("shop-item-color_red");
+  await red.getByRole("button", { name: texts.shop.buyLabel("Vermelho") }).click();
+  await red.getByRole("button", { name: texts.shop.payWith.silver }).click();
+  await expect(red).toHaveAttribute("data-owned", "true");
+  expect(await walletOf(page)).toMatchObject({ silver: 200, gold: 500 });
+
+  // Moldura a 300, paga com ouro.
+  const frame = page.getByTestId("shop-item-frame_sky");
+  await frame.getByRole("button", { name: texts.shop.buyLabel("Céu") }).click();
+  await frame.getByRole("button", { name: texts.shop.payWith.gold }).click();
+  await expect(frame).toHaveAttribute("data-owned", "true");
+  expect(await walletOf(page)).toMatchObject({ silver: 200, gold: 200 });
+
+  // Degradê a 300 com 200 de prata: recusado, e nada é entregue.
+  const gradient = page.getByTestId("shop-item-gradient_ocean");
+  await gradient.getByRole("button", { name: texts.shop.buyLabel("Oceano") }).click();
+  await gradient.getByRole("button", { name: texts.shop.payWith.silver }).click();
+  await expect(gradient.getByRole("alert")).toContainText(texts.wallet.errors.insufficientFunds);
+  expect((await shopItem(page, "gradient_ocean"))?.owned).toBe(false);
+  expect(await walletOf(page)).toMatchObject({ silver: 200, gold: 200 });
+
+  await red.getByRole("button", { name: texts.shop.equipLabel("Vermelho") }).click();
+  await expect(red).toHaveAttribute("data-equipped", "true");
+  await frame.getByRole("button", { name: texts.shop.equipLabel("Céu") }).click();
+  await expect(frame).toHaveAttribute("data-equipped", "true");
+
+  // Na sala, todos veem o nome na cor e o avatar com a moldura.
+  const guest = await newPerson(browser);
+  const room = await createRoom(guest.page);
+  await joinAsGuest(guest.page, "Visita");
+  await page.goto(room);
+  await joinWithAccount(page, account("shopper").nickname);
+  for (const viewer of [guest.page, page]) {
+    const row = personRow(viewer, account("shopper").nickname);
+    await expect(row.locator('[data-cosmetic="name"]')).toHaveText(account("shopper").nickname);
+    await expect(row.locator('[data-cosmetic="frame"]')).toBeVisible();
+  }
+  await expect(personRow(page, "Visita").locator("[data-cosmetic]")).toHaveCount(0);
+});
+
+test("carteira: saldos e extrato, envio de ouro por @nome com limite diário", async ({ browser }) => {
+  const giver = await newPerson(browser, "giver");
+  const receiver = await newPerson(browser, "receiver");
+  const { page } = giver;
+  const to = handleOf("receiver");
+
+  await page.goto("/carteira");
+  await expect(page.getByRole("heading", { name: texts.wallet.title, level: 1 })).toBeVisible();
+  await expect(page.getByTestId("balance-gold")).toContainText("3.000");
+  await expect(page.getByTestId("balance-silver")).toContainText("300");
+  await expect(page.getByTestId("wallet-notice")).toBeVisible();
+  // Sem a Woovi neste ambiente, a compra de ouro fica indisponível (nada é creditado sem ela).
+  await expect(page.getByTestId("gold-unavailable")).toBeVisible();
+
+  const send = page.getByTestId("send-gold");
+  async function sendGold(handle: string, amount: string) {
+    await send.getByLabel(texts.wallet.send.handleLabel).fill(handle);
+    await send.getByLabel(texts.wallet.send.amountLabel).fill(amount);
+    await send.getByRole("button", { name: texts.wallet.send.submit }).click();
+    await send.getByRole("button", { name: texts.wallet.send.confirm }).click();
+  }
+
+  // @nome com "@" e maiúsculas chega certo.
+  await sendGold(`@${to.toUpperCase()}`, "1500");
+  await expect.poll(async () => (await walletOf(receiver.page)).gold).toBe(1500);
+  expect(await walletOf(page)).toMatchObject({ gold: 1500, goldSentToday: 1500 });
+
+  // 1.500 + 600 passaria de 2.000 no dia: recusado.
+  await sendGold(to, "600");
+  await expect(send.getByRole("alert")).toContainText(texts.wallet.errors.dailyLimit);
+  expect(await walletOf(page)).toMatchObject({ gold: 1500, goldSentToday: 1500 });
+  expect((await walletOf(receiver.page)).gold).toBe(1500);
+
+  // Presente de Plus com 1.500 de ouro (custa 1.990): recusado, e quem receberia continua sem Plus.
+  const gift = page.getByTestId("gift-plus");
+  await gift.getByLabel(texts.wallet.giftPlus.handleLabel).fill(to);
+  await gift.getByRole("button", { name: texts.wallet.giftPlus.submit }).click();
+  await gift.getByRole("button", { name: texts.wallet.giftPlus.confirm }).click();
+  await expect(gift.getByRole("alert")).toContainText(texts.wallet.errors.insufficientFunds);
+  const receiverUser = (await me(receiver.page)).user as unknown as { plan: { plus: boolean } };
+  expect(receiverUser.plan.plus).toBe(false);
+
+  // O extrato de quem recebeu mostra o ouro e de quem veio.
+  await receiver.page.goto("/carteira");
+  const entries = receiver.page.getByTestId("ledger-entry");
+  await expect(entries.filter({ hasText: `@${handleOf("giver")}` })).toHaveCount(1);
+});
+
+test("presente de Plus: debita 1.990 de ouro e dá 30 dias de Plus a outra conta", async ({ browser }) => {
+  const giver = await newPerson(browser, "plusGiver");
+  const receiver = await newPerson(browser, "plusReceiver");
+  await giver.page.goto("/carteira");
+  const gift = giver.page.getByTestId("gift-plus");
+  await gift.getByLabel(texts.wallet.giftPlus.handleLabel).fill(handleOf("plusReceiver"));
+  await gift.getByRole("button", { name: texts.wallet.giftPlus.submit }).click();
+  await gift.getByRole("button", { name: texts.wallet.giftPlus.confirm }).click();
+  await expect(giver.page.getByText(texts.wallet.giftPlus.done(handleOf("plusReceiver")))).toBeVisible();
+  expect(await walletOf(giver.page)).toMatchObject({ gold: 10, goldSentToday: 0 });
+
+  const user = (await me(receiver.page)).user as unknown as {
+    plan: { plus: boolean; cycle: string | null; renews: boolean };
+    badges: string[];
+  };
+  expect(user.plan).toMatchObject({ plus: true, cycle: "gift", renews: false });
+  expect(user.badges).toEqual(["plus"]);
+  // Plus de presente não rende ouro.
+  expect((await walletOf(receiver.page)).gold).toBe(0);
+});
