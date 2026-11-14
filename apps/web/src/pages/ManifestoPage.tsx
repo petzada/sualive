@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
+import { SiteFooter } from "../components/account/PageShell";
 import { CreateRoom } from "../components/CreateRoom";
 import { PeopleCards } from "../components/PeopleCards";
 import { texts } from "../texts";
@@ -10,7 +11,7 @@ import { texts } from "../texts";
  */
 export const MANIFESTO_PHOTOS = ["manifesto-1.jpg", "manifesto-2.jpg", "manifesto-3.jpg"] as const;
 
-/** The manifesto: a reading column, the "create room" button, the photos and the legal footer. */
+/** The manifesto: a reading column, the "create room" button, the photos, the age line and the legal links. */
 export function ManifestoPage() {
   useEffect(() => {
     const previous = document.title;
@@ -54,9 +55,8 @@ export function ManifestoPage() {
         <PeopleCards photos={MANIFESTO_PHOTOS} />
       </main>
 
-      <footer className="px-5 pt-18 pb-14 text-center text-compact text-muted">
-        <p>{texts.manifesto.ageNotice}</p>
-      </footer>
+      <p className="px-5 pt-18 pb-2 text-center text-compact text-muted">{texts.manifesto.ageNotice}</p>
+      <SiteFooter />
     </div>
   );
 }

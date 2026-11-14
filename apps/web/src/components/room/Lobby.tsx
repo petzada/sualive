@@ -76,6 +76,9 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
     setRequest("done");
   };
 
+  // Nothing asked yet: the card only offers the test, and the line under it says it is optional.
+  const offering = !preview && request !== "done";
+
   return (
     <section aria-label={texts.lobby.previewTitle} className="flex w-full flex-col gap-3">
       <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-card bg-mist">
@@ -92,8 +95,7 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
         ) : request === "done" ? (
           <p className="px-6 text-center text-body-sm text-muted">{texts.lobby.previewUnavailable}</p>
         ) : (
-          <div className="flex flex-col items-center gap-3 px-6 text-center">
-            <p className="max-w-xs text-body-sm text-muted">{texts.lobby.previewIntro}</p>
+          <div className="flex flex-col items-center gap-3 px-4 text-center">
             <Button
               variant="outline"
               className="min-h-11 rounded-button border-outline bg-canvas px-5 text-body-sm"
@@ -103,6 +105,8 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
               {request === "starting" && <Spinner />}
               {request === "starting" ? texts.lobby.previewStarting : texts.lobby.previewStart}
             </Button>
+            {/* One line wherever it fits; a narrow phone may break it. */}
+            <p className="text-body-sm text-muted sm:whitespace-nowrap">{texts.lobby.mutedHint}</p>
           </div>
         )}
       </div>
@@ -115,6 +119,10 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
         ) : (
           <p className="px-1 text-body-sm text-muted">{texts.lobby.previewNoMicrophone}</p>
         ))}
+      {/* Outside the card and centered under it. Once the test ran, the muted reminder takes the place. */}
+      <p className="mx-auto mt-2 max-w-sm text-center text-body-sm text-muted">
+        {offering ? texts.lobby.previewIntro : texts.lobby.mutedHint}
+      </p>
     </section>
   );
 }
@@ -160,76 +168,80 @@ export function Lobby({ state, actions }: LobbyProps) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center gap-6 px-5 py-10">
       <NoticeBanner notice={state.notice} onDismiss={actions.dismissNotice} />
-      <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
+      <div className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
         <DevicePreviewCard state={state} actions={actions} />
 
-        <form noValidate onSubmit={submit} className="flex flex-col items-center gap-gap">
+        {/* Blocks as far apart as the blocks of the home page; what belongs together stays closer. */}
+        <form noValidate onSubmit={submit} className="flex flex-col items-center gap-10">
           <h1 className="text-center font-display text-heading font-semibold">{texts.lobby.title}</h1>
 
-          {accountNickname !== null ? (
-            <p
-              data-testid="joining-as"
-              className="flex max-w-full items-center gap-3 rounded-button bg-mist py-1.5 pr-5 pl-1.5"
-            >
-              <Avatar nickname={accountNickname} avatarUrl={account.user?.avatarUrl ?? null} />
-              <span className="flex min-w-0 flex-col text-left">
-                <span className="text-compact text-muted">{texts.lobby.joiningAs}</span>
-                <span className="truncate font-medium">{accountNickname}</span>
-              </span>
-            </p>
-          ) : (
-            /* Narrower than the column and centered under the title; the label follows the field's left edge. */
-            <div className="flex w-full max-w-xs flex-col gap-2">
-              <label htmlFor={inputId} className="text-body-sm font-medium">
-                {texts.lobby.nicknameLabel}
-              </label>
-              <input
-                ref={inputRef}
-                id={inputId}
-                type="text"
-                name="nickname"
-                autoComplete="nickname"
-                maxLength={NICKNAME_MAX_LENGTH}
-                value={nickname}
-                placeholder={texts.lobby.nicknamePlaceholder}
-                disabled={joining}
-                aria-invalid={showError ? true : undefined}
-                aria-describedby={showError ? errorId : undefined}
-                onChange={(event) => setNickname(event.target.value)}
-                className="min-h-12 w-full rounded-field bg-canvas px-5 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
-              />
-              {showError && (
-                <p id={errorId} role="alert" className="px-1 text-body-sm font-medium text-notice">
-                  {texts.lobby.nicknameInvalid}
-                </p>
+          {/* The field and the button keep the distance they always had. */}
+          <div className="flex w-full flex-col items-center gap-gap">
+            {accountNickname !== null ? (
+              <p
+                data-testid="joining-as"
+                className="flex max-w-full items-center gap-3 rounded-button bg-mist py-1.5 pr-5 pl-1.5"
+              >
+                <Avatar nickname={accountNickname} avatarUrl={account.user?.avatarUrl ?? null} />
+                <span className="flex min-w-0 flex-col text-left">
+                  <span className="text-compact text-muted">{texts.lobby.joiningAs}</span>
+                  <span className="truncate font-medium">{accountNickname}</span>
+                </span>
+              </p>
+            ) : (
+              /* Narrower than the column and centered under the title; the label follows the field's left edge. */
+              <div className="flex w-full max-w-xs flex-col gap-2">
+                <label htmlFor={inputId} className="text-body-sm font-medium">
+                  {texts.lobby.nicknameLabel}
+                </label>
+                <input
+                  ref={inputRef}
+                  id={inputId}
+                  type="text"
+                  name="nickname"
+                  autoComplete="nickname"
+                  maxLength={NICKNAME_MAX_LENGTH}
+                  value={nickname}
+                  placeholder={texts.lobby.nicknamePlaceholder}
+                  disabled={joining}
+                  aria-invalid={showError ? true : undefined}
+                  aria-describedby={showError ? errorId : undefined}
+                  onChange={(event) => setNickname(event.target.value)}
+                  className="min-h-12 w-full rounded-field bg-canvas px-5 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
+                />
+                {showError && (
+                  <p id={errorId} role="alert" className="px-1 text-body-sm font-medium text-notice">
+                    {texts.lobby.nicknameInvalid}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* No gap inside: the login line stays as close to the button as on the home page. */}
+            <div className="flex flex-col items-center">
+              {/* Same pill as "create room" on the home page: as wide as its text, whatever it says. */}
+              <Button
+                type="submit"
+                variant="primary"
+                className="min-h-12 rounded-button px-7 text-body font-medium"
+                isDisabled={joining}
+              >
+                {joining && <Spinner />}
+                {turnstile.status === "waiting"
+                  ? texts.turnstile.checking
+                  : joining
+                    ? texts.lobby.joining
+                    : texts.lobby.join}
+              </Button>
+              {accountNickname === null && (
+                <Link
+                  to={loginPath(location.pathname + location.search)}
+                  className="inline-flex min-h-11 items-center rounded-link text-body-sm text-link underline-offset-2 hover:underline"
+                >
+                  {texts.lobby.loginLink}
+                </Link>
               )}
             </div>
-          )}
-
-          <div className="flex flex-col items-center gap-2">
-            {/* Same pill as "create room" on the home page: as wide as its text, whatever it says. */}
-            <Button
-              type="submit"
-              variant="primary"
-              className="min-h-12 rounded-button px-7 text-body font-medium"
-              isDisabled={joining}
-            >
-              {joining && <Spinner />}
-              {turnstile.status === "waiting"
-                ? texts.turnstile.checking
-                : joining
-                  ? texts.lobby.joining
-                  : texts.lobby.join}
-            </Button>
-            <p className="text-center text-body-sm text-muted">{texts.lobby.mutedHint}</p>
-            {accountNickname === null && (
-              <Link
-                to={loginPath(location.pathname + location.search)}
-                className="inline-flex min-h-11 items-center rounded-link text-body-sm text-link underline-offset-2 hover:underline"
-              >
-                {texts.lobby.loginLink}
-              </Link>
-            )}
           </div>
 
           <TurnstileField {...turnstile} />

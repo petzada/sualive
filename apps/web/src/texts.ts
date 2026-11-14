@@ -238,15 +238,15 @@ export const texts = {
   },
   login: {
     title: "Entrar",
-    intro: "Use uma conta que você já tem. Não criamos senha e não pedimos e-mail.",
+    intro: "Acesse sua conta.",
     providers: { google: "Entrar com Google", discord: "Entrar com Discord" },
-    noProviders: "O login não está disponível neste momento. Você pode usar as salas sem conta.",
+    /** Beside the name of a provider that is not configured yet: its button stays off. */
+    soon: "Em breve",
     failed: "Não foi possível concluir o login. Tente de novo.",
-    guestHint: "Para criar ou entrar numa sala você não precisa de conta.",
   },
   onboarding: {
-    title: "Só falta isto",
-    intro: "Uma confirmação e o seu @nome, e a conta fica pronta.",
+    title: "Só falta mais um passo",
+    intro: "Escolha seu @nome e aceite os termos.",
     /** One sentence, one checkbox: the two links sit inside it. */
     consent: {
       before: `Declaro que sou maior de ${MINIMUM_AGE} anos e aceito os `,
@@ -256,7 +256,7 @@ export const texts = {
       after: ".",
     },
     consentRequired: `Para ter conta é preciso declarar que você é maior de ${MINIMUM_AGE} anos e aceitar os Termos de Uso e a Política de Privacidade.`,
-    handleHint: `É o seu endereço no ${APP_NAME}. Pode ser trocado a cada ${HANDLE_CHANGE_INTERVAL_DAYS} dias.`,
+    handleHint: `Esse nome é a sua identificação oficial. Pode ser trocado a cada ${HANDLE_CHANGE_INTERVAL_DAYS} dias.`,
     handleRequired: "Escolha um @nome.",
     submit: "Concluir",
     submitting: "Concluindo…",
@@ -444,7 +444,7 @@ export const texts = {
     create: "Criar sala",
     creating: "Criando a sala…",
     hint: "Voz, tela, webcam e chat.",
-    /** Plain line under the create button: only the last word is the link. */
+    /** Plain line right under the create button: only the last word is the link. */
     account: { question: "Já tem conta?", login: "Entrar" },
     manifesto: {
       title: "Nosso manifesto",

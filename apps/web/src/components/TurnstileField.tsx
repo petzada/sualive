@@ -5,10 +5,14 @@ import type { useTurnstileAction } from "./useTurnstileAction";
 
 type TurnstileFieldProps = Pick<ReturnType<typeof useTurnstileAction>, "turnstileProps" | "failed" | "retry">;
 
-/** The out-of-sight Turnstile check; shows only the failure message and the way to ask for a new token. */
+/**
+ * The out-of-sight Turnstile check. Takes no room in the layout: the widget floats over the page
+ * (and only when an interaction is demanded), and the only thing left in place is the failure
+ * message with the way to ask for a new token.
+ */
 export function TurnstileField({ turnstileProps, failed, retry }: TurnstileFieldProps) {
   return (
-    <div className="flex w-full flex-col items-center gap-2">
+    <>
       <Turnstile {...turnstileProps} />
       {failed && (
         <div role="alert" className="flex flex-col items-center gap-1 text-body-sm">
@@ -18,6 +22,6 @@ export function TurnstileField({ turnstileProps, failed, retry }: TurnstileField
           </Button>
         </div>
       )}
-    </div>
+    </>
   );
 }

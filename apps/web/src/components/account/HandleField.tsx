@@ -102,11 +102,17 @@ interface HandleFieldProps {
   /** Replaces the status line (refusal from the server, or "choose a handle" after a submit). */
   error?: string | null;
   hint?: string;
+  /**
+   * Where the availability shows. `below` (default): under the field, after the hint and the rule,
+   * which are always there. `label`: on the line of the label, at the right; the rule then only
+   * shows as an error under the field, while what was typed breaks it, and the hint stands alone.
+   */
+  statusPlacement?: "below" | "label";
   disabled?: boolean;
   ref?: Ref<HTMLInputElement>;
 }
 
-/** The @handle field: fixed "@" in front, rules below, and the availability as the person types. */
+/** The @handle field: fixed "@" in front, the rules and the availability as the person types. */
 export function HandleField({
   label,
   value,
@@ -114,22 +120,62 @@ export function HandleField({
   status,
   error,
   hint,
+  statusPlacement = "below",
   disabled,
   ref,
 }: HandleFieldProps) {
   const inputId = useId();
   const hintId = useId();
   const statusId = useId();
+  const errorId = useId();
 
+  const beside = statusPlacement === "label";
   const failing = status === "invalid" || status === "taken" || status === "reserved";
-  const message = error ?? STATUS_TEXT[status] ?? null;
   const invalid = Boolean(error) || failing;
+
+  // Beside the label only the availability; what is wrong with the typed handle goes under the field.
+  const fieldError = beside ? (error ?? (status === "invalid" ? texts.handle.invalid : null)) : null;
+  const message = beside
+    ? fieldError
+      ? null
+      : (STATUS_TEXT[status] ?? null)
+    : (error ?? STATUS_TEXT[status] ?? null);
+  const statusFailing = beside ? Boolean(message) && failing : invalid;
+  const available = !error && status === "available";
+
+  const statusLine = (
+    // Always mounted, so a screen reader hears each change of the availability.
+    <p
+      id={statusId}
+      role={statusFailing ? "alert" : "status"}
+      data-status={status}
+      className={`flex min-h-5 items-center gap-1.5 ${beside ? "min-w-0 justify-end text-right" : ""} ${
+        statusFailing ? FIELD_ERROR : available ? "px-1 text-body-sm text-ink" : FIELD_HINT
+      }`}
+    >
+      {available && <CheckIcon />}
+      {message}
+    </p>
+  );
+
+  const describedBy = beside
+    ? [fieldError && errorId, hint && hintId, statusId].filter(Boolean).join(" ")
+    : `${hintId} ${statusId}`;
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <label htmlFor={inputId} className="text-body-sm font-medium">
-        {label}
-      </label>
+      {beside ? (
+        <div className="flex items-end justify-between gap-3">
+          <label htmlFor={inputId} className="shrink-0 text-body-sm font-medium">
+            {label}
+          </label>
+          {statusLine}
+        </div>
+      ) : (
+        <label htmlFor={inputId} className="text-body-sm font-medium">
+          {label}
+        </label>
+      )}
       <div
         className={`flex min-h-12 w-full items-center rounded-field px-5 shadow-outline outline-offset-2 has-focus-visible:outline-2 has-focus-visible:outline-accent ${
           disabled ? "bg-mist" : "bg-canvas"
@@ -151,24 +197,32 @@ export function HandleField({
           value={value}
           disabled={disabled}
           aria-invalid={invalid ? true : undefined}
-          aria-describedby={`${hintId} ${statusId}`}
+          aria-describedby={describedBy}
           onChange={(event) => onChange(normalizeHandle(event.target.value))}
           className="min-h-12 min-w-0 flex-1 bg-transparent text-body text-ink outline-none"
         />
       </div>
-      <p id={hintId} className={FIELD_HINT}>
-        {hint ? `${hint} ${texts.handle.rule}` : texts.handle.rule}
-      </p>
-      {/* Always mounted, so a screen reader hears each change of the availability. */}
-      <p
-        id={statusId}
-        role={invalid ? "alert" : "status"}
-        data-status={status}
-        className={`flex min-h-5 items-center gap-1.5 ${invalid ? FIELD_ERROR : status === "available" ? "px-1 text-body-sm text-ink" : FIELD_HINT}`}
-      >
-        {!error && status === "available" && <CheckIcon />}
-        {message}
-      </p>
+      {beside ? (
+        <>
+          {fieldError && (
+            <p id={errorId} role="alert" className={FIELD_ERROR}>
+              {fieldError}
+            </p>
+          )}
+          {hint && (
+            <p id={hintId} className={FIELD_HINT}>
+              {hint}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p id={hintId} className={FIELD_HINT}>
+            {hint ? `${hint} ${texts.handle.rule}` : texts.handle.rule}
+          </p>
+          {statusLine}
+        </>
+      )}
     </div>
   );
 }

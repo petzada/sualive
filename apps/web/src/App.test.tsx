@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -48,7 +48,7 @@ describe("App", () => {
     expect(lines[0]?.parentElement?.tagName).toBe("P");
   });
 
-  it("orders the home page: name, sub-headline, button and hint, then the manifesto card", () => {
+  it("orders the home page: name, sub-headline, hint, button and account line, then the manifesto card", () => {
     renderAt("/");
 
     const main = screen.getByRole("main");
@@ -56,10 +56,15 @@ describe("App", () => {
       screen.getByRole("heading", { level: 1 }),
       screen.getByText(texts.home.tagline[0]),
       screen.getByText(texts.home.tagline[1]),
-      createButton(),
       screen.getByText(texts.home.hint),
+      createButton(),
+      screen.getByTestId("home-account"),
       screen.getByRole("link", { name: texts.home.manifesto.action }),
     ];
+    // The hint sits right under the sub-headline, as the next block of the column.
+    expect(screen.getByText(texts.home.tagline[0]).parentElement?.nextElementSibling).toBe(
+      screen.getByText(texts.home.hint),
+    );
     order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
     // The card closes the page, with its title and description beside the link.
     expect(main.lastElementChild?.contains(order.at(-1)!)).toBe(true);
@@ -69,7 +74,7 @@ describe("App", () => {
     expect(main.textContent).not.toContain("IP");
   });
 
-  it("keeps the Turnstile out of sight: no label, no reserved space, shown only if interaction is required", async () => {
+  it("keeps the Turnstile out of sight and out of the layout: no label and no reserved space", async () => {
     const { api } = installTurnstileStub();
     renderAt("/");
 
@@ -79,6 +84,40 @@ describe("App", () => {
     expect(container.getAttribute("role")).toBeNull();
     expect(container.className).toContain("empty:hidden");
     expect(container.className).not.toContain("min-h");
+    // Not inside the page at all: it floats over it, straight on the body.
+    const toast = screen.getByTestId("turnstile-toast");
+    expect(toast.contains(container)).toBe(true);
+    expect(toast.parentElement).toBe(document.body);
+    expect(screen.getByRole("main").contains(toast)).toBe(false);
+    expect(toast.className.split(" ")).toContain("fixed");
+    // No chrome while nothing is demanded from the person.
+    expect(toast.dataset.interactive).toBe("false");
+    expect(toast.innerHTML).not.toContain("bg-frost");
+  });
+
+  it("shows the Turnstile as a floating notice at the top only while an interaction is demanded", async () => {
+    const { api, callbacks } = installTurnstileStub({ pass: false });
+    renderAt("/");
+    await waitFor(() => expect(api.render).toHaveBeenCalled());
+    const toast = screen.getByTestId("turnstile-toast");
+    const box = () => screen.getByTestId("turnstile").parentElement!.className.split(" ");
+
+    act(() => callbacks.beforeInteractive?.());
+    expect(toast.dataset.interactive).toBe("true");
+    // Fixed at the top center of the window, above everything, in a discreet box of the theme.
+    for (const name of ["fixed", "inset-x-0", "top-4", "justify-center", "z-[1000]"]) {
+      expect(toast.className.split(" ")).toContain(name);
+    }
+    for (const name of ["bg-frost", "rounded-nav", "shadow-outline-soft"]) expect(box()).toContain(name);
+
+    act(() => callbacks.afterInteractive?.());
+    expect(toast.dataset.interactive).toBe("false");
+    expect(box()).not.toContain("bg-frost");
+
+    // Passing the check also ends it, even if the widget does not say that the interaction is over.
+    act(() => callbacks.beforeInteractive?.());
+    act(() => callbacks.token?.("token-after-interaction"));
+    expect(toast.dataset.interactive).toBe("false");
   });
 
   it("creates a room with the Turnstile token and goes to its link", async () => {

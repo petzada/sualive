@@ -117,19 +117,60 @@ describe("lobby", () => {
     expect(screen.getByRole("main").textContent).not.toContain(String(ROOM_MAX_PEOPLE));
   });
 
-  it("ends the form with the join button, the muted hint and then the Turnstile", () => {
+  it("ends the form with the join button and the login line right under it, with no Turnstile in the layout", () => {
     renderApp();
 
     const isBefore = (first: Element, second: Element) =>
       Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
     const button = screen.getByRole("button", { name: texts.lobby.join });
-    const hint = screen.getByText(texts.lobby.mutedHint);
-    const turnstile = screen.getByTestId("turnstile");
+    const login = screen.getByRole("link", { name: texts.lobby.loginLink });
+    const form = button.closest("form")!;
 
     expect(isBefore(nicknameInput(), button)).toBe(true);
-    expect(isBefore(button, hint)).toBe(true);
-    expect(isBefore(hint, turnstile)).toBe(true);
-    expect(button.closest("form")?.lastElementChild?.contains(turnstile)).toBe(true);
+    // Same block as the button and no gap in it: as close as the account line of the home page.
+    expect(button.nextElementSibling).toBe(login);
+    expect(button.parentElement?.className).not.toContain("gap-");
+    expect(form.lastElementChild?.contains(login)).toBe(true);
+    // The field and the button share a block, apart from the title by the wider step of the form.
+    expect(button.parentElement?.parentElement?.contains(nicknameInput())).toBe(true);
+    expect(button.parentElement?.parentElement?.className.split(" ")).toContain("gap-gap");
+    expect(form.className.split(" ")).toContain("gap-10");
+    // The Turnstile floats over the page: nothing of it inside the form or the screen.
+    expect(form.contains(screen.getByTestId("turnstile"))).toBe(false);
+    expect(screen.getByRole("main").contains(screen.getByTestId("turnstile"))).toBe(false);
+    expect(form.textContent).not.toContain(texts.lobby.mutedHint);
+  });
+
+  it("offers the device test centered in the gray card, with the muted hint under it and the intro outside", () => {
+    renderApp();
+
+    const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
+    const card = section.firstElementChild!;
+    const test = within(card as HTMLElement).getByRole("button", { name: texts.lobby.previewStart });
+    const hint = within(card as HTMLElement).getByText(texts.lobby.mutedHint);
+    const intro = screen.getByText(texts.lobby.previewIntro);
+
+    expect(card.className.split(" ")).toContain("bg-mist");
+    for (const name of ["items-center", "justify-center"]) expect(card.className.split(" ")).toContain(name);
+    // Button first, the hint right under it, in one line where it fits.
+    expect(test.nextElementSibling).toBe(hint);
+    expect(test.parentElement?.className.split(" ")).toContain("items-center");
+    expect(hint.className.split(" ")).toContain("sm:whitespace-nowrap");
+    // The intro left the card: under it, in the same section, centered.
+    expect(card.contains(intro)).toBe(false);
+    expect(section.lastElementChild).toBe(intro);
+    for (const name of ["mx-auto", "text-center"]) expect(intro.className.split(" ")).toContain(name);
+  });
+
+  it("keeps the muted hint in sight, under the card, once the device test ran", async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole("button", { name: texts.lobby.previewStart }));
+
+    await screen.findByText(texts.lobby.previewUnavailable);
+    const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
+    expect(section.lastElementChild?.textContent).toBe(texts.lobby.mutedHint);
+    expect(screen.queryByText(texts.lobby.previewIntro)).toBeNull();
   });
 
   it("rejects a nickname that is too short and does not join", async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -47,6 +47,20 @@ describe("manifesto page", () => {
     ];
     order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
     expect(texts.manifesto.paragraphs).toHaveLength(4);
+  });
+
+  it("ends with the legal links of the home footer, below the age notice", () => {
+    renderManifesto();
+
+    const footer = screen.getByRole("contentinfo", { name: texts.nav.footerLabel });
+    const terms = within(footer).getByRole("link", { name: texts.nav.terms });
+    const privacy = within(footer).getByRole("link", { name: texts.nav.privacy });
+    expect(terms.getAttribute("href")).toBe("/termos");
+    expect(privacy.getAttribute("href")).toBe("/privacidade");
+    expect(isBefore(screen.getByText(texts.manifesto.ageNotice), terms)).toBe(true);
+    expect(isBefore(terms, privacy)).toBe(true);
+    // Nothing comes after them.
+    expect(footer.parentElement?.lastElementChild).toBe(footer);
   });
 
   it("follows the rules of the text: people, not adults; the Discord named once", () => {

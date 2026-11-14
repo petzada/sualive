@@ -1,15 +1,38 @@
+import type { ReactNode } from "react";
 import { Navigate, useSearchParams } from "react-router";
 import { useAccountClient } from "../components/account/AccountClient";
-import { PageLoading, PageShell } from "../components/account/PageShell";
+import { PageLoading, SiteFooter } from "../components/account/PageShell";
 import { onboardingPath, PATHS, RETURN_TO_PARAM, safeReturnTo } from "../components/account/paths";
-import { OUTLINE_PILL, PRIMARY_LINK } from "../components/account/styles";
+import { OUTLINE_PILL } from "../components/account/styles";
+import { FaceCards } from "../components/FaceCards";
+import { DiscordIcon, GoogleIcon } from "../components/icons";
+import { SplitPage } from "../components/SplitPage";
+import type { AccountState } from "../lib/account";
 import { texts } from "../texts";
 
 /** `?erro=login`: the server could not finish the login and sent the person back here. */
 const ERROR_PARAM = "erro";
 const LOGIN_ERROR = "login";
 
-/** Login with Google or Discord. No password and no sign-up by e-mail: only the providers' buttons. */
+type Provider = AccountState["providers"][number];
+
+/**
+ * The two buttons, always in this order and with the same width. Each one follows the guidelines
+ * of its provider: white with a light outline and the colored "G"; the Discord color with the
+ * white mark.
+ */
+const PROVIDER_BUTTONS: { provider: Provider; icon: ReactNode; look: string }[] = [
+  { provider: "google", icon: <GoogleIcon />, look: "border border-hairline bg-canvas text-ink" },
+  { provider: "discord", icon: <DiscordIcon />, look: "bg-brand-discord text-on-brand-discord" },
+];
+
+const PROVIDER_BUTTON =
+  "inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-button px-6 text-body font-medium";
+
+/**
+ * Login with Google or Discord, in the two columns of the home page. No password and no sign-up by
+ * e-mail: only the providers' buttons. Nothing at the top: no name and no account.
+ */
 export function LoginPage() {
   const { state, actions } = useAccountClient().useAccount();
   const [params] = useSearchParams();
@@ -22,13 +45,13 @@ export function LoginPage() {
   }
 
   return (
-    <PageShell width="narrow">
+    <SplitPage aside={<FaceCards />} footer={false}>
       {state.status === "loading" ? (
         <PageLoading />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-gap text-center">
+        <>
           <h1 className="font-display text-heading font-semibold">{texts.login.title}</h1>
-          <p className="max-w-sm">{texts.login.intro}</p>
+          <p className="max-w-xl">{texts.login.intro}</p>
 
           {failed && (
             <p role="alert" className="text-body-sm font-medium text-notice">
@@ -49,29 +72,39 @@ export function LoginPage() {
                 {texts.common.tryAgain}
               </button>
             </>
-          ) : state.providers.length === 0 ? (
-            <p role="status" className="max-w-sm text-body-sm font-medium text-notice">
-              {texts.login.noProviders}
-            </p>
           ) : (
-            <ul className="flex w-full max-w-xs flex-col gap-3">
-              {state.providers.map((provider) => (
+            <ul className="mt-2 flex w-full max-w-xs flex-col gap-3">
+              {PROVIDER_BUTTONS.map(({ provider, icon, look }) => (
                 <li key={provider}>
-                  {/* Plain link: the login is a full-page trip to the provider and back. */}
-                  <a
-                    href={actions.loginUrl(provider, returnTo ?? undefined)}
-                    className={`w-full ${PRIMARY_LINK}`}
-                  >
-                    {texts.login.providers[provider]}
-                  </a>
+                  {state.providers.includes(provider) ? (
+                    // Plain link: the login is a full-page trip to the provider and back.
+                    <a
+                      href={actions.loginUrl(provider, returnTo ?? undefined)}
+                      className={`${PROVIDER_BUTTON} ${look}`}
+                    >
+                      {icon}
+                      {texts.login.providers[provider]}
+                    </a>
+                  ) : (
+                    // Not configured yet: the button is there, switched off, and leads nowhere.
+                    <span
+                      role="link"
+                      aria-disabled="true"
+                      className={`cursor-not-allowed opacity-50 ${PROVIDER_BUTTON} ${look}`}
+                    >
+                      {icon}
+                      {texts.login.providers[provider]}
+                      <span className="text-compact font-normal">{texts.login.soon}</span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           )}
 
-          <p className="max-w-sm text-body-sm text-muted">{texts.login.guestHint}</p>
-        </div>
+          <SiteFooter />
+        </>
       )}
-    </PageShell>
+    </SplitPage>
   );
 }
