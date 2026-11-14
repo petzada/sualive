@@ -1,12 +1,14 @@
 /*
  * Entrada de estilos: Tailwind 4, HeroUI 3 e os tokens do tema.
  * A ordem importa: tokens.css vem por último para que os nomes em comum com o HeroUI
- * (accent, link, muted, radius-field) fiquem com o valor dos tokens.
+ * (accent, link, muted, radius-field) fiquem com o valor dos tokens. Os temas de sala vêm depois
+ * dos tokens, porque redefinem alguns deles.
  */
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "@fontsource-variable/inter";
 @import "./tokens.css";
+@import "./room-themes.css";
 
 /*
  * Variáveis de tema do HeroUI 3 (conferidas em @heroui/styles/dist/themes/default/variables.css)

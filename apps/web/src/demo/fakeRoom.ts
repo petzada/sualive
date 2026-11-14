@@ -2,11 +2,13 @@
  * Fake room client for the dev-only demo (`/demo`). Nothing here talks to a server or to WebRTC:
  * videos are animated canvases and every action just edits local state.
  */
-import { ROOM_MAX_PEOPLE, ROOM_MAX_VIDEOS, VIDEOS_PER_PERSON } from "@sualive/config";
+import { PLUS_VIDEOS_PER_PERSON, ROOM_MAX_PEOPLE, ROOM_MAX_VIDEOS, VIDEOS_PER_PERSON } from "@sualive/config";
+import type { RoomTheme } from "@sualive/config";
 import type { DevicePreview, VideoKind } from "@sualive/media";
 import { useMemo, useState } from "react";
 import type { RoomClient } from "../components/room/RoomClient";
 import type { ParticipantView, RoomActions, RoomNotice, RoomPhase, RoomState, VideoView } from "../lib/room";
+import { demoAvatar } from "./fakeAccount";
 
 export interface DemoOptions {
   phase: RoomPhase;
@@ -15,6 +17,11 @@ export interface DemoOptions {
   videos: number;
   mobile: boolean;
   notice: RoomNotice | null;
+  /** Fixed-link room of this handle (also when the code is `@nome`). */
+  fixedHandle?: string | null;
+  theme?: RoomTheme;
+  /** The viewer is logged in: enters with the nickname of the profile. */
+  account?: { nickname: string; handle: string | null; avatarUrl: string | null; plus: boolean } | null;
 }
 
 const NAMES = ["Marina", "Caio", "Beatriz Albuquerque Lima", "Téo", "Jô", "Rafa"];
@@ -64,14 +71,25 @@ function fakePreview(): DevicePreview {
   };
 }
 
+/** Who has an account among the others, to see pictures, handles and badges beside guests. */
+const ACCOUNTS: Record<number, Pick<ParticipantView, "handle" | "avatarUrl" | "badges">> = {
+  1: { handle: "caio", avatarUrl: demoAvatar(20), badges: ["plus", "early_supporter"] },
+  2: { handle: "bia_albuquerque", avatarUrl: null, badges: ["plus"] },
+  // Broken on purpose: the picture fails and the initial takes its place.
+  4: { handle: "jo", avatarUrl: "/demo-missing-avatar.png", badges: [] },
+};
+
 function initialState(code: string, options: DemoOptions): RoomState {
   const count = Math.min(Math.max(options.people, 1), ROOM_MAX_PEOPLE);
+  const account = options.account ?? null;
+  const fixedHandle = code.startsWith("@") ? code.slice(1) : (options.fixedHandle ?? null);
+  const self: Pick<ParticipantView, "handle" | "avatarUrl" | "badges"> = account
+    ? { handle: account.handle, avatarUrl: account.avatarUrl, badges: account.plus ? ["plus"] : [] }
+    : { handle: null, avatarUrl: null, badges: [] };
   const participants: ParticipantView[] = Array.from({ length: count }, (_, index) => ({
     id: `p${index}`,
-    handle: null,
-    avatarUrl: null,
-    badges: [],
-    nickname: NAMES[index] ?? `Pessoa ${index + 1}`,
+    ...(index === 0 ? self : (ACCOUNTS[index] ?? { handle: null, avatarUrl: null, badges: [] })),
+    nickname: index === 0 && account ? account.nickname : (NAMES[index] ?? `Pessoa ${index + 1}`),
     isSelf: index === 0,
     isOwner: options.isOwner ? index === 0 : index === 1,
     micMuted: index % 2 === 0,
@@ -99,13 +117,13 @@ function initialState(code: string, options: DemoOptions): RoomState {
 
   return {
     phase: options.phase,
-    fixed: false,
-    ownerHandle: null,
-    theme: "default",
-    maxOwnVideos: 1,
-    accountNickname: null,
+    fixed: fixedHandle !== null,
+    ownerHandle: fixedHandle,
+    theme: options.theme ?? "default",
+    maxOwnVideos: account?.plus ? PLUS_VIDEOS_PER_PERSON : VIDEOS_PER_PERSON,
+    accountNickname: account?.nickname ?? null,
     code,
-    link: `${window.location.origin}/s/${code}`,
+    link: `${window.location.origin}/${fixedHandle ? `@${fixedHandle}` : `s/${code}`}`,
     occupancy: { participants: inside ? count : count - 1, capacity: ROOM_MAX_PEOPLE },
     selfId: inside ? SELF_ID : null,
     isOwner: options.isOwner,
@@ -169,7 +187,9 @@ export function createDemoClient(options: DemoOptions): RoomClient {
               return {
                 ...joined,
                 participants: joined.participants.map((participant) =>
-                  participant.isSelf ? { ...participant, nickname } : participant,
+                  participant.isSelf
+                    ? { ...participant, nickname: current.accountNickname ?? nickname }
+                    : participant,
                 ),
                 capabilities: current.capabilities,
               };
@@ -209,7 +229,7 @@ export function createDemoClient(options: DemoOptions): RoomClient {
           },
           async startVideo(kind) {
             patch((current) => {
-              if (current.localVideoIds.length >= VIDEOS_PER_PERSON)
+              if (current.localVideoIds.length >= current.maxOwnVideos)
                 return { notice: { kind: "videoPersonLimit" } };
               if (current.videos.length >= ROOM_MAX_VIDEOS) return { notice: { kind: "videoRoomLimit" } };
               const id = nextId("local");

@@ -1,6 +1,7 @@
 import { Button } from "@heroui/react";
 import { ROOM_PATH_PREFIX } from "@sualive/config";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import type { CreateRoomResult } from "../lib/room";
 import { texts } from "../texts";
@@ -16,13 +17,15 @@ interface CreateRoomProps {
   hint?: string;
   /** Extra classes for the button, e.g. spacing. */
   className?: string;
+  /** Rendered right under the button, before the hint (the account line of the home page). */
+  afterButton?: ReactNode;
 }
 
 /**
  * The "create room" button: passes the Turnstile check, creates the room and goes to its link.
  * Renders its pieces side by side with the caller's own, so the parent decides the spacing.
  */
-export function CreateRoom({ hint, className = "" }: CreateRoomProps) {
+export function CreateRoom({ hint, className = "", afterButton }: CreateRoomProps) {
   const { createRoom } = useRoomClient();
   const navigate = useNavigate();
   const [failure, setFailure] = useState<CreateFailure | null>(null);
@@ -61,6 +64,7 @@ export function CreateRoom({ hint, className = "" }: CreateRoomProps) {
             ? texts.turnstile.checking
             : texts.home.create}
       </Button>
+      {afterButton}
       {hint && <p className="text-body-sm text-muted">{hint}</p>}
 
       {failure && (

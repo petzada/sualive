@@ -1,5 +1,6 @@
 import type { ParticipantView, ReactionEvent, RoomState, VideoView } from "../../lib/room";
 import { texts } from "../../texts";
+import { Badges } from "../account/Badges";
 import { VoiceBars } from "../icons";
 import { Avatar, StreamVideo } from "./media";
 
@@ -76,8 +77,13 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
           featured ? "px-3 py-1.5 text-body-sm" : "px-2 py-1 text-compact"
         }`}
       >
+        {owner?.avatarUrl && <Avatar nickname={nickname} avatarUrl={owner.avatarUrl} size="xs" />}
         {owner?.speaking && <VoiceBars />}
         <span className="truncate">{label}</span>
+        {featured && owner?.handle && (
+          <span className="shrink-0 text-on-stage/80">{texts.handle.display(owner.handle)}</span>
+        )}
+        {owner && <Badges badges={owner.badges} tone="inherit" />}
       </span>
 
       {!featured && (
@@ -97,9 +103,22 @@ function EmptyStage({ participants }: { participants: ParticipantView[] }) {
     <div className="flex size-full min-h-48 flex-col items-center justify-center gap-6 rounded-card bg-canvas p-6 text-center">
       <ul className="flex flex-wrap items-start justify-center gap-5">
         {participants.map((participant) => (
-          <li key={participant.id} className="flex w-20 flex-col items-center gap-2">
-            <Avatar nickname={participant.nickname} speaking={participant.speaking} size="lg" />
-            <span className="w-full truncate text-body-sm">{participant.nickname}</span>
+          <li key={participant.id} className="flex w-24 flex-col items-center gap-2">
+            <Avatar
+              nickname={participant.nickname}
+              avatarUrl={participant.avatarUrl}
+              speaking={participant.speaking}
+              size="lg"
+            />
+            <span className="flex w-full items-center justify-center gap-1 text-body-sm">
+              <span className="truncate">{participant.nickname}</span>
+              <Badges badges={participant.badges} />
+            </span>
+            {participant.handle && (
+              <span className="-mt-1.5 w-full truncate text-compact text-muted">
+                {texts.handle.display(participant.handle)}
+              </span>
+            )}
           </li>
         ))}
       </ul>

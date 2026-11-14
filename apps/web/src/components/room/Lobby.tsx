@@ -3,12 +3,15 @@ import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH } from "@sualive/config";
 import type { DevicePreview } from "@sualive/media";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { Link, useLocation } from "react-router";
 import type { RoomActions, RoomState } from "../../lib/room";
+import { useAccountClient } from "../account/AccountClient";
+import { loginPath } from "../account/paths";
 import { Spinner } from "../icons";
 import { texts } from "../../texts";
 import { TurnstileField } from "../TurnstileField";
 import { useTurnstileAction } from "../useTurnstileAction";
-import { StreamVideo } from "./media";
+import { Avatar, StreamVideo } from "./media";
 import { NoticeBanner } from "./NoticeBanner";
 
 /** Convenience only: the last nickname typed in this browser. */
@@ -128,9 +131,13 @@ export function Lobby({ state, actions }: LobbyProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
   const errorId = useId();
+  const { state: account } = useAccountClient().useAccount();
+  const location = useLocation();
 
-  const trimmed = nickname.trim();
-  const valid = isNicknameValid(trimmed);
+  // Logged in: the person enters with the nickname of the profile, so there is nothing to type.
+  const { accountNickname } = state;
+  const trimmed = accountNickname ?? nickname.trim();
+  const valid = accountNickname !== null || isNicknameValid(trimmed);
   // The rule only shows while what was typed breaks it (or after trying to enter with nothing typed).
   const showError = !valid && (submitted || nickname.length > 0);
 
@@ -146,7 +153,7 @@ export function Lobby({ state, actions }: LobbyProps) {
       inputRef.current?.focus();
       return;
     }
-    storeNickname(trimmed);
+    if (accountNickname === null) storeNickname(trimmed);
     turnstile.trigger();
   };
 
@@ -159,32 +166,45 @@ export function Lobby({ state, actions }: LobbyProps) {
         <form noValidate onSubmit={submit} className="flex flex-col items-center gap-gap">
           <h1 className="text-center font-display text-heading font-semibold">{texts.lobby.title}</h1>
 
-          {/* Narrower than the column and centered under the title; the label follows the field's left edge. */}
-          <div className="flex w-full max-w-xs flex-col gap-2">
-            <label htmlFor={inputId} className="text-body-sm font-medium">
-              {texts.lobby.nicknameLabel}
-            </label>
-            <input
-              ref={inputRef}
-              id={inputId}
-              type="text"
-              name="nickname"
-              autoComplete="nickname"
-              maxLength={NICKNAME_MAX_LENGTH}
-              value={nickname}
-              placeholder={texts.lobby.nicknamePlaceholder}
-              disabled={joining}
-              aria-invalid={showError ? true : undefined}
-              aria-describedby={showError ? errorId : undefined}
-              onChange={(event) => setNickname(event.target.value)}
-              className="min-h-12 w-full rounded-field bg-canvas px-5 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
-            />
-            {showError && (
-              <p id={errorId} role="alert" className="px-1 text-body-sm font-medium text-notice">
-                {texts.lobby.nicknameInvalid}
-              </p>
-            )}
-          </div>
+          {accountNickname !== null ? (
+            <p
+              data-testid="joining-as"
+              className="flex max-w-full items-center gap-3 rounded-button bg-mist py-1.5 pr-5 pl-1.5"
+            >
+              <Avatar nickname={accountNickname} avatarUrl={account.user?.avatarUrl ?? null} />
+              <span className="flex min-w-0 flex-col text-left">
+                <span className="text-compact text-muted">{texts.lobby.joiningAs}</span>
+                <span className="truncate font-medium">{accountNickname}</span>
+              </span>
+            </p>
+          ) : (
+            /* Narrower than the column and centered under the title; the label follows the field's left edge. */
+            <div className="flex w-full max-w-xs flex-col gap-2">
+              <label htmlFor={inputId} className="text-body-sm font-medium">
+                {texts.lobby.nicknameLabel}
+              </label>
+              <input
+                ref={inputRef}
+                id={inputId}
+                type="text"
+                name="nickname"
+                autoComplete="nickname"
+                maxLength={NICKNAME_MAX_LENGTH}
+                value={nickname}
+                placeholder={texts.lobby.nicknamePlaceholder}
+                disabled={joining}
+                aria-invalid={showError ? true : undefined}
+                aria-describedby={showError ? errorId : undefined}
+                onChange={(event) => setNickname(event.target.value)}
+                className="min-h-12 w-full rounded-field bg-canvas px-5 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
+              />
+              {showError && (
+                <p id={errorId} role="alert" className="px-1 text-body-sm font-medium text-notice">
+                  {texts.lobby.nicknameInvalid}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col items-center gap-2">
             {/* Same pill as "create room" on the home page: as wide as its text, whatever it says. */}
@@ -202,6 +222,14 @@ export function Lobby({ state, actions }: LobbyProps) {
                   : texts.lobby.join}
             </Button>
             <p className="text-center text-body-sm text-muted">{texts.lobby.mutedHint}</p>
+            {accountNickname === null && (
+              <Link
+                to={loginPath(location.pathname + location.search)}
+                className="inline-flex min-h-11 items-center rounded-link text-body-sm text-link underline-offset-2 hover:underline"
+              >
+                {texts.lobby.loginLink}
+              </Link>
+            )}
           </div>
 
           <TurnstileField {...turnstile} />

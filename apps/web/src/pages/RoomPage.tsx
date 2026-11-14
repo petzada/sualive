@@ -1,11 +1,16 @@
 import { Button, Link } from "@heroui/react";
-import { useNavigate, useParams } from "react-router";
+import { FIXED_ROOM_PATH_PREFIX } from "@sualive/config";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router";
+import { useAccountClient } from "../components/account/AccountClient";
+import { isHandleValid } from "../components/account/HandleField";
+import { onboardingPath } from "../components/account/paths";
 import { Lobby } from "../components/room/Lobby";
 import { useRoomClient } from "../components/room/RoomClient";
 import { RoomView } from "../components/room/RoomView";
 import type { RoomPhase } from "../lib/room";
 import { Spinner } from "../components/icons";
 import { texts } from "../texts";
+import { ErrorPage } from "./ErrorPage";
 
 type EndPhase = Extract<RoomPhase, "ended" | "full" | "banned" | "kicked" | "error">;
 
@@ -45,8 +50,7 @@ function RoomEnd({ phase }: { phase: EndPhase }) {
   );
 }
 
-/** One room, whatever the phase. `code` comes from the route (or from the dev-only demo). */
-export function RoomScreen({ code }: { code: string }) {
+function RoomSession({ code }: { code: string }) {
   const { useRoom } = useRoomClient();
   const { state, actions } = useRoom(code);
   const navigate = useNavigate();
@@ -77,6 +81,34 @@ export function RoomScreen({ code }: { code: string }) {
     default:
       return <RoomEnd phase={state.phase} />;
   }
+}
+
+/**
+ * One room, whatever the phase. `code` comes from the route (or from the dev-only demo): the code
+ * of a common room, or `@nome` for a fixed-link room. A logged person who has not finished the
+ * first access is sent there before entering any room, with the way back.
+ */
+export function RoomScreen({ code }: { code: string }) {
+  const { state: account } = useAccountClient().useAccount();
+  const location = useLocation();
+
+  if (account.user && !account.user.onboarded) {
+    return <Navigate to={onboardingPath(location.pathname + location.search)} replace />;
+  }
+  return <RoomSession code={code} />;
+}
+
+/** The "@" that opens the segment of a fixed-link room. */
+const FIXED_ROOM_MARK = FIXED_ROOM_PATH_PREFIX.slice(1);
+
+/** `/@nome`: the same room page, opened by the handle of its owner. Anything else is not a page. */
+export function FixedRoomPage() {
+  const { slug = "" } = useParams();
+  const handle = slug.startsWith(FIXED_ROOM_MARK) ? slug.slice(FIXED_ROOM_MARK.length).toLowerCase() : "";
+  if (!isHandleValid(handle)) return <ErrorPage kind="notFound" />;
+
+  const code = FIXED_ROOM_MARK + handle;
+  return <RoomScreen key={code} code={code} />;
 }
 
 export function RoomPage() {

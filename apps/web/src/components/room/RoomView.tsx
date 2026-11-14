@@ -11,6 +11,7 @@ import { ControlBar } from "./ControlBar";
 import { VoiceOutputs } from "./media";
 import { NoticeBanner } from "./NoticeBanner";
 import { PeopleList } from "./PeopleList";
+import { RoomThemePicker, useAppliedRoomTheme } from "./RoomThemePicker";
 import { Stage } from "./Stage";
 
 type PanelTab = "chat" | "people";
@@ -31,6 +32,10 @@ interface RoomViewProps {
  */
 export function RoomView({ state, actions, onLeave }: RoomViewProps) {
   const { theme, toggleTheme } = useRoomTheme();
+  // The room theme is of the room (everyone sees it); light or dark stays each person's choice.
+  useAppliedRoomTheme(state.theme);
+  const canPickRoomTheme = state.isOwner && state.fixed;
+  const fixedHandle = state.fixed ? state.ownerHandle : null;
   const themeLabel = theme === "dark" ? texts.room.themeToLight : texts.room.themeToDark;
   const [tab, setTab] = useState<PanelTab>("chat");
   // Last chat message seen before the person switched to the people tab (small screens).
@@ -63,11 +68,19 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
         Small screens: who is speaking and the reconnecting message take a second row (always
         reserved, so the stage does not jump when someone starts to speak).
       */}
-      <header className="grid min-h-11 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-4 pt-1">
+      {/* With the theme picker the right side has three buttons: on small screens it takes the room it needs. */}
+      <header
+        className={`grid min-h-11 shrink-0 items-center gap-x-2 px-4 pt-1 ${
+          canPickRoomTheme
+            ? "grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+            : "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+        }`}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <p className="truncate text-compact font-medium sm:text-body-sm" data-testid="room-code">
-            <span className="sr-only">{texts.room.codeLabel} </span>
-            {state.code}
+            {/* Fixed-link room: the @handle of its owner takes the place of the code. */}
+            <span className="sr-only">{fixedHandle ? texts.room.fixedLabel : texts.room.codeLabel} </span>
+            {fixedHandle ? texts.handle.display(fixedHandle) : state.code}
           </p>
           <span
             className="shrink-0 rounded-button bg-accent px-2.5 py-1 text-compact font-medium text-on-accent"
@@ -98,6 +111,7 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
             </div>
           </div>
           <div className="col-start-3 row-start-1 flex shrink-0 items-center justify-end gap-1.5">
+            {canPickRoomTheme && <RoomThemePicker theme={state.theme} onChange={actions.setRoomTheme} />}
             <Hint text={themeLabel} placement="bottom">
               <Button
                 isIconOnly
@@ -126,6 +140,7 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
         <NoticeBanner
           notice={state.notice}
           onDismiss={actions.dismissNotice}
+          maxOwnVideos={state.maxOwnVideos}
           className="absolute inset-x-2 top-2 z-30 mx-auto max-w-md"
         />
 
@@ -191,6 +206,7 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
             <ChatPanel
               messages={state.chat}
               selfId={state.selfId}
+              participants={state.participants}
               onSend={actions.sendChat}
               visible={tab === "chat"}
               disabled={reconnecting}

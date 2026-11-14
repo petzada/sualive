@@ -545,3 +545,40 @@ original e não foi alterado. No escuro todos os pares de texto passam de 4,5:1.
   controles compactos de conversão. Sair e alternar tema ficam neutros, no topo.
 - A lotação da sala (por exemplo `3/6`) é uma **pílula azul** (`accent` com `on-accent`), apesar de o
   texto original pedir rótulos de estado sem pílula colorida.
+
+### Temas de sala
+
+O dono Plus escolhe um entre 6 temas prontos para a sala de link fixo dele; vale para todos na sala.
+Os valores ficam em `apps/web/src/styles/room-themes.css`, sob `data-room-theme` no `<html>` (só com
+a sala na tela), e combinam com o claro e o escuro, que continuam sendo escolha de cada pessoa.
+
+- Um tema **redefine os mesmos tokens**, nunca cria outros: `canvas`, `mist`, `frost`, `control`,
+  `hairline`, `outline`, `muted`, `link`, `accent` e `notice` (no escuro, também `on-accent`).
+  `ink`, `stage`, `on-stage` e, no claro, `on-accent` não mudam.
+- `default` (Padrão) não redefine nada: é exatamente a tabela de tokens acima.
+- Sem gradiente e sem sombra; o "fundo" do tema é o `mist` da sala. Não existe editor de temas.
+
+| Tema | Claro: `mist` / `canvas` / `accent` | Escuro: `mist` / `canvas` / `accent` |
+|------|--------------------------------------|---------------------------------------|
+| `default` Padrão | `#f5f5f7` / `#ffffff` / `#0071e3` | `#0e0e10` / `#1c1c1e` / `#3d9bff` |
+| `ocean` Oceano | `#e3eff9` / `#f6fafe` / `#0b62ad` | `#07111b` / `#10202f` / `#4aa8ff` |
+| `forest` Floresta | `#e6f2e8` / `#f7fbf7` / `#1f7a3d` | `#08130b` / `#122117` / `#52c477` |
+| `sunset` Pôr do sol | `#fbece1` / `#fffaf6` / `#b3461a` | `#170c07` / `#281810` / `#ff9259` |
+| `lavender` Lavanda | `#eee9fa` / `#fbf9ff` / `#6843c0` | `#0e0a18` / `#1b1629` / `#a487ff` |
+| `graphite` Grafite | `#e2e3e6` / `#f3f4f5` / `#3a3d44` | `#050506` / `#141416` / `#aeb2ba` |
+
+Contraste (mesma conta da seção acima), pior par de cada tema novo, claro / escuro:
+
+| Par | Oceano | Floresta | Pôr do sol | Lavanda | Grafite |
+|-----|--------|----------|------------|---------|---------|
+| `ink` sobre `control` | 12,7 / 10,8 | 12,7 / 11,3 | 12,5 / 12,2 | 11,8 / 12,7 | 11,1 / 13,7 |
+| `muted` sobre `mist` | 5,1 / 9,1 | 5,3 / 9,4 | 5,4 / 9,4 | 5,6 / 9,0 | 5,4 / 8,6 |
+| `muted` sobre `control` | 4,5 / 5,6 | 4,6 / 6,1 | 4,6 / 6,5 | 4,7 / 6,4 | 4,6 / 6,3 |
+| `link` sobre `mist` | 6,1 / 9,3 | 5,7 / 10,4 | 5,8 / 10,4 | 6,8 / 8,6 | 5,7 / 11,2 |
+| `on-accent` sobre `accent` | 6,2 / 7,5 | 5,4 / 8,5 | 5,5 / 8,5 | 6,7 / 6,9 | 10,9 / 8,7 |
+| `accent` sobre `mist` (anel de foco) | 5,3 / 7,5 | 4,7 / 8,6 | 4,8 / 8,7 | 5,6 / 7,0 | 8,5 / 9,6 |
+| `notice` sobre `mist` | 5,6 / 9,2 | 5,7 / 9,2 | 5,6 / 9,3 | 5,5 / 9,5 | 5,1 / 9,9 |
+| `outline` sobre `mist` (contorno) | 3,3 / 6,6 | 3,4 / 6,8 | 3,5 / 6,7 | 3,7 / 6,2 | 3,7 / 6,2 |
+
+Todos os pares de texto dos temas novos passam de 4,5:1 nos dois modos (inclusive `muted` sobre
+`control`, que no Padrão claro fica em 4,0:1), e os contornos passam de 3:1.
