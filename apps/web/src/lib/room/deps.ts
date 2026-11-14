@@ -11,6 +11,7 @@ import {
   type DevicePreview,
   type MediaCapabilities,
 } from "@sualive/media";
+import type { MeUser } from "@sualive/protocol";
 import type { FetchLike } from "./api";
 
 export interface SocketHandlers {
@@ -35,8 +36,22 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+/**
+ * De onde a sala sabe quem está logado. Na aplicação é o store de `src/lib/account` (mesmo
+ * formato), injetado em `index.ts`; a sala não importa o módulo de conta.
+ */
+export interface AccountSource {
+  /** Conta logada depois do carregamento em andamento; `null` sem conta (ou se a consulta falhou). */
+  current(): Promise<MeUser | null>;
+  /** Consulta a conta de novo (ex.: o servidor recusou a entrada por falta do primeiro acesso). */
+  refresh(): Promise<void>;
+  /** Avisa quando a conta muda (login, logout, perfil). Devolve a função que cancela. */
+  subscribe(listener: () => void): () => void;
+}
+
 export interface RoomDeps {
   fetch: FetchLike;
+  account: AccountSource;
   createSocket: CreateSocket;
   createMediaSession: CreateMediaSession;
   createDevicePreview: () => Promise<DevicePreview>;
@@ -103,9 +118,10 @@ function onBrowserResume(handler: () => void): () => void {
   };
 }
 
-export function browserRoomDeps(): RoomDeps {
+export function browserRoomDeps(account: AccountSource): RoomDeps {
   return {
     fetch: (input, init) => globalThis.fetch(input, init),
+    account,
     createSocket: createBrowserSocket,
     createMediaSession,
     createDevicePreview,

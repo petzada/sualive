@@ -1,11 +1,11 @@
 /**
- * Ponto único que as telas importam para conta, perfil e Plus. A implementação é da tarefa
- * "cliente do front" da entrega 2; até ela entrar, a função existe só para as telas compilarem.
+ * Ponto único que as telas importam para conta, perfil e Plus: `useAccount` e os tipos do contrato.
+ * Um só carregamento de /api/me para a aplicação inteira (sem provedor de contexto).
  */
+import { getAccountStore } from "./shared";
 import type { UseAccount } from "./types";
+import { createUseAccount } from "./use-account";
 
 export type * from "./types";
 
-export const useAccount: UseAccount = () => {
-  throw new Error("useAccount is not implemented yet");
-};
+export const useAccount: UseAccount = createUseAccount(getAccountStore);

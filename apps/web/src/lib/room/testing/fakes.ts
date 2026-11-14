@@ -7,9 +7,9 @@ import type {
   MediaSessionOptions,
   VideoKind,
 } from "@sualive/media";
-import type { ClientMessage, Participant, ServerMessage } from "@sualive/protocol";
+import type { ClientMessage, MeUser, Participant, ServerMessage } from "@sualive/protocol";
 import { vi, type Mock } from "vitest";
-import type { RoomDeps, SocketHandlers, SocketLike, StorageLike } from "../deps";
+import type { AccountSource, RoomDeps, SocketHandlers, SocketLike, StorageLike } from "../deps";
 
 export const CODE = "abcdefghij";
 export const ORIGIN = "https://sualive.test";
@@ -226,10 +226,55 @@ export class MemoryStorage implements StorageLike {
   }
 }
 
+// ---------- Conta ----------
+
+/** Conta logada, com primeiro acesso concluído e sem Plus, salvo o que `overrides` trocar. */
+export function meUser(overrides: Partial<MeUser> = {}): MeUser {
+  return {
+    id: "u1",
+    handle: "ana",
+    nickname: "Ana Perfil",
+    avatarUrl: "https://cdn.test/ana.png",
+    onboarded: true,
+    badges: [],
+    plan: { status: "none", plus: false, cycle: null, periodEnd: null, renews: false },
+    roomTheme: "default",
+    handleChangeAvailableAt: null,
+    ...overrides,
+  };
+}
+
+export const PLUS_PLAN: MeUser["plan"] = {
+  status: "active",
+  plus: true,
+  cycle: "monthly",
+  periodEnd: 2_000_000_000_000,
+  renews: true,
+};
+
+/** Fonte da conta: começa anônima; `set` troca a conta e avisa quem assina. */
+export class FakeAccount implements AccountSource {
+  user: MeUser | null = null;
+  readonly listeners = new Set<() => void>();
+  readonly current = vi.fn(async () => this.user);
+  readonly refresh = vi.fn(async () => undefined);
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  set(user: MeUser | null): void {
+    this.user = user;
+    for (const listener of [...this.listeners]) listener();
+  }
+}
+
 // ---------- Conjunto ----------
 
 export interface Harness {
   deps: RoomDeps;
+  account: FakeAccount;
   server: FakeServer;
   sockets: FakeSocket[];
   medias: FakeMedia[];
@@ -251,10 +296,12 @@ export function createHarness(): Harness {
   const reports: Harness["reports"] = [];
   const resumeHandlers = new Set<() => void>();
   const clipboard: string[] = [];
+  const account = new FakeAccount();
   let ids = 0;
 
   const deps: RoomDeps = {
     fetch: server.fetch,
+    account,
     createSocket: (url, handlers) => {
       const socket = new FakeSocket(url, handlers);
       sockets.push(socket);
@@ -286,6 +333,7 @@ export function createHarness(): Harness {
 
   return {
     deps,
+    account,
     server,
     sockets,
     medias,
