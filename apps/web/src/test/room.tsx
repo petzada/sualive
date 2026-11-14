@@ -1,4 +1,4 @@
-import { ROOM_MAX_PEOPLE } from "@sualive/config";
+import { REACTIONS, ROOM_MAX_PEOPLE } from "@sualive/config";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
@@ -6,10 +6,13 @@ import type { Mock } from "vitest";
 import { App } from "../App";
 import { AccountClientProvider } from "../components/account/AccountClient";
 import { RoomClientProvider } from "../components/room/RoomClient";
+import { WalletClientProvider } from "../components/wallet/WalletClient";
 import type { TurnstileApi } from "../components/Turnstile";
 import type { AccountActions, AccountState } from "../lib/account";
 import type { CreateRoom, ParticipantView, RoomActions, RoomState, VideoView } from "../lib/room";
+import type { WalletActions, WalletState } from "../lib/wallet";
 import { makeAccountActions, makeAccountState } from "./account";
+import { makeWalletActions, makeWalletState } from "./wallet";
 
 export const TEST_TOKEN = "test-turnstile-token";
 
@@ -67,6 +70,8 @@ export function makeParticipant(overrides: Partial<ParticipantView> = {}): Parti
     handle: null,
     avatarUrl: null,
     badges: [],
+    cosmetics: null,
+    canReceiveGold: false,
     nickname: "Ana",
     isSelf: false,
     isOwner: false,
@@ -102,6 +107,9 @@ export function makeState(overrides: Partial<RoomState> = {}): RoomState {
     featuredVideoId: null,
     chat: [],
     reactions: [],
+    availableReactions: [...REACTIONS],
+    canSendGold: false,
+    gifts: [],
     notice: null,
     micMuted: true,
     handRaised: false,
@@ -142,6 +150,7 @@ export function makeActions(): { [K in keyof RoomActions]: Mock<RoomActions[K]> 
     stopVideo: vi.fn<RoomActions["stopVideo"]>(),
     setFeaturedVideo: vi.fn<RoomActions["setFeaturedVideo"]>(),
     moderate: vi.fn<RoomActions["moderate"]>(),
+    sendGold: vi.fn<RoomActions["sendGold"]>(() => Promise.resolve({ ok: true })),
     copyLink: vi.fn<RoomActions["copyLink"]>(() => Promise.resolve()),
     dismissNotice: vi.fn<RoomActions["dismissNotice"]>(),
   };
@@ -155,6 +164,9 @@ interface RenderAppOptions {
   /** Account seen by the screens; anonymous unless told otherwise. */
   account?: AccountState;
   accountActions?: AccountActions;
+  /** Wallet seen by the screens; nothing loaded unless told otherwise. */
+  wallet?: WalletState;
+  walletActions?: WalletActions;
 }
 
 /** Renders the whole app at `path` with fake room and account clients in place of `lib`. */
@@ -165,17 +177,22 @@ export function renderApp({
   createRoom = vi.fn<CreateRoom>(() => Promise.resolve({ ok: true, code: "abcdefghjk" })),
   account = makeAccountState(),
   accountActions = makeAccountActions(),
+  wallet = makeWalletState(),
+  walletActions = makeWalletActions(),
 }: RenderAppOptions = {}) {
   const useRoom = vi.fn((_code: string) => ({ state, actions }));
   const useAccount = () => ({ state: account, actions: accountActions });
+  const useWallet = () => ({ state: wallet, actions: walletActions });
   const view = render(
     <MemoryRouter initialEntries={[path]}>
       <AccountClientProvider client={{ useAccount }}>
-        <RoomClientProvider client={{ useRoom, createRoom }}>
-          <App />
-        </RoomClientProvider>
+        <WalletClientProvider client={{ useWallet }}>
+          <RoomClientProvider client={{ useRoom, createRoom }}>
+            <App />
+          </RoomClientProvider>
+        </WalletClientProvider>
       </AccountClientProvider>
     </MemoryRouter>,
   );
-  return { ...view, useRoom, createRoom, actions, accountActions };
+  return { ...view, useRoom, createRoom, actions, accountActions, walletActions };
 }
