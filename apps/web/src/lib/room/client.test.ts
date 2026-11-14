@@ -505,6 +505,49 @@ describe("saídas", () => {
     expect(h.sockets).toHaveLength(1);
   });
 
+  it("segunda aba: 'usar esta aba' reconecta sem novo join", async () => {
+    await connect();
+    h.socket.serverClose(WS_CLOSE.replaced);
+    expect(state().phase).toBe("replaced");
+    const joins = h.server.callsTo("POST", `/api/rooms/${CODE}/join`).length;
+
+    client.actions.useThisTab();
+    expect(state().phase).toBe("joining");
+    await flush();
+    expect(h.sockets).toHaveLength(2);
+    expect(h.server.callsTo("POST", `/api/rooms/${CODE}/join`)).toHaveLength(joins);
+    h.socket.accept();
+    expect(h.socket.sentOfType("hello")).toHaveLength(1);
+    h.socket.receive({
+      type: "welcome",
+      ...welcomeDefaults,
+      self: "me",
+      participants: [participant("me"), participant("bob")],
+      chat: [],
+    });
+    await flush();
+    expect(state().phase).toBe("connected");
+    expect(state().micMuted).toBe(true);
+    expect(state().participants.map((p) => p.id)).toEqual(["me", "bob"]);
+  });
+
+  it("segunda aba: sem admissão, 'usar esta aba' volta ao lobby", async () => {
+    await connect();
+    h.socket.serverClose(WS_CLOSE.replaced);
+    client.actions.useThisTab();
+    await flush();
+    h.socket.serverClose(WS_CLOSE.unauthorized);
+    expect(state().phase).toBe("lobby");
+  });
+
+  it("'usar esta aba' não faz nada fora da fase replaced", async () => {
+    await connect();
+    client.actions.useThisTab();
+    await flush();
+    expect(state().phase).toBe("connected");
+    expect(h.sockets).toHaveLength(1);
+  });
+
   it("removed leva a kicked ou banned", async () => {
     await connect();
     h.socket.receive({ type: "removed", reason: "banned" });
