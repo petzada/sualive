@@ -1,7 +1,9 @@
-import { readFileSync, rmSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { seedSql } from "./accounts";
 
 /**
  * Teste de fumaça: o produto real (Worker + Durable Object + front construído) no simulador do
@@ -29,10 +31,42 @@ function devVars(): string[] {
     });
 }
 
+/**
+ * Credenciais FALSAS do Google, só para o botão do provedor aparecer em `/entrar` (o teste não segue
+ * o redirecionamento). O Discord fica sem credenciais, e por isso sem botão.
+ */
+const FAKE_OAUTH_VARS = [
+  "GOOGLE_CLIENT_ID:google-client-id-falso-e2e",
+  "GOOGLE_CLIENT_SECRET:google-client-secret-falso-e2e",
+];
+
 // Estado do simulador zerado a cada execução: nenhuma sala sobra de uma rodada anterior. Os
 // processos de teste também leem este arquivo; só o principal (que sobe o servidor) apaga.
-const persistDir = join(here, ".wrangler", "e2e-state");
-if (!process.env.TEST_WORKER_INDEX) rmSync(persistDir, { recursive: true, force: true });
+const stateDir = join(here, ".wrangler");
+const persistDir = join(stateDir, "e2e-state");
+
+/**
+ * D1 local pronto antes de o Worker subir: as migrations de `apps/api/migrations` e as contas da
+ * fumaça (`accounts.ts`), no mesmo estado que o `wrangler dev` usa.
+ */
+function prepareDatabase() {
+  const wrangler = (args: string) =>
+    execSync(`pnpm exec wrangler ${args} --local --persist-to "${persistDir}"`, {
+      cwd: apiDir,
+      stdio: ["ignore", "ignore", "inherit"],
+      env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "true" },
+    });
+  wrangler("d1 migrations apply DB");
+  const seedFile = join(stateDir, "e2e-seed.sql");
+  writeFileSync(seedFile, seedSql());
+  wrangler(`d1 execute DB --yes --file "${seedFile}"`);
+}
+
+if (!process.env.TEST_WORKER_INDEX) {
+  rmSync(persistDir, { recursive: true, force: true });
+  mkdirSync(stateDir, { recursive: true });
+  prepareDatabase();
+}
 
 const wranglerArgs = [
   "wrangler dev",
@@ -42,7 +76,7 @@ const wranglerArgs = [
   `--persist-to "${persistDir}"`,
   "--show-interactive-dev-session=false",
   "--log-level warn",
-  ...devVars().map((pair) => `--var "${pair}"`),
+  ...[...devVars(), ...FAKE_OAUTH_VARS].map((pair) => `--var "${pair}"`),
 ];
 
 export default defineConfig({

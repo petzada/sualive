@@ -17,12 +17,12 @@ import {
   type ApiErrorCode,
 } from "@sualive/protocol";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { findUserByHandle } from "./account";
 import { getViewer, type Viewer } from "./auth/viewer";
 import { getPlanStatus } from "./billing/plan";
 import { generateRoomCode, randomToken, sha256 } from "./crypto";
 import type { AppEnv } from "./env";
+import { apiError } from "./errors";
 import { generateIceServers, verifyTurnstile } from "./external";
 import { refuse, ROOM_IDENTITY_HEADER, type FixedOwner, type RoomAccount, type RoomIdentity } from "./room";
 import {
@@ -36,32 +36,8 @@ import {
 type Env = { Bindings: AppEnv };
 type Ctx = Context<Env>;
 
-const ERROR_STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
-  invalid_request: 400,
-  turnstile_failed: 403,
-  rate_limited: 429,
-  room_ended: 410,
-  room_full: 409,
-  banned: 403,
-  unauthorized: 401,
-  not_found: 404,
-  internal_error: 500,
-  onboarding_required: 403,
-  handle_taken: 409,
-  handle_reserved: 409,
-  handle_change_too_soon: 409,
-  provider_unavailable: 404,
-  plus_required: 403,
-  billing_unavailable: 503,
-  already_subscribed: 409,
-};
-
 /** Avatar maior que isto não vai para a sala (o estado da conexão tem limite de 2 KiB). */
 const MAX_AVATAR_URL_LENGTH = 512;
-
-function apiError(c: Ctx, error: ApiErrorCode): Response {
-  return c.json({ error }, ERROR_STATUS[error]);
-}
 
 function clientIp(c: Ctx): string {
   return c.req.header("CF-Connecting-IP") ?? "unknown";

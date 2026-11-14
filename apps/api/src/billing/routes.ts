@@ -4,12 +4,11 @@ import {
   plusCheckoutResponseSchema,
   plusPaymentResponseSchema,
   plusPaymentStatusSchema,
-  type ApiErrorCode,
 } from "@sualive/protocol";
 import { Hono, type Context } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getViewer, type Viewer } from "../auth/viewer";
 import type { AppEnv } from "../env";
+import { apiError } from "../errors";
 import { createCheckout, getPaymentStatus, requestCancel } from "./checkout";
 import { isValidCpf } from "./cpf";
 import { applyBillingEvent } from "./events";
@@ -18,19 +17,6 @@ import { parseWebhookEvent, verifyWebhook } from "./woovi";
 
 type Env = { Bindings: AppEnv };
 type Ctx = Context<Env>;
-
-const ERROR_STATUS: Partial<Record<ApiErrorCode, ContentfulStatusCode>> = {
-  invalid_request: 400,
-  unauthorized: 401,
-  onboarding_required: 403,
-  not_found: 404,
-  already_subscribed: 409,
-  billing_unavailable: 503,
-};
-
-function apiError(c: Ctx, error: ApiErrorCode): Response {
-  return c.json({ error }, ERROR_STATUS[error] ?? 500);
-}
 
 /** Conta logada, com primeiro acesso concluído, num ambiente com cobrança ligada. */
 async function requireSubscriber(c: Ctx): Promise<Viewer | Response> {
