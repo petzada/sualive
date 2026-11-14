@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { Link } from "react-router";
 import { SiteFooter } from "../components/account/PageShell";
 import { CreateRoom } from "../components/CreateRoom";
 import { PeopleCards } from "../components/PeopleCards";
@@ -11,7 +10,7 @@ import { texts } from "../texts";
  */
 export const MANIFESTO_PHOTOS = ["manifesto-1.jpg", "manifesto-2.jpg", "manifesto-3.jpg"] as const;
 
-/** The manifesto: the photos, a reading column, the "create room" button, the age line and the legal links. */
+/** The manifesto: no name at the top; the photos, a reading column, the "create room" button, the age line and the legal links. */
 export function ManifestoPage() {
   useEffect(() => {
     const previous = document.title;
@@ -23,14 +22,8 @@ export function ManifestoPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="px-5 py-6 text-center">
-        <Link to="/" className="rounded-link font-display text-title font-semibold outline-offset-4">
-          {texts.home.title}
-        </Link>
-      </header>
-
       <main className="flex flex-1 flex-col gap-18 pt-14">
-        {/* The hero of the page: as far from the top as the title was; the title keeps its distance below. */}
+        {/* The page opens with them: nothing above but this breathing room. */}
         <PeopleCards photos={MANIFESTO_PHOTOS} />
 
         <article className="mx-auto w-full max-w-2xl px-5">

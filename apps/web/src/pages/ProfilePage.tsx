@@ -305,10 +305,10 @@ function Logout({ actions }: { actions: AccountActions }) {
 
 export function ProfilePage() {
   const { user, fallback, actions } = useAccountGate();
-  if (!user) return <PageShell>{fallback}</PageShell>;
+  if (!user) return <PageShell top="back">{fallback}</PageShell>;
 
   return (
-    <PageShell>
+    <PageShell top="back">
       <header className="flex flex-wrap items-center gap-5">
         <span title={texts.profile.avatarHint}>
           <Avatar nickname={user.nickname} avatarUrl={user.avatarUrl} size="lg" />

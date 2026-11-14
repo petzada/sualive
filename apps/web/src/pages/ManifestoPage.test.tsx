@@ -38,7 +38,6 @@ describe("manifesto page", () => {
     renderManifesto();
 
     const order = [
-      screen.getByRole("link", { name: texts.home.title }),
       screen.getByRole("heading", { level: 1, name: texts.manifesto.title }),
       ...texts.manifesto.paragraphs.map((paragraph) => screen.getByText(paragraph)),
       screen.getByText(texts.manifesto.closing),
@@ -80,12 +79,17 @@ describe("manifesto page", () => {
     expect(document.title).toBe("sualive");
   });
 
-  it("goes back home by the name at the top", () => {
-    renderManifesto();
+  it("has no name or mark at the top: the page starts at the photos", () => {
+    const { container } = renderManifesto();
 
-    fireEvent.click(screen.getByRole("link", { name: texts.home.title }));
-
-    expect(screen.getByText(texts.home.tagline[0])).toBeTruthy();
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.home.title })).toBeNull();
+    expect(container.querySelector('a[href="/"]')).toBeNull();
+    // The column of the page is the first thing in it, and the photos the first thing in the column.
+    const main = screen.getByRole("main");
+    expect(main.parentElement?.firstElementChild).toBe(main);
+    expect(main.firstElementChild?.querySelectorAll("img")).toHaveLength(MANIFESTO_PHOTOS.length);
+    expect(main.className.split(" ")).toContain("pt-14");
   });
 
   it("creates a room from the page, with the Turnstile token", async () => {
@@ -98,7 +102,7 @@ describe("manifesto page", () => {
     await waitFor(() => expect(createRoom).toHaveBeenCalledWith(TEST_TOKEN));
   });
 
-  it("opens with the three photos, with no name or city, between the name at the top and the title", () => {
+  it("opens with the three photos, with no name or city, above the title", () => {
     const { container } = renderManifesto();
 
     const photos = [...container.querySelectorAll("img")];
@@ -106,7 +110,6 @@ describe("manifesto page", () => {
       MANIFESTO_PHOTOS.map((photo) => `/images/${photo}`),
     );
     const title = screen.getByRole("heading", { level: 1, name: texts.manifesto.title });
-    expect(isBefore(screen.getByRole("link", { name: texts.home.title }), photos[0]!)).toBe(true);
     expect(isBefore(photos[2]!, title)).toBe(true);
     // The strip is the first block of the page's column; the reading column (title first) is the next.
     const strip = photos[0]!.closest("[aria-hidden]")!;
@@ -114,7 +117,7 @@ describe("manifesto page", () => {
     expect(main.firstElementChild).toBe(strip);
     expect(strip.nextElementSibling?.contains(title)).toBe(true);
     expect(strip.nextElementSibling?.firstElementChild).toBe(title);
-    // Same distance from the top the title had, and the column's gap keeps the title apart.
+    // A breathing room above the photos, and the column's gap keeps the title apart.
     for (const name of ["pt-14", "gap-18"]) expect(main.className.split(" ")).toContain(name);
     // The cards carry no text at all.
     expect(photos[0]!.closest("[aria-hidden]")?.textContent).toBe("");
