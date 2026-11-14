@@ -26,7 +26,7 @@ import {
   maskCpf,
 } from "../components/format";
 import { Brand } from "../components/Brand";
-import { CheckIcon, Spinner } from "../components/icons";
+import { CheckIcon, CoinIcon, Spinner } from "../components/icons";
 import type { AccountActions, AccountErrorReason, AccountState, PaymentStatus } from "../lib/account";
 import { texts } from "../texts";
 
@@ -71,6 +71,16 @@ function Benefits() {
           </li>
         ))}
       </ul>
+      {/* The monthly gold, said also as the time of protected room it pays for. */}
+      <p className={`flex gap-3 ${CARD}`} data-testid="plus-gold">
+        <span className="mt-0.5 shrink-0 text-muted">
+          <CoinIcon filled />
+        </span>
+        <span className="flex flex-col gap-1">
+          <span className="font-medium">{texts.plus.gold.title}</span>
+          <span className="text-body-sm text-muted">{texts.plus.gold.text}</span>
+        </span>
+      </p>
       <p className={NOTE}>{texts.plus.earlySupporter}</p>
     </section>
   );

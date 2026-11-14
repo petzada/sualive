@@ -2,7 +2,7 @@ import { CURRENCIES } from "@sualive/config";
 import type { WalletResponse } from "../../lib/wallet";
 import { texts } from "../../texts";
 import { CARD } from "../account/styles";
-import { formatAmount } from "../format";
+import { formatAmount, formatProtectedRoomTime } from "../format";
 import { CoinIcon } from "../icons";
 
 interface BalancesProps {
@@ -41,6 +41,12 @@ export function Balances({ wallet, compact = false }: BalancesProps) {
             {texts.wallet.balances.names[currency]}
           </dt>
           <dd className="font-display text-heading font-semibold">{formatAmount(wallet[currency])}</dd>
+          {/* Gold is also time: how long of protected room this balance pays for. */}
+          {currency === "gold" && (
+            <dd className="text-body-sm font-medium" data-testid="gold-protected-time">
+              {texts.wallet.balances.protectedTime(formatProtectedRoomTime(wallet.gold))}
+            </dd>
+          )}
           <dd className="text-body-sm text-muted">{texts.wallet.balances.about[currency]}</dd>
         </div>
       ))}
