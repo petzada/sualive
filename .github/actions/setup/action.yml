@@ -1,0 +1,13 @@
+name: Preparar o monorepo
+description: pnpm (versão do packageManager), Node 22 com cache do pnpm e instalação travada no lockfile.
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    - name: Instalar dependências
+      shell: bash
+      run: pnpm install --frozen-lockfile

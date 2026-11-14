@@ -7,6 +7,15 @@
     "test:related": {},
     "test:ci": {},
     "e2e": { "cache": false },
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] }
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["VITE_*"],
+      "passThroughEnv": ["SENTRY_AUTH_TOKEN"]
+    },
+    "@sualive/api#build": {
+      "dependsOn": ["^build", "@sualive/web#build"],
+      "outputs": ["dist/**"]
+    }
   }
 }
