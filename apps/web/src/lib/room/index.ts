@@ -1,15 +1,21 @@
 /**
- * Ponto único que as telas importam. A implementação (WebSocket, API e mídia) é da tarefa
- * "cliente da sala"; até ela entrar, as funções existem só para as telas compilarem.
+ * Ponto único que as telas importam: `useRoom`, `createRoom` e os tipos do contrato. WebSocket,
+ * API e mídia ficam no `RoomClient`; as peças do navegador vêm de `browserRoomDeps`.
  */
+import { browserRoomDeps, type RoomDeps } from "./deps";
 import type { CreateRoom, UseRoom } from "./types";
+import { createRoomWith, createUseRoom } from "./use-room";
 
 export type * from "./types";
 
-export const useRoom: UseRoom = () => {
-  throw new Error("useRoom is not implemented yet");
-};
+let deps: RoomDeps | null = null;
 
-export const createRoom: CreateRoom = () => {
-  throw new Error("createRoom is not implemented yet");
-};
+/** Criadas na primeira sala, não ao importar (os testes das telas não abrem nada). */
+function getBrowserDeps(): RoomDeps {
+  deps ??= browserRoomDeps();
+  return deps;
+}
+
+export const useRoom: UseRoom = createUseRoom(getBrowserDeps);
+
+export const createRoom: CreateRoom = createRoomWith(getBrowserDeps);
