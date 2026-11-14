@@ -582,3 +582,13 @@ Contraste (mesma conta da seção acima), pior par de cada tema novo, claro / es
 
 Todos os pares de texto dos temas novos passam de 4,5:1 nos dois modos (inclusive `muted` sobre
 `control`, que no Padrão claro fica em 4,0:1), e os contornos passam de 3:1.
+
+### Tokens acrescentados nos ajustes da entrega 2
+
+| Token | Claro | Escuro | Uso |
+|---|---|---|---|
+| `plan` / `on-plan` | `#000000` / `#ffffff` | `#ffffff` / `#000000` | Pílula do plano na barra da sala ("Plus" / "Conheça o Plus"). O par se inverte no escuro para a pílula continuar destacada. Vale igual nos seis temas de sala. |
+| `brand-google-*` | cores oficiais do "G" | iguais | Só no logotipo do botão "Entrar com Google" (botão branco com contorno `hairline`). |
+| `brand-discord` / `on-brand-discord` | `#5865F2` / `#ffffff` | iguais | Só no botão "Entrar com Discord". |
+
+Cores de marca de terceiros só aparecem nos botões de login desses provedores, nunca como cor da interface.

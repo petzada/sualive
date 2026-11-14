@@ -176,7 +176,12 @@ test("visitante: entrada da conta, login, páginas legais e Plus sem cobrança",
   await expect(page.getByRole("heading", { name: texts.login.title })).toBeVisible();
   const google = page.getByRole("link", { name: texts.login.providers.google });
   await expect(google).toHaveAttribute("href", "/api/auth/google/start");
-  await expect(page.getByRole("link", { name: texts.login.providers.discord })).toHaveCount(0);
+  // O Discord não está configurado: o botão aparece desligado, sem endereço, com "Em breve".
+  const discord = page.getByRole("link", { name: texts.login.providers.discord });
+  await expect(discord).toBeVisible();
+  await expect(discord).toBeDisabled();
+  await expect(discord).not.toHaveAttribute("href");
+  await expect(discord).toContainText(texts.login.soon);
 
   await page.goto("/termos");
   await expect(page.getByRole("heading", { name: texts.legal.terms.title, level: 1 })).toBeVisible();
@@ -186,7 +191,7 @@ test("visitante: entrada da conta, login, páginas legais e Plus sem cobrança",
 
   await page.goto("/plus");
   await expect(page.getByRole("heading", { name: texts.plus.title, level: 1 })).toBeVisible();
-  await expect(page.getByTestId("billing-disabled")).toHaveText(texts.plus.billingDisabled);
+  await expect(page.getByTestId("payments-note")).toHaveText(texts.plus.paymentsNote);
   for (const name of [texts.plus.cycles.monthly.choose, texts.plus.cycles.annual.choose]) {
     await expect(page.getByRole("button", { name })).toHaveCount(0);
   }
@@ -212,8 +217,10 @@ test("conta nova: o primeiro acesso vem antes de tudo e devolve ao destino", asy
 
   const handle = page.getByLabel(texts.handle.label);
   const handleStatus = page.locator("[data-status]");
+  // A regra só aparece como erro, embaixo do campo, enquanto o que foi digitado não a cumpre.
+  await expect(page.getByText(texts.handle.invalid)).toHaveCount(0);
   await handle.fill("a-b");
-  await expect(handleStatus).toHaveText(texts.handle.invalid);
+  await expect(page.getByRole("alert").filter({ hasText: texts.handle.invalid })).toBeVisible();
   await handle.fill("admin");
   await expect(handleStatus).toHaveText(texts.handle.reserved);
 

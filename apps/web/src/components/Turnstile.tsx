@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
+import { createPortal } from "react-dom";
 
 /** Official script, explicit rendering. The only third-party script the screens load. */
 const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -12,6 +13,10 @@ interface TurnstileRenderOptions {
   "expired-callback": () => void;
   "timeout-callback": () => void;
   "error-callback": () => boolean;
+  /** Cloudflare demands an interaction: from here the widget has something to show. */
+  "before-interactive-callback": () => void;
+  /** The interaction is over (passed or not): the widget has nothing to show again. */
+  "after-interactive-callback": () => void;
   theme: "light";
   language: string;
   size: "flexible";
@@ -70,6 +75,8 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
   const handlersRef = useRef({ onToken, onError });
   // Bumped to load the script again after a failed load.
   const [attempt, setAttempt] = useState(0);
+  // Only while Cloudflare demands an interaction from the person (a suspect visit).
+  const [interactive, setInteractive] = useState(false);
 
   useEffect(() => {
     handlersRef.current = { onToken, onError };
@@ -80,6 +87,7 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
     () => ({
       reset() {
         handlersRef.current.onToken(null);
+        setInteractive(false);
         if (widgetIdRef.current !== null && window.turnstile) {
           window.turnstile.reset(widgetIdRef.current);
         } else {
@@ -101,18 +109,25 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
         api = loaded;
         const widgetId = loaded.render(container, {
           sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY || TEST_SITE_KEY,
-          callback: (token) => handlersRef.current.onToken(token),
+          callback: (token) => {
+            setInteractive(false);
+            handlersRef.current.onToken(token);
+          },
           // The widget refreshes an expired token by itself and calls `callback` again.
           "expired-callback": () => handlersRef.current.onToken(null),
           "timeout-callback": () => {
+            setInteractive(false);
             handlersRef.current.onToken(null);
             if (widgetIdRef.current !== null) loaded.reset(widgetIdRef.current);
           },
           "error-callback": () => {
+            setInteractive(false);
             handlersRef.current.onToken(null);
             handlersRef.current.onError();
             return true; // handled here; keeps the widget from logging to the console
           },
+          "before-interactive-callback": () => setInteractive(true),
+          "after-interactive-callback": () => setInteractive(false),
           theme: "light",
           // O widget só reconhece o código em minúsculas ("pt-BR" gera aviso e cai no fallback).
           language: "pt-br",
@@ -134,8 +149,28 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
     };
   }, [attempt]);
 
-  return (
-    // No reserved space and no label: the check runs out of sight.
-    <div ref={containerRef} className="w-full max-w-xs empty:hidden" data-testid="turnstile" />
+  /*
+   * Out of the flow of every screen: fixed at the top center of the window, above everything, and
+   * rendered on the body (a `transform` or `perspective` up the tree would otherwise capture a
+   * fixed element). With nothing demanded from the person the widget shows nothing, so the box has
+   * no height and no chrome; when Cloudflare demands an interaction it becomes a floating notice,
+   * and goes away when that ends.
+   */
+  return createPortal(
+    <div
+      data-testid="turnstile-toast"
+      data-interactive={interactive}
+      className="pointer-events-none fixed inset-x-0 top-4 z-[1000] flex justify-center px-4"
+    >
+      <div
+        className={`pointer-events-auto max-w-full ${
+          interactive ? "rounded-nav bg-frost p-3 shadow-outline-soft" : ""
+        }`}
+      >
+        {/* 300px: the least the widget needs. */}
+        <div ref={containerRef} className="w-[300px] max-w-full empty:hidden" data-testid="turnstile" />
+      </div>
+    </div>,
+    document.body,
   );
 }

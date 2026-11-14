@@ -1,18 +1,25 @@
 import {
+  HANDLE_CHANGE_INTERVAL_DAYS,
   MINIMUM_AGE,
-  PLUS_ANNUAL_EXPIRY_NOTICE_DAYS,
+  PLUS_ANNUAL_PERIOD_DAYS,
   PLUS_ANNUAL_PRICE_CENTS,
   PLUS_MONTHLY_PRICE_CENTS,
   TERMS_VERSION,
 } from "@sualive/config";
-import type { Plan } from "@sualive/protocol";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import type { MeUser, Plan } from "@sualive/protocol";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { planStatusText } from "../components/account/plan";
+import { AccountClientProvider } from "../components/account/AccountClient";
+import type { AccountClient } from "../components/account/AccountClient";
+import { PATHS } from "../components/account/paths";
+import { annualDiscountPercent, planStatusText } from "../components/account/plan";
 import { formatCents, formatDate, isValidCpf, maskCpf } from "../components/format";
 import {
   DAY_MS,
   makeAccountActions,
+  makeAccountClient,
   makeAccountState,
   makeActivePlan,
   makeCheckout,
@@ -21,6 +28,7 @@ import {
 } from "../test/account";
 import { renderApp } from "../test/room";
 import { texts } from "../texts";
+import { OnboardingPage } from "./OnboardingPage";
 
 const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
 const logged = (user = makeUser()) => makeAccountState({ user });
@@ -30,32 +38,131 @@ const VALID_CPF = "529.982.247-25";
 const money = (cents: number) => formatCents(cents).replace(/\s/g, " ");
 
 describe("login", () => {
-  it("shows only the available providers, as full-page links that carry returnTo", () => {
+  const providerButton = (provider: "google" | "discord") =>
+    screen.getByRole("link", { name: new RegExp(`^${texts.login.providers[provider]}`) });
+  const isBefore = (first: Element, second: Element) =>
+    Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("always shows the two buttons; only an available provider is a link, and it carries returnTo", () => {
     const { accountActions } = renderApp({
       path: "/entrar?returnTo=%2Fs%2Fabcdefghjk",
       account: makeAccountState({ providers: ["google"] }),
     });
 
     expect(heading()).toBe(texts.login.title);
-    const google = screen.getByRole("link", { name: texts.login.providers.google });
+    const google = providerButton("google");
+    expect(google.textContent).toBe(texts.login.providers.google);
     expect(google.getAttribute("href")).toBe("/api/auth/google/start?returnTo=%2Fs%2Fabcdefghjk");
+    expect(google.hasAttribute("aria-disabled")).toBe(false);
     expect(accountActions.loginUrl).toHaveBeenCalledWith("google", "/s/abcdefghjk");
-    expect(screen.queryByRole("link", { name: texts.login.providers.discord })).toBeNull();
+    expect(accountActions.loginUrl).toHaveBeenCalledTimes(1);
+
+    // The one that is not configured is there, switched off: no address, and it says "soon".
+    const discord = providerButton("discord");
+    expect(discord.textContent).toBe(`${texts.login.providers.discord}${texts.login.soon}`);
+    expect(discord.getAttribute("aria-disabled")).toBe("true");
+    expect(discord.hasAttribute("href")).toBe(false);
+    expect(discord.tagName).not.toBe("A");
+    expect(screen.getAllByText(texts.login.soon)).toHaveLength(1);
     // No password and no sign-up by e-mail: there is nothing to type on this page.
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(document.querySelector("input")).toBeNull();
   });
 
-  it("offers both providers when both are configured", () => {
+  it("offers both providers as links when both are configured", () => {
     renderApp({ path: "/entrar" });
-    expect(screen.getByRole("link", { name: texts.login.providers.google })).toBeTruthy();
-    expect(screen.getByRole("link", { name: texts.login.providers.discord })).toBeTruthy();
+    expect(providerButton("google").getAttribute("href")).toBe("/api/auth/google/start");
+    expect(providerButton("discord").getAttribute("href")).toBe("/api/auth/discord/start");
+    expect(screen.queryByText(texts.login.soon)).toBeNull();
   });
 
-  it("says so when no provider is available", () => {
-    renderApp({ path: "/entrar", account: makeAccountState({ providers: [] }) });
-    expect(screen.getByText(texts.login.noProviders)).toBeTruthy();
-    expect(screen.queryByRole("link", { name: texts.login.providers.google })).toBeNull();
+  it("switches both buttons off when no provider is available", () => {
+    const { accountActions } = renderApp({ path: "/entrar", account: makeAccountState({ providers: [] }) });
+    for (const provider of ["google", "discord"] as const) {
+      expect(providerButton(provider).getAttribute("aria-disabled")).toBe("true");
+      expect(providerButton(provider).hasAttribute("href")).toBe(false);
+    }
+    expect(screen.getAllByText(texts.login.soon)).toHaveLength(2);
+    expect(accountActions.loginUrl).not.toHaveBeenCalled();
+  });
+
+  it("dresses each button in the colors of its provider, both with the same width", () => {
+    renderApp({ path: "/entrar" });
+    const [google, discord] = [providerButton("google"), providerButton("discord")];
+
+    for (const name of ["bg-canvas", "border-hairline", "text-ink"]) {
+      expect(google.className.split(" ")).toContain(name);
+    }
+    // The official "G": its four colors, from the tokens of the theme.
+    const fills = [...google.querySelectorAll("svg path")].map((path) => path.getAttribute("fill"));
+    expect(fills.sort()).toEqual(
+      ["blue", "green", "red", "yellow"].map((color) => `var(--color-brand-google-${color})`),
+    );
+    for (const name of ["bg-brand-discord", "text-on-brand-discord"]) {
+      expect(discord.className.split(" ")).toContain(name);
+    }
+    expect(discord.querySelector("svg path")?.getAttribute("fill")).toBe("currentColor");
+    for (const button of [google, discord]) {
+      expect(button.className.split(" ")).toContain("w-full");
+      expect(button.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    }
+    expect(google.closest("ul")).toBe(discord.closest("ul"));
+  });
+
+  it("is only the two columns: title, sub-headline, Google, Discord and the legal links; faces at the right", () => {
+    renderApp({ path: "/entrar" });
+    const main = screen.getByRole("main");
+
+    const order = [
+      screen.getByRole("heading", { level: 1, name: texts.login.title }),
+      screen.getByText(texts.login.intro),
+      providerButton("google"),
+      providerButton("discord"),
+      screen.getByRole("link", { name: texts.nav.terms }),
+      screen.getByRole("link", { name: texts.nav.privacy }),
+    ];
+    order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
+    expect(texts.login.intro).toBe("Acesse sua conta.");
+    expect(main.textContent).not.toContain("você não precisa de conta");
+    // Nothing at the top: no name of the product and no way into the account.
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.nav.home })).toBeNull();
+    expect(document.body.textContent).not.toContain(texts.home.title);
+    expect(main.parentElement?.lastElementChild).toBe(main);
+
+    // The right column: three slices of the big card of the home page, one face in each.
+    const column = order[0]!.parentElement!;
+    const faces = column.nextElementSibling!;
+    expect(faces.getAttribute("aria-hidden")).toBe("true");
+    expect(faces.textContent).toBe("");
+    expect(faces.querySelector("a, button, [tabindex]")).toBeNull();
+    for (const name of ["aspect-[4/5]", "max-w-md", "grid-rows-3"]) {
+      expect(faces.className.split(" ")).toContain(name);
+    }
+    const photos = [...faces.querySelectorAll("img")];
+    expect(photos.map((photo) => photo.getAttribute("src"))).toEqual(
+      [1, 2, 3].map((index) => `/images/manifesto-${index}.jpg`),
+    );
+    for (const photo of photos) {
+      expect(photo.getAttribute("alt")).toBe("");
+      expect(photo.className.split(" ")).toContain("object-cover");
+      expect(photo.parentElement?.className.split(" ")).toContain("rounded-card");
+    }
+  });
+
+  it("shares the two columns with the home page", () => {
+    const login = renderApp({ path: "/entrar" });
+    const grid = () => screen.getByRole("heading", { level: 1 }).parentElement!.parentElement!;
+    const [loginGrid, loginColumn] = [grid().className, grid().firstElementChild!.className];
+    const loginMain = screen.getByRole("main").className;
+    login.unmount();
+
+    renderApp({ path: "/" });
+    expect(grid().className).toBe(loginGrid);
+    expect(grid().firstElementChild!.className).toBe(loginColumn);
+    expect(screen.getByRole("main").className).toBe(loginMain);
+    expect(loginGrid.split(" ")).toContain("md:grid-cols-2");
   });
 
   it("explains a failed login", () => {
@@ -82,6 +189,173 @@ describe("first access", () => {
   const handleInput = () => screen.getByLabelText<HTMLInputElement>(texts.handle.label);
   const consent = () => screen.getByRole<HTMLInputElement>("checkbox");
   const submit = () => fireEvent.click(screen.getByRole("button", { name: texts.onboarding.submit }));
+  const isBefore = (first: Element, second: Element) =>
+    Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const describedBy = () => (handleInput().getAttribute("aria-describedby") ?? "").split(" ");
+
+  /** Where the app is; stands in for every page that is not the first access. */
+  function Location() {
+    const location = useLocation();
+    return <p data-testid="location">{location.pathname + location.search}</p>;
+  }
+
+  /** The first access alone in a router, to see where it sends the person afterwards. */
+  function renderOnboarding(path: string, client: AccountClient) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <AccountClientProvider client={client}>
+          <Routes>
+            <Route path={PATHS.onboarding} element={<OnboardingPage />} />
+            <Route path="*" element={<Location />} />
+          </Routes>
+        </AccountClientProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  /** As the real account does: it turns "onboarded" before the form gets its answer. */
+  function LiveAccount({ path, user }: { path: string; user: MeUser }) {
+    const [state, setState] = useState(() => makeAccountState({ user }));
+    const [actions] = useState(() => {
+      const mocks = makeAccountActions();
+      mocks.completeOnboarding.mockImplementation(({ handle }) => {
+        setState(makeAccountState({ user: makeUser({ handle }) }));
+        return Promise.resolve({ ok: true, value: undefined });
+      });
+      return mocks;
+    });
+    return (
+      <MemoryRouter initialEntries={[path]}>
+        <AccountClientProvider client={{ useAccount: () => ({ state, actions }) }}>
+          <Routes>
+            <Route path={PATHS.onboarding} element={<OnboardingPage />} />
+            <Route path="*" element={<Location />} />
+          </Routes>
+        </AccountClientProvider>
+      </MemoryRouter>
+    );
+  }
+
+  async function finish() {
+    fireEvent.change(handleInput(), { target: { value: "marina" } });
+    fireEvent.click(consent());
+    await screen.findByText(texts.handle.available);
+    submit();
+    return (await screen.findByTestId("location")).textContent;
+  }
+
+  it("is an onboarding screen: no name, no Plus and no account at the top, the legal links at the foot", () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+
+    expect(heading()).toBe("Só falta mais um passo");
+    expect(screen.getByText("Escolha seu @nome e aceite os termos.")).toBeTruthy();
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.nav.home })).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.nav.plus })).toBeNull();
+    expect(document.body.textContent).not.toContain(texts.home.title);
+    // Centered in the window, both ways.
+    const main = screen.getByRole("main");
+    for (const name of ["mx-auto", "flex-1", "justify-center"])
+      expect(main.className.split(" ")).toContain(name);
+    // The legal links close the page, centered, outside the form.
+    const footer = screen.getByRole("contentinfo");
+    expect(main.nextElementSibling).toBe(footer);
+    expect(footer.className.split(" ")).toContain("justify-center");
+    expect(within(footer).getByRole("link", { name: texts.nav.terms }).getAttribute("href")).toBe("/termos");
+    expect(within(footer).getByRole("link", { name: texts.nav.privacy }).getAttribute("href")).toBe(
+      "/privacidade",
+    );
+  });
+
+  it("orders the form: the @handle, the single consent and then the button", () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+
+    const order = [
+      screen.getByRole("heading", { level: 1 }),
+      screen.getByText(texts.onboarding.intro),
+      handleInput(),
+      screen.getByText(texts.onboarding.handleHint),
+      consent(),
+      screen.getByRole("button", { name: texts.onboarding.submit }),
+    ];
+    order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
+  });
+
+  it("explains the handle under the field, and keeps the rule for when it is broken", () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+
+    expect(texts.onboarding.handleHint).toBe(
+      `Esse nome é a sua identificação oficial. Pode ser trocado a cada ${HANDLE_CHANGE_INTERVAL_DAYS} dias.`,
+    );
+    const hint = screen.getByText(texts.onboarding.handleHint);
+    expect(describedBy()).toContain(hint.id);
+    // Nothing about the size or the characters until what was typed breaks the rule.
+    expect(document.body.textContent).not.toContain(texts.handle.rule);
+    expect(screen.queryByText(texts.handle.invalid)).toBeNull();
+    expect(handleInput().hasAttribute("aria-invalid")).toBe(false);
+
+    fireEvent.change(handleInput(), { target: { value: "ab" } });
+    const error = screen.getByText(texts.handle.invalid);
+    expect(error.getAttribute("role")).toBe("alert");
+    expect(handleInput().getAttribute("aria-invalid")).toBe("true");
+    expect(describedBy()).toContain(error.id);
+    // Under the field, before the hint; not on the line of the label.
+    expect(isBefore(handleInput(), error)).toBe(true);
+    expect(isBefore(error, hint)).toBe(true);
+    expect(document.querySelector("[data-status]")?.textContent).toBe("");
+
+    fireEvent.change(handleInput(), { target: { value: "abc" } });
+    expect(screen.queryByText(texts.handle.invalid)).toBeNull();
+    expect(handleInput().hasAttribute("aria-invalid")).toBe(false);
+  });
+
+  it("shows the availability on the line of the label, at the right", async () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+    const label = document.querySelector(`label[for="${handleInput().id}"]`)!;
+    const status = document.querySelector("[data-status]")!;
+
+    expect(label.textContent).toBe(texts.handle.label);
+    expect(label.parentElement).toBe(status.parentElement);
+    expect(label.nextElementSibling).toBe(status);
+    expect(label.parentElement?.className.split(" ")).toContain("justify-between");
+    expect(status.className.split(" ")).toContain("text-right");
+    expect(isBefore(status, handleInput())).toBe(true);
+    expect(describedBy()).toContain(status.id);
+
+    fireEvent.change(handleInput(), { target: { value: "marina_2" } });
+    expect(status.textContent).toBe(texts.handle.checking);
+    await waitFor(() => expect(status.textContent).toBe(texts.handle.available));
+  });
+
+  it("goes to the welcome after finishing, not to the profile", async () => {
+    const actions = makeAccountActions();
+    renderOnboarding("/boas-vindas", makeAccountClient(newcomer(), actions));
+
+    expect(await finish()).toBe(PATHS.welcome);
+    expect(PATHS.welcome).toBe("/bem-vindo");
+  });
+
+  it("goes back to where the person came from, when there was a returnTo", async () => {
+    renderOnboarding("/boas-vindas?returnTo=%2Fs%2Fabcdefghjk", makeAccountClient(newcomer()));
+
+    expect(await finish()).toBe("/s/abcdefghjk");
+  });
+
+  it("still goes to the welcome when the account turns onboarded before the answer arrives", async () => {
+    const user = makeUser({ onboarded: false, handle: null });
+    const first = render(<LiveAccount path="/boas-vindas" user={user} />);
+    expect(await finish()).toBe(PATHS.welcome);
+    first.unmount();
+
+    render(<LiveAccount path="/boas-vindas?returnTo=%2Fplus" user={user} />);
+    expect(await finish()).toBe("/plus");
+  });
+
+  it("sends who finished long ago and opens it again to the profile", () => {
+    renderOnboarding("/boas-vindas", makeAccountClient(logged()));
+    expect(screen.getByTestId("location").textContent).toBe(PATHS.profile);
+  });
 
   it("has one checkbox for age, terms and privacy, with links to the two pages", () => {
     renderApp({ path: "/boas-vindas", account: newcomer() });
@@ -137,6 +411,7 @@ describe("first access", () => {
     fireEvent.change(handleInput(), { target: { value: "caio" } });
     expect(screen.getByText(texts.handle.checking)).toBeTruthy();
     expect(await screen.findByText(texts.handle.taken)).toBeTruthy();
+    expect(handleInput().getAttribute("aria-invalid")).toBe("true");
 
     fireEvent.change(handleInput(), { target: { value: "admin" } });
     expect(await screen.findByText(texts.handle.reserved)).toBeTruthy();
@@ -292,40 +567,26 @@ describe("profile", () => {
     expect(accountActions.updateProfile).not.toHaveBeenCalled();
   });
 
-  it("summarizes the plan with a link to its page, and warns discreetly near the annual expiry", () => {
+  it("has no plan card: only a discreet text link to the page of the plan", () => {
     const free = renderApp({ path: "/perfil", account: logged() });
-    expect(screen.getByText(texts.profile.planFree)).toBeTruthy();
-    expect(screen.getByRole("link", { name: texts.profile.planLink }).getAttribute("href")).toBe("/plus");
-    expect(screen.queryByTestId("annual-expiry")).toBeNull();
+    const offer = screen.getByTestId("profile-plan-link");
+    expect(offer.tagName).toBe("A");
+    expect(offer.textContent).toBe(texts.profile.plusLink);
+    expect(offer.getAttribute("href")).toBe("/plus");
     free.unmount();
 
     const periodEnd = Date.now() + 3 * DAY_MS;
     const plan = makeActivePlan({ cycle: "annual", renews: false, periodEnd });
     renderApp({ path: "/perfil", account: logged(makeUser({ plan })) });
-    expect(screen.getByText(planStatusText(plan)!)).toBeTruthy();
-    expect(screen.getByTestId("annual-expiry").textContent).toBe(
-      texts.plus.annualExpiry(3, formatDate(periodEnd)),
-    );
-    expect(screen.getByRole("link", { name: texts.profile.planManage })).toBeTruthy();
-  });
-
-  it("gives the fixed link, to copy and to open, only to who has the Plus", async () => {
-    const writeText = vi.fn(() => Promise.resolve());
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-    const free = renderApp({ path: "/perfil", account: logged() });
-    expect(screen.queryByLabelText(texts.profile.fixedLinkLabel)).toBeNull();
-    free.unmount();
-
-    renderApp({ path: "/perfil", account: logged(makeUser({ plan: makeActivePlan() })) });
-    const address = `${window.location.origin}/@marina`;
-    expect(screen.getByLabelText<HTMLInputElement>(texts.profile.fixedLinkLabel).value).toBe(address);
-    expect(screen.getByRole("link", { name: texts.profile.fixedLinkOpen }).getAttribute("href")).toBe(
-      "/@marina",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: texts.common.copy }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(address));
-    expect(await screen.findByRole("button", { name: texts.common.copied })).toBeTruthy();
+    const link = screen.getByTestId("profile-plan-link");
+    expect(link.textContent).toBe(texts.profile.planLink);
+    expect(link.getAttribute("href")).toBe("/plano");
+    // Nothing of the plan itself stays here: state, expiry warning, fixed link, cancellation.
+    expect(screen.queryByText(planStatusText(plan)!)).toBeNull();
+    expect(screen.queryByTestId("plan-status")).toBeNull();
+    expect(screen.queryByTestId("annual-expiry")).toBeNull();
+    expect(screen.queryByLabelText(texts.plan.fixedLinkLabel)).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
   });
 
   it("logs out and goes back to the home page", async () => {
@@ -394,20 +655,82 @@ describe("plan", () => {
     renderApp({ path: "/plus" });
 
     expect(heading()).toBe(texts.plus.title);
+    expect(
+      screen.getByText("O sualive oferece plano pago para ajudar no crescimento da plataforma."),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "O que você ganha ajudando" })).toBeTruthy();
     for (const benefit of texts.plus.benefits) expect(screen.getByText(benefit.title)).toBeTruthy();
     const monthly = within(screen.getByTestId("cycle-monthly"));
     const annual = within(screen.getByTestId("cycle-annual"));
     expect(monthly.getByText(money(PLUS_MONTHLY_PRICE_CENTS))).toBeTruthy();
-    expect(monthly.getByText(texts.plus.cycles.monthly.how)).toBeTruthy();
+    expect(monthly.getByText(texts.plus.cycles.monthly.how[0])).toBeTruthy();
     expect(annual.getByText(money(PLUS_ANNUAL_PRICE_CENTS))).toBeTruthy();
-    expect(annual.getByText(texts.plus.cycles.annual.how)).toBeTruthy();
     // Pix only.
     expect(document.body.textContent).not.toMatch(/cartão|boleto/i);
   });
 
+  it("takes the annual price from the configuration, with nothing written by hand", () => {
+    renderApp({ path: "/plus" });
+    expect(PLUS_ANNUAL_PRICE_CENTS).toBe(15990);
+    expect(within(screen.getByTestId("cycle-annual")).getByText("R$ 159,90")).toBeTruthy();
+    // No amount lives in the copy: every "R$" on the page comes from the two prices of the config.
+    const amounts = document.body.textContent?.replace(/\s/g, " ").match(/R\$ [\d.,]+\d/g);
+    expect(amounts).toEqual([money(PLUS_MONTHLY_PRICE_CENTS), money(PLUS_ANNUAL_PRICE_CENTS)]);
+    expect(JSON.stringify(texts)).not.toMatch(/R\$|159,90|19,90/);
+  });
+
+  it("breaks the description of the annual plan in two lines", () => {
+    renderApp({ path: "/plus" });
+    const first = within(screen.getByTestId("cycle-annual")).getByText(
+      `Pix único: paga uma vez e vale ${PLUS_ANNUAL_PERIOD_DAYS} dias.`,
+    );
+    const second = within(screen.getByTestId("cycle-annual")).getByText("Não renova sozinho.");
+    expect(first.nextElementSibling).toBe(second);
+    expect(first.className).toContain("block");
+    expect(second.className).toContain("block");
+    expect(first.parentElement?.children).toHaveLength(2);
+  });
+
+  it("works out the annual discount from the two prices, rounded down", () => {
+    expect(annualDiscountPercent(1990, 15990)).toBe(33);
+    expect(annualDiscountPercent(PLUS_MONTHLY_PRICE_CENTS, PLUS_ANNUAL_PRICE_CENTS)).toBe(
+      Math.floor((1 - PLUS_ANNUAL_PRICE_CENTS / (12 * PLUS_MONTHLY_PRICE_CENTS)) * 100),
+    );
+    // Rounded down, never up; and never negative when the year costs more.
+    expect(annualDiscountPercent(1000, 8001)).toBe(33);
+    expect(annualDiscountPercent(1000, 6000)).toBe(50);
+    expect(annualDiscountPercent(1000, 13000)).toBe(0);
+    expect(annualDiscountPercent(0, 1000)).toBe(0);
+  });
+
+  it("shows the discount badge only on the annual card", () => {
+    renderApp({ path: "/plus" });
+    const percent = annualDiscountPercent(PLUS_MONTHLY_PRICE_CENTS, PLUS_ANNUAL_PRICE_CENTS);
+    const badge = within(screen.getByTestId("cycle-annual")).getByTestId("annual-discount");
+    expect(badge.textContent).toBe(texts.plus.annualDiscount(percent));
+    expect(badge.textContent).toBe(`${percent}% de desconto`);
+    expect(badge.className).toContain("bg-ink");
+    expect(badge.className).toContain("text-canvas");
+    expect(within(screen.getByTestId("cycle-monthly")).queryByTestId("annual-discount")).toBeNull();
+    expect(screen.getAllByTestId("annual-discount")).toHaveLength(1);
+  });
+
+  it("puts each subscribe button inside its card, below the description", () => {
+    renderApp({ path: "/plus", account: logged() });
+    for (const cycle of ["monthly", "annual"] as const) {
+      const card = screen.getByTestId(`cycle-${cycle}`);
+      const button = within(card).getByRole("button", { name: texts.plus.cycles[cycle].choose });
+      const description = within(card).getByText(texts.plus.cycles[cycle].how.at(-1)!);
+      expect(description.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(card.lastElementChild).toBe(button);
+    }
+    // Nowhere else on the page.
+    expect(screen.getAllByRole("button", { name: /^Assinar/ })).toHaveLength(2);
+  });
+
   it("formats cents the Brazilian way", () => {
     expect(formatCents(1990).replace(/\s/g, " ")).toBe("R$ 19,90");
-    expect(formatCents(15920).replace(/\s/g, " ")).toBe("R$ 159,20");
+    expect(formatCents(15990).replace(/\s/g, " ")).toBe("R$ 159,90");
   });
 
   it("takes a visitor to the login when a cycle is chosen, to come back with it", () => {
@@ -424,13 +747,32 @@ describe("plan", () => {
     expect(cpfInput()).toBeTruthy();
   });
 
-  it("only shows the benefits while billing is off", () => {
+  it("says who processes the payments, and has no way to pay, while billing is off", () => {
     renderApp({ path: "/plus", account: makeAccountState({ user: makeUser(), billingEnabled: false }) });
 
-    expect(screen.getByTestId("billing-disabled").textContent).toBe(texts.plus.billingDisabled);
+    expect(screen.queryByTestId("billing-disabled")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/não está disponível|Em breve/);
+    const note = screen.getByTestId("payments-note");
+    expect(note.textContent).toBe(
+      "Os pagamentos são processados por provedores externos e nenhum dado fica com a plataforma sualive.",
+    );
+    // Same plain style as the line of the first subscribers, both centered.
+    const early = screen.getByText(texts.plus.earlySupporter);
+    expect(note.className).toBe(early.className);
+    expect(note.className).toContain("text-center");
+    expect(note.getAttribute("role")).toBeNull();
+    // Right after it come the legal pages.
+    const footer = screen.getByRole("contentinfo");
+    expect(note.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(note.closest("main")?.lastElementChild).toBe(note);
     expect(screen.getByText(texts.plus.benefits[0].title)).toBeTruthy();
     expect(screen.queryByRole("button", { name: texts.plus.cycles.monthly.choose })).toBeNull();
     expect(screen.queryByRole("button", { name: texts.plus.cycles.annual.choose })).toBeNull();
+  });
+
+  it("keeps that line out of the page while billing is on", () => {
+    renderApp({ path: "/plus", account: logged() });
+    expect(screen.queryByTestId("payments-note")).toBeNull();
   });
 
   const periodEnd = Date.now() + 40 * DAY_MS;
@@ -442,15 +784,27 @@ describe("plan", () => {
     ["ended", makePlan({ status: "ended", plus: false, cycle: "monthly", periodEnd: Date.now() - DAY_MS })],
   ];
 
-  it.each(plans)("describes the %s state of the subscription", (_name, plan) => {
+  it.each(plans)("points who has the Plus to the page of the plan (%s)", (_name, plan) => {
     renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
 
-    const status = within(screen.getByTestId("plan-status"));
-    expect(status.getByText(planStatusText(plan)!)).toBeTruthy();
     // Who has the Plus is not offered another subscription; who lost it can subscribe again.
     expect(Boolean(screen.queryByRole("button", { name: texts.plus.cycles.monthly.choose }))).toBe(
       !plan.plus,
     );
+    // The management is not repeated here.
+    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
+    expect(screen.queryByTestId("plan-details")).toBeNull();
+    if (plan.plus) {
+      const current = within(screen.getByTestId("plan-current"));
+      expect(current.getByText(texts.plus.current.text)).toBeTruthy();
+      expect(current.getByRole("link", { name: texts.plus.current.link }).getAttribute("href")).toBe(
+        "/plano",
+      );
+      expect(screen.queryByTestId("plan-status")).toBeNull();
+    } else {
+      expect(screen.queryByTestId("plan-current")).toBeNull();
+      expect(within(screen.getByTestId("plan-status")).getByText(planStatusText(plan)!)).toBeTruthy();
+    }
   });
 
   it("has a different sentence for each state, with the dates", () => {
@@ -466,28 +820,8 @@ describe("plan", () => {
   it("has no subscription card for who never subscribed", () => {
     renderApp({ path: "/plus", account: logged() });
     expect(screen.queryByTestId("plan-status")).toBeNull();
+    expect(screen.queryByTestId("plan-current")).toBeNull();
     expect(screen.getByRole("button", { name: texts.plus.cycles.monthly.choose })).toBeTruthy();
-  });
-
-  it.each([
-    [PLUS_ANNUAL_EXPIRY_NOTICE_DAYS, true],
-    [1, true],
-    [PLUS_ANNUAL_EXPIRY_NOTICE_DAYS + 1, false],
-  ])("warns about the annual plan at %i days from the end: %s", (days, warns) => {
-    // Half a day short, so the count rounds up to exactly `days`.
-    const end = Date.now() + days * DAY_MS - DAY_MS / 2;
-    const plan = makeActivePlan({ cycle: "annual", renews: false, periodEnd: end });
-    renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-
-    const notice = screen.queryByTestId("annual-expiry");
-    expect(Boolean(notice)).toBe(warns);
-    if (warns) expect(notice?.textContent).toBe(texts.plus.annualExpiry(days, formatDate(end)));
-  });
-
-  it("never warns about a monthly plan, which renews by itself", () => {
-    const plan = makeActivePlan({ periodEnd: Date.now() + DAY_MS });
-    renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-    expect(screen.queryByTestId("annual-expiry")).toBeNull();
   });
 
   it("masks and validates the CPF before creating the charge", async () => {
@@ -555,7 +889,7 @@ describe("plan", () => {
     expect(live?.textContent).toBe(texts.plus.checkout.paid);
     expect(payment.queryByAltText(texts.plus.checkout.qrAlt)).toBeNull();
     expect(payment.getByRole("link", { name: texts.plus.checkout.paidAction }).getAttribute("href")).toBe(
-      "/perfil",
+      "/plano",
     );
   });
 
@@ -613,35 +947,6 @@ describe("plan", () => {
 
     expect(await screen.findByText(texts.account.errors.error)).toBeTruthy();
   });
-
-  it("cancels the subscription after a confirmation that says until when it is valid", async () => {
-    const plan = makeActivePlan({ periodEnd });
-    const { accountActions } = renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-    const status = within(screen.getByTestId("plan-status"));
-
-    fireEvent.click(status.getByRole("button", { name: texts.plus.cancel.start }));
-    expect(status.getByText(texts.plus.cancel.explain(formatDate(periodEnd)))).toBeTruthy();
-    expect(accountActions.cancelPlus).not.toHaveBeenCalled();
-
-    fireEvent.click(status.getByRole("button", { name: texts.plus.cancel.confirm }));
-
-    await waitFor(() => expect(accountActions.cancelPlus).toHaveBeenCalledTimes(1));
-    expect(await status.findByText(/Assinatura cancelada/)).toBeTruthy();
-    expect(status.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
-  });
-
-  it("can keep the subscription, and has nothing to cancel on the annual plan", () => {
-    const monthly = renderApp({ path: "/plus", account: logged(makeUser({ plan: makeActivePlan() })) });
-    fireEvent.click(screen.getByRole("button", { name: texts.plus.cancel.start }));
-    fireEvent.click(screen.getByRole("button", { name: texts.plus.cancel.keep }));
-    expect(monthly.accountActions.cancelPlus).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: texts.plus.cancel.start })).toBeTruthy();
-    monthly.unmount();
-
-    const plan = makeActivePlan({ cycle: "annual", renews: false });
-    renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
-  });
 });
 
 describe("legal pages", () => {
@@ -691,9 +996,10 @@ describe("home page with accounts", () => {
     expect(links[0]?.textContent).toBe(texts.home.account.login);
     expect(links[0]?.getAttribute("href")).toBe("/entrar");
     expect(screen.getAllByRole("button")).toHaveLength(1);
-    // Right under the button, and before the hint that was already there.
+    // Close under the button: same block, with no gap in it. The hint went up, above the button.
     expect(createButton().nextElementSibling).toBe(account());
-    expect(isBefore(account(), screen.getByText(texts.home.hint))).toBe(true);
+    expect(createButton().parentElement?.className).not.toContain("gap-");
+    expect(isBefore(screen.getByText(texts.home.hint), createButton())).toBe(true);
     // Nothing about the account at the top of the page.
     expect(screen.queryByRole("banner")).toBeNull();
     expect(screen.queryByRole("navigation")).toBeNull();

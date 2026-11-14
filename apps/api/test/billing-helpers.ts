@@ -203,14 +203,14 @@ export const payloads = {
     charge: {
       correlationID,
       status: "COMPLETED",
-      value: 15920,
+      value: 15990,
       customer: { name: "X", taxID: { taxID: VALID_CPF } },
     },
-    pix: { value: 15920 },
+    pix: { value: 15990 },
   }),
   chargeExpired: (correlationID: string) => ({
     event: "OPENPIX:CHARGE_EXPIRED",
-    charge: { correlationID, status: "EXPIRED", value: 15920 },
+    charge: { correlationID, status: "EXPIRED", value: 15990 },
   }),
   recurrenceApproved: (correlationID: string) => ({
     event: "PIX_AUTOMATIC_APPROVED",

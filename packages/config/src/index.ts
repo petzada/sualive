@@ -101,6 +101,9 @@ export const RESERVED_HANDLES = [
   "carteira",
   "salas",
   "demo",
+  "plano",
+  "planos",
+  "manifesto",
 ] as const;
 
 /** Validade da sessão de quem tem conta (s). */
@@ -108,7 +111,7 @@ export const ACCOUNT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /** Plus: preços em centavos e duração de cada ciclo em dias. */
 export const PLUS_MONTHLY_PRICE_CENTS = 1990;
-export const PLUS_ANNUAL_PRICE_CENTS = 15920;
+export const PLUS_ANNUAL_PRICE_CENTS = 15990;
 export const PLUS_MONTHLY_PERIOD_DAYS = 30;
 export const PLUS_ANNUAL_PERIOD_DAYS = 365;
 /** Pix Automático: novas tentativas depois de uma cobrança falhar, dentro da janela (dias). */

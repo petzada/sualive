@@ -41,7 +41,7 @@ Idioma da interface: português do Brasil. Pagamento: Pix, pela Woovi. Conta exi
 | Dono | Quem criou a sala. Sem conta, é reconhecido por um token guardado no navegador. |
 | Prata | Moeda ganha de graça. Só compra cosméticos. |
 | Ouro | Moeda comprada ou recebida com o Plus. 100 de ouro = R$ 1. |
-| Plus | O único plano pago: R$ 19,90 por mês ou R$ 159,20 por ano. |
+| Plus | O único plano pago: R$ 19,90 por mês ou R$ 159,90 por ano. |
 
 ## Níveis
 
@@ -268,7 +268,7 @@ Quem quiser cria conta em dois cliques, ganha um perfil e pode assinar o Plus po
 - Página do plano com os benefícios e os dois ciclos.
 - Mensal, R$ 19,90: Pix Automático da Woovi, na jornada em que um QR Code autoriza a recorrência e paga
   o primeiro mês. Política de três novas tentativas em 7 dias.
-- Anual, R$ 159,20: Pix único, vale 365 dias, sem renovação automática. Avisar 7 dias antes de vencer.
+- Anual, R$ 159,90: Pix único, vale 365 dias, sem renovação automática. Avisar 7 dias antes de vencer.
 - O CPF pedido pela Woovi é coletado no pagamento e guardado só o necessário para a cobrança.
 - Estados da assinatura: ativa, em atraso (durante as novas tentativas, os benefícios continuam),
   cancelada (vale até o fim do período pago) e encerrada.
@@ -484,7 +484,7 @@ e outros meios de pagamento.
 | Qualidade Plus em sala direta | 1080p, 60 fps, até 5 Mbps |
 | Qualidade em conexão retransmitida | 720p, até 1,5 Mbps |
 | Sala vazia expira em | 5 minutos |
-| Plus mensal / anual | R$ 19,90 / R$ 159,20 |
+| Plus mensal / anual | R$ 19,90 / R$ 159,90 |
 | Ouro mensal do Plus | 1.000 |
 | Câmbio | 100 de ouro = R$ 1 |
 | Taxa da Woovi | R$ 0,85 fixos por transação, inclusive no Pix Automático |

@@ -9,6 +9,10 @@ export const PATHS = {
   plus: "/plus",
   terms: "/termos",
   privacy: "/privacidade",
+  /** Tela mostrada uma vez, logo depois de concluir o primeiro acesso. */
+  welcome: "/bem-vindo",
+  /** O plano da própria conta (quem não tem plano é levado a `plus`). */
+  plan: "/plano",
 } as const;
 
 export const RETURN_TO_PARAM = "returnTo";

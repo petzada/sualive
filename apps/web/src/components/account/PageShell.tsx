@@ -87,6 +87,21 @@ export function PageShell({ width = "regular", children }: PageShellProps) {
   );
 }
 
+/**
+ * Frame of the first access: no name and no account at the top, the content centered in the window
+ * (both ways) and the legal links at the foot of the page.
+ */
+export function CenteredPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-8">
+        {children}
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
 /** Centered waiting line, for the moments before the account is known. */
 export function PageLoading() {
   return (

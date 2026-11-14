@@ -7,14 +7,13 @@ import { Link, useNavigate } from "react-router";
 import { Badges } from "../components/account/Badges";
 import { blocksSubmit, HandleField, useHandleCheck } from "../components/account/HandleField";
 import { PageShell, useAccountGate } from "../components/account/PageShell";
-import { fixedRoomPath, PATHS } from "../components/account/paths";
-import { annualExpiryNotice, CopyButton, planStatusText, useNow } from "../components/account/plan";
+import { PATHS } from "../components/account/paths";
+import { useNow } from "../components/account/plan";
 import {
   CARD,
   FIELD,
   FIELD_ERROR,
   FIELD_HINT,
-  OUTLINE_LINK,
   OUTLINE_PILL,
   PRIMARY_PILL,
   TEXT_LINK,
@@ -183,53 +182,6 @@ function HandleForm({ user, actions }: SectionProps) {
   );
 }
 
-function PlanSummary({ user }: { user: MeUser }) {
-  const now = useNow();
-  const status = planStatusText(user.plan);
-  const expiry = annualExpiryNotice(user.plan, now);
-  return (
-    <Section title={texts.profile.planTitle}>
-      <p>{status ?? texts.profile.planFree}</p>
-      {expiry && (
-        <p data-testid="annual-expiry" className="text-body-sm font-medium text-notice">
-          {expiry}
-        </p>
-      )}
-      <Link to={PATHS.plus} className={`self-start ${TEXT_LINK}`}>
-        {user.plan.status === "none" ? texts.profile.planLink : texts.profile.planManage}
-      </Link>
-    </Section>
-  );
-}
-
-function FixedLink({ handle }: { handle: string }) {
-  const path = fixedRoomPath(handle);
-  const address = window.location.origin + path;
-  const inputId = useId();
-  return (
-    <Section title={texts.profile.fixedLinkTitle}>
-      <p className="text-body-sm text-muted">{texts.profile.fixedLinkHint}</p>
-      <label htmlFor={inputId} className="sr-only">
-        {texts.profile.fixedLinkLabel}
-      </label>
-      <input
-        id={inputId}
-        type="text"
-        readOnly
-        value={address}
-        onFocus={(event) => event.target.select()}
-        className={FIELD}
-      />
-      <div className="flex flex-wrap items-start gap-3">
-        <CopyButton text={address} />
-        <Link to={path} className={OUTLINE_LINK}>
-          {texts.profile.fixedLinkOpen}
-        </Link>
-      </div>
-    </Section>
-  );
-}
-
 /** Its own zone at the end of the page. Nothing is deleted before the person types their @handle. */
 function DeleteAccount({ user, actions }: SectionProps) {
   const navigate = useNavigate();
@@ -372,13 +324,19 @@ export function ProfilePage() {
               <Badges badges={user.badges} withNames />
             </div>
           )}
+          {/* The plan has its own page; who has none is shown the offer. */}
+          <Link
+            to={user.plan.plus ? PATHS.plan : PATHS.plus}
+            data-testid="profile-plan-link"
+            className={`self-start text-body-sm ${TEXT_LINK}`}
+          >
+            {user.plan.plus ? texts.profile.planLink : texts.profile.plusLink}
+          </Link>
         </div>
       </header>
 
       <NicknameForm user={user} actions={actions} />
       <HandleForm user={user} actions={actions} />
-      <PlanSummary user={user} />
-      {user.plan.plus && user.handle && <FixedLink handle={user.handle} />}
 
       <Section title={texts.profile.sessionTitle}>
         <Logout actions={actions} />

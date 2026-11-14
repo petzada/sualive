@@ -4,7 +4,7 @@ import type { FormEvent, ReactNode } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useAccountClient } from "../components/account/AccountClient";
 import { blocksSubmit, HandleField, useHandleCheck } from "../components/account/HandleField";
-import { PageLoading, PageShell } from "../components/account/PageShell";
+import { CenteredPage, PageLoading } from "../components/account/PageShell";
 import { loginPath, PATHS, RETURN_TO_PARAM, safeReturnTo } from "../components/account/paths";
 import { FIELD_ERROR, OUTLINE_PILL, PRIMARY_PILL, TEXT_LINK } from "../components/account/styles";
 import { Spinner } from "../components/icons";
@@ -58,7 +58,15 @@ const HANDLE_REASONS: Partial<Record<AccountErrorReason, string>> = {
   invalid: texts.handle.invalid,
 };
 
-function OnboardingForm({ actions, returnTo }: { actions: AccountActions; returnTo: string | null }) {
+interface OnboardingFormProps {
+  actions: AccountActions;
+  /** Where the person goes once the first access is done. */
+  doneTo: string;
+  /** Told right before asking the server to finish, and again (`false`) if it refuses. */
+  onFinishing: (finishing: boolean) => void;
+}
+
+function OnboardingForm({ actions, doneTo, onFinishing }: OnboardingFormProps) {
   const navigate = useNavigate();
   // One box for both: being of age and accepting the terms and the privacy policy.
   const [consented, setConsented] = useState(false);
@@ -83,6 +91,7 @@ function OnboardingForm({ actions, returnTo }: { actions: AccountActions; return
     if (blocksSubmit(status)) return handleRef.current?.focus();
 
     setBusy(true);
+    onFinishing(true);
     setRefused(null);
     let reason: AccountErrorReason | null = null;
     try {
@@ -93,10 +102,11 @@ function OnboardingForm({ actions, returnTo }: { actions: AccountActions; return
     }
     if (reason) {
       setBusy(false);
+      onFinishing(false);
       setRefused({ handle, reason });
       return;
     }
-    await navigate(returnTo ?? PATHS.profile, { replace: true });
+    await navigate(doneTo, { replace: true });
   };
 
   const legalLink = (path: string, label: string) => (
@@ -113,6 +123,18 @@ function OnboardingForm({ actions, returnTo }: { actions: AccountActions; return
         <p>{texts.onboarding.intro}</p>
       </div>
 
+      <HandleField
+        ref={handleRef}
+        label={texts.handle.label}
+        value={handle}
+        onChange={setHandle}
+        status={status}
+        error={handleError}
+        hint={texts.onboarding.handleHint}
+        statusPlacement="label"
+        disabled={busy}
+      />
+
       <Consent
         ref={consentRef}
         checked={consented}
@@ -126,17 +148,6 @@ function OnboardingForm({ actions, returnTo }: { actions: AccountActions; return
         {legalLink(PATHS.privacy, texts.onboarding.consent.privacy)}
         {texts.onboarding.consent.after}
       </Consent>
-
-      <HandleField
-        ref={handleRef}
-        label={texts.handle.label}
-        value={handle}
-        onChange={setHandle}
-        status={status}
-        error={handleError}
-        hint={texts.onboarding.handleHint}
-        disabled={busy}
-      />
 
       {generalError && (
         <p role="alert" className="text-center text-body-sm font-medium text-notice">
@@ -153,23 +164,30 @@ function OnboardingForm({ actions, returnTo }: { actions: AccountActions; return
 }
 
 /**
- * First access: one checkbox (of age, terms and privacy policy) and the @handle. The single box
- * sends both fields of the contract, `adult` and `acceptTerms`.
+ * First access: the @handle and one checkbox (of age, terms and privacy policy). The single box
+ * sends both fields of the contract, `adult` and `acceptTerms`. Nothing else on the page: no name,
+ * no account and no Plus at the top.
  */
 export function OnboardingPage() {
   const { state, actions } = useAccountClient().useAccount();
   const [params] = useSearchParams();
   const returnTo = safeReturnTo(params.get(RETURN_TO_PARAM));
+  // The account turns "onboarded" before the form gets its answer: this tells that case (just
+  // finished here, so on to the welcome) from opening this page with the first access long done.
+  const [finishing, setFinishing] = useState(false);
+  const doneTo = returnTo ?? PATHS.welcome;
 
   if (state.status === "anonymous") {
     return <Navigate to={loginPath(returnTo ?? PATHS.onboarding)} replace />;
   }
-  if (state.user?.onboarded) return <Navigate to={returnTo ?? PATHS.profile} replace />;
+  if (state.user?.onboarded) {
+    return <Navigate to={finishing ? doneTo : (returnTo ?? PATHS.profile)} replace />;
+  }
 
   return (
-    <PageShell width="narrow">
+    <CenteredPage>
       {state.user ? (
-        <OnboardingForm actions={actions} returnTo={returnTo} />
+        <OnboardingForm actions={actions} doneTo={doneTo} onFinishing={setFinishing} />
       ) : state.status === "error" ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-gap text-center">
           <p role="alert">{texts.account.loadFailed}</p>
@@ -184,6 +202,6 @@ export function OnboardingPage() {
       ) : (
         <PageLoading />
       )}
-    </PageShell>
+    </CenteredPage>
   );
 }
