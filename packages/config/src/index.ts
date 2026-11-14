@@ -73,8 +73,14 @@ export const API_RATE_LIMIT_WINDOW_SECONDS = 60;
 
 /** Idade mínima declarada para ter conta. */
 export const MINIMUM_AGE = 18;
-/** Versão dos termos de uso e da política de privacidade aceitos no primeiro acesso. */
-export const TERMS_VERSION = "2026-11-14";
+/**
+ * Versão dos Termos de Uso e das Políticas de Privacidade. Começa pela data (AAAA-MM-DD); uma
+ * segunda mudança no mesmo dia ganha um sufixo (".2"). Quem tem conta e ainda não viu esta versão
+ * recebe a faixa de aviso (vale o uso continuado).
+ */
+export const TERMS_VERSION = "2026-11-14.2";
+/** Data da versão atual dos termos (AAAA-MM-DD), para mostrar. */
+export const TERMS_DATE = TERMS_VERSION.slice(0, 10);
 
 /** @nome: letras minúsculas, números e sublinhado. */
 export const HANDLE_MIN_LENGTH = 3;

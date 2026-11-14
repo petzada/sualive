@@ -198,6 +198,33 @@ test("o dono remove e bane, e o banido não volta pelo mesmo navegador", async (
   await expect(chatLog(a.page)).toContainText("Ainda aqui");
 });
 
+test("segunda aba derruba a primeira, que mostra a mensagem própria e volta com 'Usar esta aba'", async ({
+  browser,
+}) => {
+  const { a, b } = await twoInRoom(browser);
+
+  // A mesma pessoa (mesmos cookies) abre a sala em outra aba e entra.
+  const secondTab = await b.context.newPage();
+  secondTab.on("pageerror", (error) => pageErrors.push(error.message));
+  await secondTab.goto(b.page.url());
+  await join(secondTab, "Bia");
+
+  const replaced = texts.roomEnd.replaced;
+  await expect(b.page.getByRole("heading", { name: replaced.title })).toBeVisible();
+  await expect(b.page.getByRole("heading", { name: texts.roomEnd.error.title })).toHaveCount(0);
+  // Continua sendo uma pessoa só na sala.
+  await expect(peopleList(a.page).getByRole("listitem")).toHaveCount(2);
+
+  // "Usar esta aba" traz a sala de volta à primeira aba, sem passar pelo lobby, e derruba a outra.
+  await b.page.getByRole("button", { name: replaced.action }).click();
+  await expect(controls(b.page)).toBeVisible();
+  await expect(secondTab.getByRole("heading", { name: replaced.title })).toBeVisible();
+  await expect(peopleList(a.page).getByRole("listitem")).toHaveCount(2);
+
+  await sendChat(b.page, "Voltei nesta aba");
+  await expect(chatLog(a.page)).toContainText("Voltei nesta aba");
+});
+
 test("link de sala inexistente diz que a sala acabou e tem prévia para mensageiros", async ({
   browser,
   request,

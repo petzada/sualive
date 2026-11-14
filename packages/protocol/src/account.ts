@@ -58,6 +58,11 @@ export const meUserSchema = z.object({
   roomTheme: roomThemeSchema,
   /** A partir de quando o @nome pode ser trocado de novo (ms); nulo = já pode. */
   handleChangeAvailableAt: z.number().int().nullable(),
+  /**
+   * Versão atual dos Termos de Uso quando a conta ainda não a viu: o front mostra a faixa de aviso.
+   * Nulo quando já viu (ou antes do primeiro acesso, que tem o aceite próprio).
+   */
+  termsUpdate: z.string().min(1).nullable(),
 });
 export type MeUser = z.infer<typeof meUserSchema>;
 
@@ -100,6 +105,9 @@ export const updateMeRequestSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, "empty update");
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
+
+// ---------- POST /api/me/terms-seen ---------- (sem corpo; responde MeUser com `termsUpdate` nulo)
+// Fechar a faixa de aviso ou abrir o link dos Termos grava a versão atual como vista.
 
 // ---------- DELETE /api/me ---------- (204; apaga os dados pessoais e encerra a sessão)
 

@@ -12,13 +12,14 @@ import { Spinner } from "../components/icons";
 import { texts } from "../texts";
 import { ErrorPage } from "./ErrorPage";
 
-type EndPhase = Extract<RoomPhase, "ended" | "full" | "banned" | "kicked" | "error">;
+type EndPhase = Extract<RoomPhase, "ended" | "full" | "banned" | "kicked" | "replaced" | "error">;
 
 /**
  * Final states. "Try again" reloads the page: the contract has no action to go back to the lobby,
- * and a fresh load asks the server for the room again.
+ * and a fresh load asks the server for the room again. The exception is the room that was opened
+ * in another tab (`replaced`): there the button takes the room back to this tab, with no reload.
  */
-function RoomEnd({ phase }: { phase: EndPhase }) {
+function RoomEnd({ phase, onUseThisTab }: { phase: EndPhase; onUseThisTab: () => void }) {
   const copy = texts.roomEnd[phase];
   const linkClass = "rounded-link font-normal";
 
@@ -36,7 +37,7 @@ function RoomEnd({ phase }: { phase: EndPhase }) {
             <Button
               variant="primary"
               className="min-h-12 rounded-button px-7 text-body font-medium"
-              onPress={() => window.location.reload()}
+              onPress={phase === "replaced" ? onUseThisTab : () => window.location.reload()}
             >
               {copy.action}
             </Button>
@@ -79,7 +80,7 @@ function RoomSession({ code }: { code: string }) {
         />
       );
     default:
-      return <RoomEnd phase={state.phase} />;
+      return <RoomEnd phase={state.phase} onUseThisTab={actions.useThisTab} />;
   }
 }
 

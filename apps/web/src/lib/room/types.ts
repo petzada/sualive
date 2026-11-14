@@ -16,6 +16,7 @@ export type RoomPhase =
   | "full" // sala cheia
   | "banned"
   | "kicked" // removido pelo dono; pode tentar entrar de novo
+  | "replaced" // a mesma pessoa abriu a sala em outra aba; `useThisTab()` traz a sala de volta
   | "error"; // falha inesperada
 
 /** Motivo de uma falha mostrada como aviso, sem tirar a pessoa da sala. */
@@ -116,6 +117,8 @@ export interface RoomActions {
   startPreview(): Promise<void>;
   join(options: JoinOptions): Promise<void>;
   leave(): void;
+  /** Só na fase `replaced`: volta a usar esta aba (a outra é que passa a ser derrubada). */
+  useThisTab(): void;
   sendChat(text: string): void;
   react(reaction: Reaction): void;
   setHandRaised(raised: boolean): void;

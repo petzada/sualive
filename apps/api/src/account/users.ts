@@ -5,7 +5,7 @@ import {
   RESERVED_HANDLES,
 } from "@sualive/config";
 import { handleSchema, type AuthProvider } from "@sualive/protocol";
-import { and, eq } from "drizzle-orm";
+import { and, DrizzleQueryError, eq } from "drizzle-orm";
 import type { ProviderProfile } from "../auth/providers";
 import type { UserRow } from "../auth/session";
 import { createDb } from "../db";
@@ -100,8 +100,21 @@ async function findLinkedUser(env: AppEnv, provider: AuthProvider, providerUserI
 }
 
 /**
- * Encontra a conta ligada ao login externo ou cria uma nova (apelido derivado do nome, avatar do
- * provedor, sem @nome). Em todo login o avatar é atualizado com o do provedor.
+ * Erro de escrita sem os valores da consulta. O DrizzleQueryError põe os parâmetros (entre eles o
+ * e-mail) na mensagem, que iria para o registro e para o Sentry; fica só a causa (erro do D1, que não
+ * traz os valores).
+ */
+function withoutQueryParams(error: unknown): unknown {
+  if (error instanceof DrizzleQueryError) {
+    return new Error("falha ao gravar a conta", { cause: error.cause });
+  }
+  return error;
+}
+
+/**
+ * Encontra a conta ligada ao login externo ou cria uma nova (apelido derivado do nome, avatar e
+ * e-mail do provedor, sem @nome). Em todo login o avatar é atualizado com o do provedor, e o e-mail
+ * também quando o provedor devolve um diferente (sem e-mail no provedor, fica o que já havia).
  */
 export async function findOrCreateUser(
   env: AppEnv,
@@ -111,10 +124,17 @@ export async function findOrCreateUser(
   const db = createDb(env.DB);
   const existing = await findLinkedUser(env, provider, profile.providerUserId);
   if (existing) {
-    if (existing.avatarUrl !== profile.avatarUrl) {
-      await db.update(users).set({ avatarUrl: profile.avatarUrl }).where(eq(users.id, existing.id));
+    const changes: Partial<typeof users.$inferInsert> = {};
+    if (existing.avatarUrl !== profile.avatarUrl) changes.avatarUrl = profile.avatarUrl;
+    if (profile.email !== null && existing.email !== profile.email) changes.email = profile.email;
+    if (Object.keys(changes).length > 0) {
+      try {
+        await db.update(users).set(changes).where(eq(users.id, existing.id));
+      } catch (error) {
+        throw withoutQueryParams(error);
+      }
     }
-    return { ...existing, avatarUrl: profile.avatarUrl };
+    return { ...existing, ...changes };
   }
 
   const now = Date.now();
@@ -127,6 +147,8 @@ export async function findOrCreateUser(
     adultConfirmedAt: null,
     termsAcceptedAt: null,
     termsVersion: null,
+    termsSeenVersion: null,
+    email: profile.email,
     roomTheme: "default",
     createdAt: now,
   };
@@ -146,6 +168,6 @@ export async function findOrCreateUser(
     // Dois retornos simultâneos do mesmo login novo: o outro criou primeiro; usa a conta dele.
     const winner = await findLinkedUser(env, provider, profile.providerUserId);
     if (winner) return winner;
-    throw error;
+    throw withoutQueryParams(error);
   }
 }

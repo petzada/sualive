@@ -44,6 +44,12 @@ export interface TestUserOptions {
   /** Primeiro acesso concluído. Padrão: true. */
   onboarded?: boolean;
   handleChangedAt?: number | null;
+  /** Versão dos termos aceita no primeiro acesso. Padrão: TERMS_VERSION se `onboarded`. */
+  termsVersion?: string | null;
+  /** Versão dos termos já vista na faixa de aviso. Padrão: nula. */
+  termsSeenVersion?: string | null;
+  /** E-mail guardado na conta. Padrão: nulo. */
+  email?: string | null;
   /** Vencimento da sessão (ms). Padrão: agora + ACCOUNT_SESSION_TTL_SECONDS. */
   sessionExpiresAt?: number;
   /** Liga também um login externo a esta conta. */
@@ -73,7 +79,10 @@ export async function createTestUser(options: TestUserOptions = {}): Promise<Tes
     avatarUrl: options.avatarUrl ?? null,
     adultConfirmedAt: onboarded ? now : null,
     termsAcceptedAt: onboarded ? now : null,
-    termsVersion: onboarded ? TERMS_VERSION : null,
+    termsVersion:
+      options.termsVersion !== undefined ? options.termsVersion : onboarded ? TERMS_VERSION : null,
+    termsSeenVersion: options.termsSeenVersion ?? null,
+    email: options.email ?? null,
     createdAt: now,
   });
   if (options.oauth) {

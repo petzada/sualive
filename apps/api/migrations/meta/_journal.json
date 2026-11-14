@@ -15,6 +15,13 @@
       "when": 1794641605662,
       "tag": "0001_closed_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794663039314,
+      "tag": "0002_outgoing_luckman",
+      "breakpoints": true
     }
   ]
 }

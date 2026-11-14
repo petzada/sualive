@@ -28,6 +28,16 @@ function roomThemeOf(value: string): RoomTheme {
   return (ROOM_THEMES as readonly string[]).includes(value) ? (value as RoomTheme) : "default";
 }
 
+/**
+ * Versão atual dos termos se a conta ainda não a viu (faixa de aviso), senão `null`. Antes do
+ * primeiro acesso não há aviso: o aceite acontece lá.
+ */
+export function pendingTermsUpdate(user: UserRow): string | null {
+  if (!isOnboarded(user)) return null;
+  const seen = user.termsSeenVersion ?? user.termsVersion;
+  return seen === TERMS_VERSION ? null : TERMS_VERSION;
+}
+
 /** Perfil completo da conta, como o front recebe. Plano e selos vêm da cobrança. */
 export async function toMeUser(env: AppEnv, user: UserRow): Promise<MeUser> {
   const { plan, badges } = await getPlanStatus(env, user.id);
@@ -41,6 +51,7 @@ export async function toMeUser(env: AppEnv, user: UserRow): Promise<MeUser> {
     plan,
     roomTheme: roomThemeOf(user.roomTheme),
     handleChangeAvailableAt: handleChangeAvailableAt(user),
+    termsUpdate: pendingTermsUpdate(user),
   });
 }
 
@@ -85,6 +96,20 @@ me.post("/onboarding", async (c) => {
     if (isUniqueViolation(error)) return apiError(c, "handle_taken");
     throw error;
   }
+});
+
+// Faixa de termos atualizados fechada ou link aberto: grava a versão vista. Idempotente.
+me.post("/terms-seen", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user) return apiError(c, "unauthorized");
+  if (!isOnboarded(user)) return apiError(c, "onboarding_required");
+  const updated = await createDb(c.env.DB)
+    .update(users)
+    .set({ termsSeenVersion: TERMS_VERSION })
+    .where(eq(users.id, user.id))
+    .returning();
+  if (updated.length === 0) return apiError(c, "unauthorized");
+  return c.json(await toMeUser(c.env, updated[0]!));
 });
 
 me.patch("/", async (c) => {

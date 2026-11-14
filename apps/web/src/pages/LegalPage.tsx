@@ -1,13 +1,8 @@
-import { TERMS_VERSION } from "@sualive/config";
+import { TERMS_DATE } from "@sualive/config";
 import { Brand } from "../components/Brand";
 import { PageShell } from "../components/account/PageShell";
+import { formatIsoDate } from "../components/format";
 import { texts } from "../texts";
-
-/** "2026-11-14" → "14/11/2026". The version is a date written the ISO way. */
-function versionLabel(version: string): string {
-  const [year, month, day] = version.split("-");
-  return year && month && day ? `${day}/${month}/${year}` : version;
-}
 
 /** Terms of use and privacy policy: plain, readable text with its version. */
 export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
@@ -19,7 +14,7 @@ export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
         <header className="flex flex-col gap-3">
           <h1 className="font-display text-heading font-semibold">{copy.title}</h1>
           <p className="text-body-sm text-muted" data-testid="legal-version">
-            {texts.legal.version(versionLabel(TERMS_VERSION))}
+            {texts.legal.version(formatIsoDate(TERMS_DATE))}
           </p>
         </header>
 

@@ -278,6 +278,22 @@ describe("ações", () => {
     });
   });
 
+  it("marcar os termos como vistos tira o aviso do estado", async () => {
+    await loaded(meUser({ termsUpdate: "2026-11-14.2" }));
+    expect(state().user?.termsUpdate).toBe("2026-11-14.2");
+    h.server.on("POST", "/api/me/terms-seen", { status: 200, body: meUser({ termsUpdate: null }) });
+    expect(await store.actions.markTermsSeen()).toEqual({ ok: true, value: undefined });
+    expect(state().user?.termsUpdate).toBeNull();
+    expect(h.server.callsTo("POST", "/api/me/terms-seen")[0]?.body).toBeUndefined();
+  });
+
+  it("falha ao marcar os termos como vistos mantém o aviso", async () => {
+    await loaded(meUser({ termsUpdate: "2026-11-14.2" }));
+    h.server.on("POST", "/api/me/terms-seen", { status: 500, body: { error: "internal_error" } });
+    expect(await store.actions.markTermsSeen()).toEqual({ ok: false, reason: "error" });
+    expect(state().user?.termsUpdate).toBe("2026-11-14.2");
+  });
+
   it("excluir a conta volta a anônimo", async () => {
     await loaded(meUser());
     h.server.on("DELETE", "/api/me", { status: 204 });

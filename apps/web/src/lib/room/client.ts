@@ -207,6 +207,7 @@ export class RoomClient {
       setRoomTheme: (theme) => this.setRoomTheme(theme),
       join: (options) => this.join(options),
       leave: () => this.leave(),
+      useThisTab: () => void this.useThisTab(),
       sendChat: (text) => void this.send({ type: "chat.send", text }),
       react: (reaction) => this.react(reaction),
       setHandRaised: (raised) => this.setHandRaised(raised),
@@ -458,6 +459,25 @@ export class RoomClient {
     this.backToLobby();
   }
 
+  /**
+   * Aba derrubada por outra da mesma pessoa: abre a conexão de novo, sem novo join (a admissão na
+   * sala continua valendo), e o servidor derruba a outra aba. Se a admissão não vale mais, o
+   * fechamento `unauthorized` leva ao lobby.
+   */
+  private async useThisTab(): Promise<void> {
+    const phase: RoomPhase = this.state.phase;
+    if (this.disposed || phase !== "replaced") return;
+    const request = ++this.joinRequest;
+    this.update({ phase: "joining", notice: null });
+    const account = await this.syncAccount();
+    if (this.disposed || request !== this.joinRequest || this.state.phase !== "joining") return;
+    this.sessionAccount = account;
+    this.inSession = true;
+    this.welcomed = false;
+    this.reconnectAttempt = 0;
+    this.openSocket();
+  }
+
   private backToLobby(): void {
     this.finish("lobby");
     void this.refreshOccupancy();
@@ -566,7 +586,7 @@ export class RoomClient {
       case WS_CLOSE.roomFull:
         return this.finish("full");
       case WS_CLOSE.replaced:
-        return this.finish("error");
+        return this.finish("replaced");
       case WS_CLOSE.unauthorized:
         return this.backToLobby();
       default:

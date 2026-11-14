@@ -33,6 +33,7 @@ export function makeUser(overrides: Partial<MeUser> = {}): MeUser {
     plan: makePlan(),
     roomTheme: "default",
     handleChangeAvailableAt: null,
+    termsUpdate: null,
     ...overrides,
   };
 }
@@ -86,6 +87,9 @@ export function makeAccountActions(): AccountActionMocks {
     ),
     checkHandle: vi.fn<AccountActions["checkHandle"]>(() =>
       Promise.resolve({ ok: true, value: { available: true } }),
+    ),
+    markTermsSeen: vi.fn<AccountActions["markTermsSeen"]>(() =>
+      Promise.resolve({ ok: true, value: undefined }),
     ),
     deleteAccount: vi.fn<AccountActions["deleteAccount"]>(() =>
       Promise.resolve({ ok: true, value: undefined }),

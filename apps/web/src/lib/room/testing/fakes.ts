@@ -240,6 +240,7 @@ export function meUser(overrides: Partial<MeUser> = {}): MeUser {
     plan: { status: "none", plus: false, cycle: null, periodEnd: null, renews: false },
     roomTheme: "default",
     handleChangeAvailableAt: null,
+    termsUpdate: null,
     ...overrides,
   };
 }

@@ -133,6 +133,7 @@ export function makeActions(): { [K in keyof RoomActions]: Mock<RoomActions[K]> 
     setRoomTheme: vi.fn<RoomActions["setRoomTheme"]>(),
     join: vi.fn<RoomActions["join"]>(() => Promise.resolve()),
     leave: vi.fn<RoomActions["leave"]>(),
+    useThisTab: vi.fn<RoomActions["useThisTab"]>(),
     sendChat: vi.fn<RoomActions["sendChat"]>(),
     react: vi.fn<RoomActions["react"]>(),
     setHandRaised: vi.fn<RoomActions["setHandRaised"]>(),

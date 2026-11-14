@@ -106,6 +106,7 @@ export class AccountStore {
       completeOnboarding: (input) => this.completeOnboarding(input),
       updateProfile: (input) => this.updateProfile(input),
       checkHandle: (handle) => this.checkHandle(handle),
+      markTermsSeen: () => this.markTermsSeen(),
       deleteAccount: () => this.deleteAccount(),
       startPlusCheckout: (input) => this.startPlusCheckout(input),
       watchPlusPayment: (paymentId, onChange) => this.watchPlusPayment(paymentId, onChange),
@@ -239,6 +240,12 @@ export class AccountStore {
 
   private checkHandle(handle: string) {
     return this.run("handle", this.api.checkHandle(handle), (availability) => availability);
+  }
+
+  private markTermsSeen(): Promise<AccountResult> {
+    return this.run("terms-seen", this.api.markTermsSeen(), (user) => {
+      this.setUser(user);
+    });
   }
 
   private deleteAccount(): Promise<AccountResult> {

@@ -45,6 +45,7 @@ export interface AccountApi {
   logout(): Promise<AccountApiResult<void>>;
   completeOnboarding(body: OnboardingRequest): Promise<AccountApiResult<MeUser>>;
   updateMe(body: UpdateMeRequest): Promise<AccountApiResult<MeUser>>;
+  markTermsSeen(): Promise<AccountApiResult<MeUser>>;
   deleteMe(): Promise<AccountApiResult<void>>;
   checkHandle(handle: string): Promise<AccountApiResult<HandleAvailabilityResponse>>;
   startCheckout(body: PlusCheckoutRequest): Promise<AccountApiResult<PlusCheckoutResponse>>;
@@ -96,6 +97,7 @@ export function createAccountApi(fetchImpl: FetchLike): AccountApi {
     logout: () => request("/api/auth/logout", NO_CONTENT, { method: "POST" }),
     completeOnboarding: (body) => request("/api/me/onboarding", meUserSchema, { method: "POST", body }),
     updateMe: (body) => request("/api/me", meUserSchema, { method: "PATCH", body }),
+    markTermsSeen: () => request("/api/me/terms-seen", meUserSchema, { method: "POST" }),
     deleteMe: () => request("/api/me", NO_CONTENT, { method: "DELETE" }),
     checkHandle: (handle) =>
       request(`/api/handles/${encodeURIComponent(handle)}`, handleAvailabilityResponseSchema, {
