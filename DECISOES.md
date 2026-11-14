@@ -180,7 +180,6 @@ com tela, webcam, voz e chat, sem cadastro.
 - Quem abre o link escolhe um apelido (2 a 24 caracteres **[padrão]**), vê a prévia de microfone e
   câmera, passa pelo Turnstile e entra no mudo.
 - Sessão de quem não tem conta: cookie assinado pelo servidor com um identificador aleatório e o apelido.
-- Aviso visível, ao criar e ao entrar, de que na sala direta os participantes podem ver o IP uns dos outros.
 - Sala cheia (6 pessoas) recusa a entrada com mensagem clara.
 - O link exibe prévia (título e imagem) quando colado em aplicativos de mensagem.
 
