@@ -4,7 +4,13 @@ import { CreateRoom } from "../components/CreateRoom";
 import { PeopleCards } from "../components/PeopleCards";
 import { texts } from "../texts";
 
-/** The manifesto: a reading column, the "create room" button, the people and the legal footer. */
+/**
+ * Photos under the text, in the order they appear (three fit one row): file names inside
+ * `apps/web/public/images`.
+ */
+export const MANIFESTO_PHOTOS = ["manifesto-1.jpg", "manifesto-2.jpg", "manifesto-3.jpg"] as const;
+
+/** The manifesto: a reading column, the "create room" button, the photos and the legal footer. */
 export function ManifestoPage() {
   useEffect(() => {
     const previous = document.title;
@@ -30,7 +36,7 @@ export function ManifestoPage() {
 
           <div className="mt-14 flex flex-col gap-7">
             {texts.manifesto.paragraphs.map((paragraph) => (
-              <p key={paragraph} className="text-kicker leading-[1.45] text-pretty">
+              <p key={paragraph} className="text-kicker leading-[1.45] text-pretty md:text-justify">
                 {paragraph}
               </p>
             ))}
@@ -45,7 +51,7 @@ export function ManifestoPage() {
           </div>
         </article>
 
-        <PeopleCards people={texts.manifesto.people} />
+        <PeopleCards photos={MANIFESTO_PHOTOS} />
       </main>
 
       <footer className="px-5 pt-18 pb-14 text-center text-compact text-muted">
