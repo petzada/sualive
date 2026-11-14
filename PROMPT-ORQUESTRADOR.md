@@ -6,7 +6,7 @@ Implementar UMA entrega de `DECISOES.md` por vez, na ordem (0 a 4), até ela est
 
 ## Escopo da orquestração
 
-1. **Planejar antes de disparar.** Analise o escopo da entrega e quebre em tarefas com arquivos que não se sobrepõem. Para cada uma: objetivo, arquivos, dependências e critério de pronto. Mostre o plano numa mensagem curta e siga. Antes, confira com `gh secret list` os segredos que `SEGREDOS.md` pede para a entrega: se faltar algum que só eu posso gerar, pare e peça. Bancos D1, Workers e projetos do Sentry você cria pelas integrações da Cloudflare e do Sentry.
+1. **Planejar antes de disparar.** Analise o escopo da entrega e quebre em tarefas com arquivos que não se sobrepõem. Para cada uma: objetivo, arquivos, dependências e critério de pronto. Mostre o plano em mensagem curta e siga. Antes, confira com `gh secret list` os segredos que `SEGREDOS.md` pede para a entrega: se faltar algum que só eu posso gerar, pare e peça. Bancos D1, Workers e projetos do Sentry você cria pelas integrações da Cloudflare e do Sentry.
 2. **Contrato primeiro.** O que duas tarefas compartilham (`packages/protocol`, esquema do banco, `packages/config`, tokens do tema) você mesmo escreve e commita na branch de integração `entrega/<n>` antes de paralelizar.
 3. **Disparar subagentes**, até **3 ao mesmo tempo**, cada um em worktree e branch próprios, criados a partir da ponta de `entrega/<n>`.
    - Tarefas gerais: modelo **Opus, esforço médio**.
