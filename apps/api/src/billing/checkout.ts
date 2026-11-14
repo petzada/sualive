@@ -14,7 +14,7 @@ import { cancelRecurrence, createCharge, createRecurrence } from "./woovi";
 /** Quanto tempo um checkout pendente fica válido (e é reaproveitado). */
 export const CHECKOUT_TTL_MS = 24 * 60 * 60 * 1000;
 /** Checkout que vence em menos que isto não é reaproveitado. */
-const CHECKOUT_REUSE_MARGIN_MS = 10 * 60 * 1000;
+export const CHECKOUT_REUSE_MARGIN_MS = 10 * 60 * 1000;
 /** Contrato mostrado ao pagador no app do banco (a Woovi exige menos de 30 caracteres). */
 const CONTRACT_TEXT: Record<PlusCycle, string> = {
   monthly: "sualive Plus mensal",

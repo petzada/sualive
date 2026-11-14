@@ -1,4 +1,4 @@
-import type { PlusCycle, PlusStatus } from "@sualive/protocol";
+import type { PlanCycle, PlusStatus } from "@sualive/protocol";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { billingSubscriptions } from "../db/schema";
@@ -34,7 +34,7 @@ export function stateOf(row: SubscriptionRow | null): SubscriptionState {
   if (!row) return INITIAL_STATE;
   return {
     status: row.status as PlusStatus,
-    cycle: row.cycle as PlusCycle,
+    cycle: row.cycle as PlanCycle,
     periodEnd: row.periodEnd,
     pastDueSince: row.pastDueSince,
     failedAttempts: row.failedAttempts,

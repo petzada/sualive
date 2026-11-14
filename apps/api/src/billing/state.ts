@@ -4,7 +4,7 @@ import {
   PLUS_RETRY_ATTEMPTS,
   PLUS_RETRY_WINDOW_DAYS,
 } from "@sualive/config";
-import type { Plan, PlusCycle, PlusStatus } from "@sualive/protocol";
+import type { Plan, PlanCycle, PlusCycle, PlusStatus } from "@sualive/protocol";
 
 /**
  * Máquina de estados da assinatura do Plus. Módulo puro: sem rede, sem banco, sem relógio (o
@@ -16,6 +16,10 @@ import type { Plan, PlusCycle, PlusStatus } from "@sualive/protocol";
  *                         ├──cancelamento──▶ canceled ──fim do período──▶ ended
  *                         └──(anual) fim dos 365 dias──▶ ended
  *
+ * Plus de presente (ciclo `gift`): sem Plus valendo, vira `active` com os dias dados e acaba
+ * sozinho no fim do período (como o anual), sem renovação; com Plus valendo, só soma os dias ao
+ * período. Um pagamento confirmado sobre um plano `gift` troca o ciclo pelo pago e soma o período.
+ *
  * Transição inválida não lança: devolve o estado igual e o motivo, para registro sem dado pessoal.
  */
 
@@ -23,7 +27,8 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface SubscriptionState {
   status: PlusStatus;
-  cycle: PlusCycle | null;
+  /** `gift`: Plus recebido de presente (sem pagamento, sem renovação). */
+  cycle: PlanCycle | null;
   /** Fim do período pago (ms). */
   periodEnd: number | null;
   /** Início do atraso (ms). */
@@ -51,6 +56,8 @@ export type SubscriptionEvent =
   | { type: "cancel_requested"; at: number }
   /** A recorrência não cobra mais na Woovi (autorização revogada no banco ou cancelada). */
   | { type: "recurrence_stopped"; at: number }
+  /** Outra conta presenteou dias de Plus (pagos em ouro). */
+  | { type: "gift_received"; at: number; days: number }
   /** Passagem do tempo (rotina diária e leitura do plano). */
   | { type: "tick"; at: number };
 
@@ -107,7 +114,8 @@ export function transition(state: SubscriptionState, event: SubscriptionEvent): 
       const status = state.status === "canceled" ? "canceled" : "active";
       return to(state, {
         status,
-        cycle: state.cycle ?? event.cycle,
+        // Plano de presente que recebe um pagamento passa a ser do ciclo pago.
+        cycle: state.cycle === null || state.cycle === "gift" ? event.cycle : state.cycle,
         periodEnd: base + length,
         pastDueSince: null,
         failedAttempts: 0,
@@ -149,10 +157,30 @@ export function transition(state: SubscriptionState, event: SubscriptionEvent): 
       return same(state, `recurrence_stopped em ${state.status}`);
     }
 
+    case "gift_received": {
+      const length = event.days * DAY_MS;
+      const { state: current } = transition(state, { type: "tick", at: event.at });
+      if (isPlus(current) && current.periodEnd !== null) {
+        // Plus valendo: os dias somam ao período atual e o resto não muda.
+        return to(current, { periodEnd: current.periodEnd + length });
+      }
+      return to(current, {
+        status: "active",
+        cycle: "gift",
+        periodEnd: event.at + length,
+        pastDueSince: null,
+        failedAttempts: 0,
+      });
+    }
+
     case "tick": {
       const periodEnd = state.periodEnd ?? 0;
       if (state.status === "canceled" && event.at >= periodEnd) return ended(state);
-      if (state.status === "active" && state.cycle === "annual" && event.at >= periodEnd) {
+      if (
+        state.status === "active" &&
+        (state.cycle === "annual" || state.cycle === "gift") &&
+        event.at >= periodEnd
+      ) {
         return ended(state);
       }
       if (
@@ -170,13 +198,17 @@ export function transition(state: SubscriptionState, event: SubscriptionEvent): 
   }
 }
 
+/** Os benefícios do Plus valem neste estado (sem aplicar a passagem do tempo). */
+function isPlus(state: SubscriptionState): boolean {
+  return state.status === "active" || state.status === "past_due" || state.status === "canceled";
+}
+
 /** Plano mostrado ao navegador, já com a passagem do tempo aplicada. */
 export function planFromState(stored: SubscriptionState, now: number): Plan {
   const { state } = transition(stored, { type: "tick", at: now });
-  const plus = state.status === "active" || state.status === "past_due" || state.status === "canceled";
   return {
     status: state.status,
-    plus,
+    plus: isPlus(state),
     cycle: state.cycle,
     periodEnd: state.periodEnd,
     renews: state.status === "active" && state.cycle === "monthly",
