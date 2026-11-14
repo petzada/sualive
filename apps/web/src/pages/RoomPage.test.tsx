@@ -108,13 +108,27 @@ describe("room phases", () => {
 });
 
 describe("lobby", () => {
-  it("shows the IP warning, the occupancy and that the microphone starts muted", () => {
+  it("says that the microphone starts muted, without the occupancy", () => {
     renderApp({ state: makeState({ occupancy: { participants: 3, capacity: ROOM_MAX_PEOPLE } }) });
 
-    expect(screen.getByText(texts.ipNotice.message, { exact: false })).toBeTruthy();
-    expect(screen.getByText(texts.lobby.occupancy(3, ROOM_MAX_PEOPLE))).toBeTruthy();
     expect(screen.getByText(texts.lobby.mutedHint)).toBeTruthy();
     expect(nicknameInput().maxLength).toBe(NICKNAME_MAX_LENGTH);
+    expect(screen.getByRole("main").textContent).not.toContain(String(ROOM_MAX_PEOPLE));
+  });
+
+  it("ends the form with the join button, the muted hint and then the Turnstile", () => {
+    renderApp();
+
+    const isBefore = (first: Element, second: Element) =>
+      Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const button = screen.getByRole("button", { name: texts.lobby.join });
+    const hint = screen.getByText(texts.lobby.mutedHint);
+    const turnstile = screen.getByRole("group", { name: texts.turnstile.label });
+
+    expect(isBefore(nicknameInput(), button)).toBe(true);
+    expect(isBefore(button, hint)).toBe(true);
+    expect(isBefore(hint, turnstile)).toBe(true);
+    expect(button.closest("form")?.lastElementChild?.contains(turnstile)).toBe(true);
   });
 
   it("rejects a nickname that is too short and does not join", async () => {
@@ -370,7 +384,44 @@ describe("people", () => {
   });
 });
 
+describe("header", () => {
+  it("shows the room code and the occupancy before the centered name", () => {
+    renderApp({ state: makeConnectedState() });
+
+    const header = screen.getByRole("banner");
+    const code = within(header).getByTestId("room-code");
+    const occupancy = within(header).getByLabelText(texts.room.occupancyLabel(3, ROOM_MAX_PEOPLE));
+    const name = within(header).getByRole("heading", { level: 1 });
+
+    expect(code.textContent).toContain("abcdefghjk");
+    expect(code.textContent).toContain(texts.room.codeLabel);
+    expect(occupancy.textContent).toBe(texts.room.occupancy(3, ROOM_MAX_PEOPLE));
+    expect(occupancy.className).toContain("bg-accent");
+    expect(occupancy.className).toContain("text-on-accent");
+    expect(code.compareDocumentPosition(occupancy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(occupancy.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(name.textContent).toBe(texts.home.title);
+    expect(name.className).toContain("text-center");
+  });
+});
+
 describe("controls", () => {
+  it("tells the states apart by name and pressed state, not only by color", () => {
+    const off = renderApp({ state: makeConnectedState({ micMuted: true, handRaised: false }) });
+    expect(screen.getByRole("button", { name: texts.controls.micOn })).toBeTruthy();
+    expect(screen.getByRole("button", { name: texts.controls.handRaise }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+    off.unmount();
+
+    renderApp({ state: makeConnectedState({ micMuted: false, handRaised: true }) });
+    expect(screen.getByRole("button", { name: texts.controls.micOff }).dataset.active).toBe("true");
+    const hand = screen.getByRole("button", { name: texts.controls.handLower });
+    expect(hand.getAttribute("aria-pressed")).toBe("true");
+    expect(hand.dataset.active).toBe("true");
+    expect(screen.getByRole("button", { name: texts.controls.leave }).dataset.active).toBeUndefined();
+  });
+
   it("opens the microphone, which starts muted", () => {
     const actions = makeActions();
     renderApp({ state: makeConnectedState({ micMuted: true }), actions });
@@ -476,6 +527,35 @@ describe("chat", () => {
 
     fireEvent.click(screen.getByRole("button", { name: texts.chat.send }));
     expect(actions.sendChat.mock.calls[0]?.[0]).toHaveLength(CHAT_MAX_LENGTH);
+  });
+
+  it("aligns the own messages to the right and the others to the left", () => {
+    renderApp({
+      state: makeConnectedState({
+        chat: [
+          { id: "m1", from: "p1", nickname: "Ana", text: "oi, gente", sentAt: 1_700_000_000_000 },
+          { id: "m2", from: "me", nickname: "Eu", text: "oi, Ana", sentAt: 1_700_000_001_000 },
+        ],
+      }),
+    });
+
+    const theirs = screen.getByText("oi, gente").closest("article");
+    const mine = screen.getByText("oi, Ana").closest("article");
+    expect(mine?.dataset.own).toBe("true");
+    expect(mine?.className).toContain("self-end");
+    expect(mine?.className).toContain("text-right");
+    expect(theirs?.dataset.own).toBeUndefined();
+    expect(theirs?.className).toContain("self-start");
+    expect(theirs?.className).not.toContain("text-right");
+  });
+
+  it("keeps the message field at a size that does not make phones zoom in", () => {
+    renderApp({ state: makeConnectedState() });
+
+    // `text-body` is 17px; below 16px iOS zooms into the field on focus.
+    expect(chatInput().className.split(" ")).toContain("text-body");
+    expect(chatInput().className).toContain("min-w-0");
+    expect(screen.getByRole("button", { name: texts.chat.send }).className).toContain("shrink-0");
   });
 
   it("renders messages as plain text in a live log", () => {

@@ -92,23 +92,28 @@ export function ChatPanel({ messages, selfId, onSend, visible = true, disabled =
           {messages.length === 0 ? (
             <p className="m-auto text-center text-body-sm text-muted">{texts.chat.empty}</p>
           ) : (
-            messages.map((message) => (
-              <article key={message.id} className="flex flex-col text-body-sm">
-                <header className="flex items-baseline gap-2">
-                  <span className="truncate font-semibold">{message.nickname}</span>
-                  {message.from === selfId && (
-                    <span className="shrink-0 text-muted">({texts.common.you})</span>
-                  )}
-                  <time
-                    dateTime={new Date(message.sentAt).toISOString()}
-                    className="shrink-0 text-compact text-muted"
-                  >
-                    {timeFormat.format(message.sentAt)}
-                  </time>
-                </header>
-                <p className="wrap-anywhere whitespace-pre-wrap">{message.text}</p>
-              </article>
-            ))
+            messages.map((message) => {
+              const own = message.from === selfId;
+              return (
+                <article
+                  key={message.id}
+                  data-own={own ? "true" : undefined}
+                  className={`flex max-w-full flex-col text-body-sm ${own ? "items-end self-end text-right" : "items-start self-start"}`}
+                >
+                  <header className="flex max-w-full items-baseline gap-2">
+                    <span className="truncate font-semibold">{message.nickname}</span>
+                    {own && <span className="shrink-0 text-muted">({texts.common.you})</span>}
+                    <time
+                      dateTime={new Date(message.sentAt).toISOString()}
+                      className="shrink-0 text-compact text-muted"
+                    >
+                      {timeFormat.format(message.sentAt)}
+                    </time>
+                  </header>
+                  <p className="wrap-anywhere whitespace-pre-wrap">{message.text}</p>
+                </article>
+              );
+            })
           )}
         </div>
         {hasNew && (
@@ -138,7 +143,7 @@ export function ChatPanel({ messages, selfId, onSend, visible = true, disabled =
             enterKeyHint="send"
             onChange={(event) => setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH))}
             onKeyDown={handleKeyDown}
-            className="field-sizing-content max-h-28 min-h-11 flex-1 resize-none rounded-nav bg-canvas px-4 py-2.5 text-body-sm shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
+            className="field-sizing-content max-h-28 min-h-11 min-w-0 flex-1 resize-none rounded-nav bg-canvas px-4 py-2 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
           />
           <button
             type="submit"

@@ -24,7 +24,7 @@ interface ControlButtonProps {
   /** Short visible caption on wide screens. */
   caption: string;
   icon: ReactNode;
-  /** Filled while the thing is on (microphone open, camera live, hand up). */
+  /** Ringed while the thing is on (microphone open, camera live, hand up); the icon changes too. */
   active?: boolean;
   pressed?: boolean;
   expanded?: boolean;
@@ -44,13 +44,15 @@ function ControlButton({
 }: ControlButtonProps) {
   return (
     <Button
+      variant="primary"
       aria-label={label}
       aria-pressed={pressed}
       aria-expanded={expanded}
       isDisabled={disabled}
       onPress={onPress}
-      className={`h-11 min-w-11 shrink-0 rounded-button px-3 text-body-sm font-normal xl:px-4 ${
-        active ? "bg-ink text-canvas" : "bg-canvas text-ink shadow-outline-soft"
+      data-active={active ? "true" : undefined}
+      className={`h-11 min-w-11 shrink-0 rounded-button border-2 px-3 text-body-sm font-normal xl:px-4 ${
+        active ? "border-ink" : "border-transparent"
       }`}
     >
       {icon}
