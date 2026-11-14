@@ -25,6 +25,7 @@ import type { AppEnv } from "./env";
 import { apiError } from "./errors";
 import { generateIceServers, verifyTurnstile } from "./external";
 import { refuse, ROOM_IDENTITY_HEADER, type FixedOwner, type RoomAccount, type RoomIdentity } from "./room";
+import { getEquipped } from "./shop/equipped";
 import {
   accountParticipantIdFor,
   newSessionId,
@@ -116,9 +117,15 @@ function safeAvatarUrl(value: string | null): string | null {
   }
 }
 
-/** Perfil, selos e limite de vídeos de quem entra logado, consultados agora no servidor. */
+/**
+ * Perfil, selos, limite de vídeos, cosméticos equipados e reações de pacote de quem entra logado,
+ * consultados agora no servidor (nunca vindos do navegador).
+ */
 async function roomAccountFor(env: AppEnv, viewer: Viewer & { handle: string }): Promise<RoomAccount> {
-  const { plan, badges } = await getPlanStatus(env, viewer.userId);
+  const [{ plan, badges }, equipped] = await Promise.all([
+    getPlanStatus(env, viewer.userId),
+    getEquipped(env, viewer.userId),
+  ]);
   return {
     userId: viewer.userId,
     handle: viewer.handle,
@@ -126,6 +133,8 @@ async function roomAccountFor(env: AppEnv, viewer: Viewer & { handle: string }):
     badges,
     plus: plan.plus,
     videosPerPerson: plan.plus ? PLUS_VIDEOS_PER_PERSON : VIDEOS_PER_PERSON,
+    cosmetics: equipped.cosmetics,
+    reactions: equipped.reactions,
   };
 }
 

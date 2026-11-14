@@ -2,7 +2,6 @@ import {
   CHAT_HISTORY_SIZE,
   CHAT_RATE_MAX,
   CHAT_RATE_WINDOW_MS,
-  REACTIONS,
   ROOM_EMPTY_TTL_MS,
   ROOM_MAX_PEOPLE,
   ROOM_MAX_VIDEOS,
@@ -12,6 +11,8 @@ import {
 import {
   badgeSchema,
   clientMessageSchema,
+  cosmeticsSchema,
+  reactionListSchema,
   serverMessageSchema,
   WS_CLOSE,
   WS_PING_FRAME,
@@ -19,6 +20,8 @@ import {
   type Badge,
   type ChatMessage,
   type ClientMessage,
+  type Cosmetics,
+  type GiftFailure,
   type Participant,
   type RoomSettings,
   type RoomVideo,
@@ -33,6 +36,8 @@ import { randomToken, safeEqual, sha256 } from "./crypto";
 import { createDb } from "./db";
 import { users } from "./db/schema";
 import type { AppEnv } from "./env";
+import { allowedReactions } from "./shop/equipped";
+import { transferGold, type LedgerOutcome } from "./wallet/ledger";
 
 /**
  * Um Durable Object por sala: `idFromName(código)` na sala comum e `idFromName("@<nome>")` na sala
@@ -42,8 +47,9 @@ import type { AppEnv } from "./env";
  *
  * O Worker fala com ele por RPC (`create`, `ensureFixed`, `endFixed`, `info`, `admit`,
  * `checkAdmission`) e encaminha o WebSocket por `fetch`, com a identidade num cabeçalho interno que
- * o cliente não alcança (o Worker monta a requisição do zero). Conta, perfil e plano chegam prontos
- * do Worker, consultados no servidor a cada entrada e a cada conexão.
+ * o cliente não alcança (o Worker monta a requisição do zero). Conta, perfil, plano, cosméticos
+ * equipados e reações de pacote chegam prontos do Worker, consultados no servidor a cada entrada e a
+ * cada conexão. O envio de ouro pela sala (`gift.send`) usa o livro-razão (`wallet/ledger.ts`).
  *
  * Sala de link fixo: não é criada por `create`; o Worker chama `ensureFixed` enquanto o dono tem
  * Plus. Ela não acaba quando esvazia: depois de ROOM_EMPTY_TTL_MS vazia, apaga o chat, as admissões e
@@ -64,6 +70,10 @@ export interface RoomAccount {
   plus: boolean;
   /** Limite de vídeos simultâneos desta pessoa (pelo plano dela, não o do dono). */
   videosPerPerson: number;
+  /** Cosméticos equipados, lidos do D1 pelo Worker; nulo se nada está equipado. */
+  cosmetics: Cosmetics | null;
+  /** Reações dos pacotes equipados (sem as básicas). */
+  reactions: string[];
 }
 
 export interface RoomIdentity {
@@ -126,6 +136,9 @@ interface Connection {
   avatarUrl: string | null;
   badges: Badge[];
   videosPerPerson: number;
+  cosmetics: Cosmetics | null;
+  /** Reações de pacote desta pessoa (as básicas valem para todos e não ficam aqui). */
+  packReactions: string[];
 }
 
 const META_KEY = "meta";
@@ -146,6 +159,11 @@ function chatKey(seq: number): string {
 export class RoomBase extends DurableObject<AppEnv> {
   /** Cópia em memória da meta (`null` = sala inexistente ou já encerrada). */
   private meta: RoomMeta | null = null;
+  /**
+   * Pessoas com um envio de ouro em andamento. Só em memória: o objeto não hiberna enquanto espera o
+   * D1, então o conjunto não se perde no meio de um envio.
+   */
+  private readonly giftsInFlight = new Set<string>();
 
   constructor(ctx: DurableObjectState, env: AppEnv) {
     super(ctx, env);
@@ -292,6 +310,8 @@ export class RoomBase extends DurableObject<AppEnv> {
       avatarUrl: account?.avatarUrl ?? null,
       badges: account?.badges ?? [],
       videosPerPerson: account?.videosPerPerson ?? VIDEOS_PER_PERSON,
+      cosmetics: account?.cosmetics ?? null,
+      packReactions: account?.reactions ?? [],
     };
     server.serializeAttachment(connection);
     // Alguém chegou: a sala comum cancela o encerramento; a de link fixo passa a conferir o plano.
@@ -315,6 +335,10 @@ export class RoomBase extends DurableObject<AppEnv> {
       case "chat.send":
         return this.onChat(ws, message.text);
       case "reaction.send":
+        // Só as reações da lista desta pessoa (básicas + pacotes equipados ao conectar).
+        if (!reactionsOf(connection).includes(message.reaction)) {
+          return this.send(ws, { type: "error", code: "not_allowed" });
+        }
         return this.broadcast({
           type: "reaction",
           from: connection.participantId,
@@ -334,6 +358,8 @@ export class RoomBase extends DurableObject<AppEnv> {
         return this.onModerate(ws, message);
       case "room.setTheme":
         return this.onSetTheme(ws, message.theme);
+      case "gift.send":
+        return this.onGift(ws, message);
     }
   }
 
@@ -466,8 +492,7 @@ export class RoomBase extends DurableObject<AppEnv> {
     this.send(ws, {
       type: "welcome",
       room: this.settings(),
-      // Entrega 3 (loja): somar aqui as reações dos pacotes equipados.
-      limits: { videosPerPerson: connection.videosPerPerson, reactions: [...REACTIONS] },
+      limits: { videosPerPerson: connection.videosPerPerson, reactions: reactionsOf(connection) },
       self: connection.participantId,
       participants: this.readySockets().map((s) => toParticipant(attachmentOf(s))),
       chat: [...history.values()].slice(-CHAT_HISTORY_SIZE),
@@ -589,6 +614,66 @@ export class RoomBase extends DurableObject<AppEnv> {
     this.broadcast({ type: "room.updated", room: this.settings() });
   }
 
+  /**
+   * Envia ouro a outra pessoa da sala: as duas com conta, presentes e diferentes. Mesmo livro-razão
+   * e mesmo limite diário do envio por @nome (`transferGold`). Responde `gift.result` só a quem
+   * enviou e, se deu certo, avisa a sala inteira com `gift`. Um envio por vez por pessoa: o segundo
+   * pedido enquanto o primeiro está em andamento é recusado.
+   */
+  private async onGift(ws: WebSocket, message: Extract<ClientMessage, { type: "gift.send" }>): Promise<void> {
+    const sender = attachmentOf(ws);
+    const { requestId, amount } = message;
+    const fail = (reason: GiftFailure) =>
+      this.send(ws, { type: "gift.result", requestId, ok: false, reason });
+
+    if (message.to === sender.participantId || sender.userId === null) return fail("not_allowed");
+    const target = this.findReady(message.to);
+    if (!target) return fail("not_found");
+    const recipient = attachmentOf(target);
+    if (recipient.userId === null || recipient.userId === sender.userId) return fail("not_allowed");
+    if (this.giftsInFlight.has(sender.participantId)) return fail("error");
+
+    const fromUserId = sender.userId;
+    const toUserId = recipient.userId;
+    // Apelidos do momento do envio (alguém pode sair durante a transferência).
+    const notice: ServerMessage = {
+      type: "gift",
+      from: sender.participantId,
+      fromNickname: sender.nickname,
+      to: recipient.participantId,
+      toNickname: recipient.nickname,
+      amount,
+    };
+    this.giftsInFlight.add(sender.participantId);
+    let outcome: LedgerOutcome | "not_allowed" | "error";
+    try {
+      // As contas foram conferidas ao conectar; confere de novo (uma delas pode ter sido excluída).
+      const [from, to] = await Promise.all([
+        findUserById(this.env, fromUserId),
+        findUserById(this.env, toUserId),
+      ]);
+      outcome =
+        from && to && isOnboarded(from) && isOnboarded(to)
+          ? await transferGold(this.env, { fromUserId, toUserId, amount, now: Date.now() })
+          : "not_allowed";
+    } catch (error) {
+      console.error("gift.send: falha na transferência", error);
+      outcome = "error";
+    } finally {
+      this.giftsInFlight.delete(sender.participantId);
+    }
+
+    if (outcome !== "ok") {
+      return fail(
+        outcome === "insufficient_funds" || outcome === "daily_limit" || outcome === "not_allowed"
+          ? outcome
+          : "error",
+      );
+    }
+    this.send(ws, { type: "gift.result", requestId, ok: true });
+    this.broadcast(notice);
+  }
+
   // ---------- Auxiliares ----------
 
   private settings(): RoomSettings {
@@ -690,10 +775,15 @@ function toParticipant(connection: Connection): Participant {
     handRaised: connection.handRaised,
     videos: connection.videos,
     joinedAt: connection.joinedAt,
-    // Entrega 3 (loja): cosméticos equipados da conta, lidos ao conectar.
-    cosmetics: null,
+    // Lidos da conta ao conectar; trocar o que está equipado vale na próxima conexão.
+    cosmetics: connection.userId !== null ? (connection.cosmetics ?? null) : null,
     canReceiveGold: connection.userId !== null,
   };
+}
+
+/** Reações que esta pessoa pode enviar: as básicas e as dos pacotes equipados. */
+function reactionsOf(connection: Connection): string[] {
+  return allowedReactions(connection.packReactions ?? []);
 }
 
 function parseClientMessage(raw: string | ArrayBuffer): ClientMessage | null {
@@ -711,7 +801,10 @@ function parseClientMessage(raw: string | ArrayBuffer): ClientMessage | null {
 function parseAccount(value: unknown): RoomAccount | null | undefined {
   if (value === null) return null;
   if (typeof value !== "object") return undefined;
-  const { userId, handle, avatarUrl, badges, plus, videosPerPerson } = value as Record<string, unknown>;
+  const { userId, handle, avatarUrl, badges, plus, videosPerPerson, cosmetics, reactions } = value as Record<
+    string,
+    unknown
+  >;
   if (typeof userId !== "string" || typeof handle !== "string" || typeof plus !== "boolean") return undefined;
   if (avatarUrl !== null && typeof avatarUrl !== "string") return undefined;
   if (typeof videosPerPerson !== "number" || !Number.isInteger(videosPerPerson) || videosPerPerson < 1) {
@@ -719,7 +812,20 @@ function parseAccount(value: unknown): RoomAccount | null | undefined {
   }
   const parsedBadges = badgeSchema.array().safeParse(badges);
   if (!parsedBadges.success) return undefined;
-  return { userId, handle, avatarUrl, badges: parsedBadges.data, plus, videosPerPerson };
+  // Cosméticos e reações de pacote vêm do D1, lidos pelo Worker; validados pelos esquemas.
+  const parsedCosmetics = cosmeticsSchema.nullable().safeParse(cosmetics ?? null);
+  const parsedReactions = reactionListSchema.safeParse(reactions ?? []);
+  if (!parsedCosmetics.success || !parsedReactions.success) return undefined;
+  return {
+    userId,
+    handle,
+    avatarUrl,
+    badges: parsedBadges.data,
+    plus,
+    videosPerPerson,
+    cosmetics: parsedCosmetics.data,
+    reactions: parsedReactions.data,
+  };
 }
 
 function parseIdentity(header: string | null): RoomIdentity | null {
