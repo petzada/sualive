@@ -48,23 +48,38 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
 
   return (
     <div className="flex h-dvh flex-col bg-mist">
-      <header className="flex min-h-11 shrink-0 items-center gap-3 px-4 pt-1">
-        <h1 className="font-display text-title font-semibold">{texts.home.title}</h1>
-        <span
-          className="rounded-button bg-canvas px-2.5 py-1 text-compact"
-          aria-label={texts.room.occupancyLabel(state.occupancy.participants, state.occupancy.capacity)}
-        >
-          {texts.room.occupancy(state.occupancy.participants, state.occupancy.capacity)}
-        </span>
-        {speakers.length > 0 && (
-          <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted lg:hidden">
-            <VoiceBars />
-            <span className="truncate">{speakers.map((participant) => participant.nickname).join(", ")}</span>
+      {/* Small screens: the reconnecting message takes a row of its own, so it is never cut. */}
+      <header className="grid min-h-11 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-4 pt-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-compact font-medium sm:text-body-sm" data-testid="room-code">
+            <span className="sr-only">{texts.room.codeLabel} </span>
+            {state.code}
+          </p>
+          <span
+            className="shrink-0 rounded-button bg-accent px-2.5 py-1 text-compact font-medium text-on-accent"
+            aria-label={texts.room.occupancyLabel(state.occupancy.participants, state.occupancy.capacity)}
+          >
+            {texts.room.occupancy(state.occupancy.participants, state.occupancy.capacity)}
           </span>
-        )}
-        <div role="status" aria-live="polite" className="ml-auto min-w-0 text-body-sm">
+        </div>
+        <h1 className="text-center font-display text-title font-semibold">{texts.home.title}</h1>
+        <div className="flex min-w-0 items-center justify-end lg:hidden">
+          {speakers.length > 0 && (
+            <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted">
+              <VoiceBars />
+              <span className="truncate">
+                {speakers.map((participant) => participant.nickname).join(", ")}
+              </span>
+            </span>
+          )}
+        </div>
+        <div
+          role="status"
+          aria-live="polite"
+          className="col-span-3 min-w-0 justify-self-center text-body-sm lg:col-span-1 lg:justify-self-end"
+        >
           {reconnecting && (
-            <span className="flex items-center gap-2 rounded-button bg-canvas px-3 py-1.5 shadow-outline">
+            <span className="mb-1 flex items-center gap-2 rounded-button bg-canvas px-3 py-1.5 shadow-outline lg:mb-0">
               <Spinner />
               <span className="truncate">{texts.room.reconnecting}</span>
             </span>

@@ -53,6 +53,47 @@ const DATA_CHANNEL_LABEL = "sualive";
 const DATA_CHANNEL_ID = 0;
 const MAX_QUEUED_SIGNALS = 256;
 
+/**
+ * Áudio da aba ou do sistema: música e vídeo, não voz. Sem isto o Chrome aplica ao áudio da tela o
+ * mesmo processamento do microfone (cancelamento de eco, supressão de ruído e ganho automático, em
+ * mono), que corta notas sustentadas e o fundo da música e deixa estalos. Valores simples (sem
+ * `exact`) são só preferência: o navegador que não os suporta ignora e a captura segue.
+ */
+const SCREEN_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  channelCount: 2,
+};
+
+/** Erros de `getDisplayMedia` que indicam opções recusadas (não a pessoa cancelando). */
+function isConstraintError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === "OverconstrainedError"
+  );
+}
+
+/** Garante, depois da captura, o áudio da tela sem processamento de voz e marcado como música. */
+async function prepareScreenAudio(stream: MediaStream): Promise<void> {
+  for (const track of stream.getAudioTracks()) {
+    track.contentHint = "music";
+    const settings = track.getSettings();
+    const processed =
+      settings.echoCancellation !== false ||
+      settings.noiseSuppression !== false ||
+      settings.autoGainControl !== false;
+    if (!processed) continue;
+    try {
+      await track.applyConstraints(SCREEN_AUDIO_CONSTRAINTS);
+    } catch {
+      // O Chrome não troca o processamento depois da captura (OverconstrainedError): segue como veio.
+    }
+  }
+}
+
 type Candidate = Extract<SignalData, { kind: "candidate" }>["candidate"];
 type Description = Extract<SignalData, { kind: "description" }>["description"];
 type StreamEntry = Extract<SignalData, { kind: "streams" }>["streams"][number];
@@ -595,8 +636,17 @@ export function createMeshSession(
       if (!env.getDisplayMedia) {
         throw new DOMException("Compartilhamento de tela indisponível", "NotSupportedError");
       }
-      // `audio: true`: o navegador oferece o áudio da aba ou do sistema quando consegue.
-      return env.getDisplayMedia({ video: limits, audio: true });
+      // O navegador oferece o áudio da aba ou do sistema quando consegue; a pessoa pode recusar.
+      let stream: MediaStream;
+      try {
+        stream = await env.getDisplayMedia({ video: limits, audio: SCREEN_AUDIO_CONSTRAINTS });
+      } catch (error) {
+        // Navegador que recusa as opções de áudio: volta ao pedido simples.
+        if (!isConstraintError(error)) throw error;
+        stream = await env.getDisplayMedia({ video: limits, audio: true });
+      }
+      await prepareScreenAudio(stream);
+      return stream;
     }
     return env.getUserMedia({
       video: {

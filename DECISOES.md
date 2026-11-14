@@ -180,7 +180,6 @@ com tela, webcam, voz e chat, sem cadastro.
 - Quem abre o link escolhe um apelido (2 a 24 caracteres **[padrão]**), vê a prévia de microfone e
   câmera, passa pelo Turnstile e entra no mudo.
 - Sessão de quem não tem conta: cookie assinado pelo servidor com um identificador aleatório e o apelido.
-- Aviso visível, ao criar e ao entrar, de que na sala direta os participantes podem ver o IP uns dos outros.
 - Sala cheia (6 pessoas) recusa a entrada com mensagem clara.
 - O link exibe prévia (título e imagem) quando colado em aplicativos de mensagem.
 
@@ -282,6 +281,7 @@ Quem quiser cria conta em dois cliques, ganha um perfil e pode assinar o Plus po
 - Em sala direta, o assinante transmite em até 1080p a 60 fps e até 2 vídeos ao mesmo tempo. Vale em
   qualquer sala, por pessoa. O teto de 4 vídeos da sala e o limite de 720p na retransmissão continuam.
 - Link fixo: uma sala permanente por assinante no endereço do @nome dele. Ela não expira quando esvazia.
+  No cabeçalho da sala, onde a sala comum mostra o código, a sala de link fixo mostra o @nome.
 - Tema de sala: o dono Plus escolhe um entre 6 temas prontos de cores e fundo **[padrão]**.
 - Selo de Plus ao lado do nome.
 - Selo de apoiador inicial, permanente, para os **100 primeiros** que pagarem o Plus (mensal ou anual).

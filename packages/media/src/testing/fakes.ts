@@ -27,7 +27,9 @@ export class FakeTrack extends EventTarget {
   /** Nível de áudio simulado (0 a 1). */
   level = 0;
   readonly source: FakeTrack | undefined;
-  private readonly settings: MediaTrackSettings;
+  /** Restrições pedidas depois da captura, em ordem. */
+  readonly appliedConstraints: MediaTrackConstraints[] = [];
+  private settings: MediaTrackSettings;
 
   constructor(
     readonly kind: "audio" | "video",
@@ -43,6 +45,17 @@ export class FakeTrack extends EventTarget {
 
   getSettings(): MediaTrackSettings {
     return { ...this.settings };
+  }
+
+  /** Aceita só valores simples (true/false/número), como preferência. */
+  async applyConstraints(constraints: MediaTrackConstraints = {}): Promise<void> {
+    await tick();
+    this.appliedConstraints.push(constraints);
+    const next: Record<string, unknown> = { ...this.settings };
+    for (const [key, value] of Object.entries(constraints)) {
+      if (typeof value === "boolean" || typeof value === "number") next[key] = value;
+    }
+    this.settings = next as MediaTrackSettings;
   }
 
   stop(): void {
@@ -547,6 +560,12 @@ export interface FakeEnvOptions {
   noScreen?: boolean;
   /** A tela compartilhada traz áudio da aba. */
   screenAudio?: boolean;
+  /**
+   * Como o navegador trata as opções de áudio da tela: `honor` aplica (padrão); `ignore` entrega o
+   * áudio com o processamento de voz ligado; `reject` recusa o pedido com `TypeError` (só o simples
+   * `audio: true` passa).
+   */
+  screenAudioConstraints?: "honor" | "ignore" | "reject";
   screenSettings?: MediaTrackSettings;
   cameraSettings?: MediaTrackSettings;
 }
@@ -627,12 +646,33 @@ export function createFakeEnv(options: FakeEnvOptions = {}): FakeEnv {
           fake.displayMediaCalls.push(displayOptions);
           await tick();
           if (options.deny?.screen) throw deniedError();
+          const mode = options.screenAudioConstraints ?? "honor";
+          const audio = displayOptions.audio;
+          if (mode === "reject" && typeof audio === "object") {
+            throw new TypeError("opções de áudio não suportadas");
+          }
           const tracks = [
             capture(
               new FakeTrack("video", options.screenSettings ?? { width: 1280, height: 720, frameRate: 30 }),
             ),
           ];
-          if (options.screenAudio) tracks.push(capture(new FakeTrack("audio")));
+          if (options.screenAudio && audio) {
+            // Padrão do Chrome para o áudio da aba: processamento de voz ligado, mono.
+            const settings: MediaTrackSettings = {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+            };
+            if (mode === "honor" && typeof audio === "object") {
+              for (const [key, value] of Object.entries(audio)) {
+                if (typeof value === "boolean" || typeof value === "number") {
+                  (settings as Record<string, unknown>)[key] = value;
+                }
+              }
+            }
+            tracks.push(capture(new FakeTrack("audio", settings)));
+          }
           return new FakeStream(tracks) as unknown as MediaStream;
         },
     createAudioAnalyzer: analyzer,

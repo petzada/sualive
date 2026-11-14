@@ -6,7 +6,6 @@ import type { FormEvent } from "react";
 import type { RoomActions, RoomState } from "../../lib/room";
 import { Spinner } from "../icons";
 import { texts } from "../../texts";
-import { IpNotice } from "../IpNotice";
 import { TurnstileField } from "../TurnstileField";
 import { useTurnstileAction } from "../useTurnstileAction";
 import { StreamVideo } from "./media";
@@ -160,12 +159,7 @@ export function Lobby({ state, actions }: LobbyProps) {
         <DevicePreviewCard state={state} actions={actions} />
 
         <form noValidate onSubmit={submit} className="flex flex-col gap-gap">
-          <div className="flex flex-col gap-2">
-            <h1 className="font-display text-heading font-semibold">{texts.lobby.title}</h1>
-            <p className="text-body-sm text-muted">
-              {texts.lobby.occupancy(state.occupancy.participants, state.occupancy.capacity)}
-            </p>
-          </div>
+          <h1 className="font-display text-heading font-semibold">{texts.lobby.title}</h1>
 
           <div className="flex flex-col gap-2">
             <label htmlFor={inputId} className="text-body-sm font-medium">
@@ -197,9 +191,6 @@ export function Lobby({ state, actions }: LobbyProps) {
             )}
           </div>
 
-          <IpNotice />
-          <TurnstileField {...turnstile} />
-
           <div className="flex flex-col gap-2">
             <Button
               type="submit"
@@ -216,6 +207,8 @@ export function Lobby({ state, actions }: LobbyProps) {
             </Button>
             <p className="text-center text-body-sm text-muted">{texts.lobby.mutedHint}</p>
           </div>
+
+          <TurnstileField {...turnstile} />
         </form>
       </div>
     </main>
