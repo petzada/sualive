@@ -25,6 +25,15 @@ const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
 const toolbar = () => screen.getByRole("toolbar", { name: texts.controls.label });
 const nicknameInput = () => screen.getByLabelText<HTMLInputElement>(texts.lobby.nicknameLabel);
 const chatInput = () => screen.getByLabelText<HTMLTextAreaElement>(texts.chat.inputLabel);
+const leaveButton = () => screen.getByRole("button", { name: texts.controls.leave });
+const leaveConfirmation = () => screen.queryByTestId("leave-confirm");
+/** Leaving takes two steps: the button of the header, then the confirmation it opens. */
+function leaveRoom() {
+  fireEvent.click(leaveButton());
+  fireEvent.click(
+    within(leaveConfirmation()!).getByRole("button", { name: texts.controls.leaveConfirm.confirm }),
+  );
+}
 
 describe("room phases", () => {
   it("shows a discreet loading state", () => {
@@ -141,22 +150,22 @@ describe("lobby", () => {
     expect(form.textContent).not.toContain(texts.lobby.mutedHint);
   });
 
-  it("offers the device test centered in the gray card, with only 'Opcional' under it, and the muted hint under the card", () => {
+  it("offers the device test alone and centered in the gray card, and the muted hint under the card", () => {
     renderApp();
 
     const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
     const card = section.firstElementChild!;
     const test = within(card as HTMLElement).getByRole("button", { name: texts.lobby.previewStart });
-    const optional = within(card as HTMLElement).getByText(texts.lobby.previewOptional);
     const hint = screen.getByText(texts.lobby.mutedHint);
 
     expect(card.className.split(" ")).toContain("bg-mist");
     for (const name of ["items-center", "justify-center"]) expect(card.className.split(" ")).toContain(name);
-    // In the card: the button and, right under it, the single word. Nothing else.
-    expect(texts.lobby.previewOptional).toBe("Opcional");
-    expect(test.nextElementSibling).toBe(optional);
+    // In the card: only the button, centered. The word "Opcional" is gone.
+    expect(test.parentElement?.children).toHaveLength(1);
     expect(test.parentElement?.className.split(" ")).toContain("items-center");
-    expect(card.textContent).toBe(`${texts.lobby.previewStart}${texts.lobby.previewOptional}`);
+    expect(card.textContent).toBe(texts.lobby.previewStart);
+    expect(document.body.textContent).not.toContain("Opcional");
+    expect("previewOptional" in texts.lobby).toBe(false);
     expect("previewIntro" in texts.lobby).toBe(false);
     // The muted hint left the card: under it, outside the gray, centered, in one line where it fits.
     expect(card.contains(hint)).toBe(false);
@@ -166,14 +175,13 @@ describe("lobby", () => {
     }
   });
 
-  it("drops 'Opcional' with the button once the device test ran, and keeps the muted hint under the card", async () => {
+  it("drops the button once the device test ran, and keeps the muted hint under the card", async () => {
     renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: texts.lobby.previewStart }));
 
     await screen.findByText(texts.lobby.previewUnavailable);
     const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
-    expect(screen.queryByText(texts.lobby.previewOptional)).toBeNull();
     expect(screen.queryByRole("button", { name: texts.lobby.previewStart })).toBeNull();
     expect(section.lastElementChild?.textContent).toBe(texts.lobby.mutedHint);
     expect(section.firstElementChild?.contains(section.lastElementChild)).toBe(false);
@@ -509,57 +517,83 @@ describe("people", () => {
 });
 
 describe("header", () => {
-  it("shows the name of the product and then the room, with no occupancy in the header", () => {
-    renderApp({ state: makeConnectedState() });
-
-    const header = screen.getByRole("banner");
-    const code = within(header).getByTestId("room-code");
-    const name = within(header).getByRole("heading", { level: 1 });
-    const theme = within(header).getByRole("button", { name: texts.room.themeToDark });
-
-    expect(code.textContent).toContain("abcdefghjk");
-    expect(code.textContent).toContain(texts.room.codeLabel);
-    expect(name.textContent).toBe(texts.home.title);
-    // Reading order: the product, the room, then the buttons.
-    expect(header.firstElementChild).toBe(name);
-    expect(name.compareDocumentPosition(code) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(code.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(header).queryByTestId("occupancy")).toBeNull();
-    expect(header.textContent).not.toContain(texts.room.occupancy(3, ROOM_MAX_PEOPLE));
-  });
-
-  it("puts the room under the product name on a phone, and above the left edge of the side panel on wide screens", () => {
+  it("shows the product at the left and the room right beside it, as a gray breadcrumb, with no occupancy in the header", () => {
     renderApp({ state: makeConnectedState() });
 
     const header = screen.getByRole("banner");
     const classes = (element: Element) => element.className.split(" ");
-    const name = within(header).getByRole("heading", { level: 1 });
-    const code = within(header).getByTestId("room-code");
-    const side = within(header).getByTestId("room-header-side");
-    const buttons = within(header).getByRole("button", { name: texts.controls.leave }).parentElement!;
+    const crumb = within(header).getByTestId("room-breadcrumb");
+    const name = within(crumb).getByRole("heading", { level: 1 });
+    const code = within(crumb).getByTestId("room-code");
+    const theme = within(header).getByRole("button", { name: texts.room.themeToDark });
 
-    // Phone: two columns; the product in the first row and the room right under it, at the left.
-    expect(classes(header)).toContain("grid-cols-[minmax(0,1fr)_auto]");
-    for (const place of ["col-start-1", "row-start-1"]) expect(classes(name)).toContain(place);
-    for (const place of ["col-start-1", "row-start-2", "truncate"]) expect(classes(code)).toContain(place);
-    // ...and the buttons at the right, beside both rows.
-    for (const place of ["col-start-2", "row-start-1", "row-span-2"])
-      expect(classes(buttons)).toContain(place);
-    expect(classes(side)).toContain("contents");
-    // From `md`: the product centered, and the room in the cell of the buttons, before them.
-    expect(classes(header)).toContain("md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]");
-    for (const place of ["md:col-start-2", "md:text-center"]) expect(classes(name)).toContain(place);
-    for (const place of ["md:col-start-3", "md:flex", "md:justify-end"])
-      expect(classes(side)).toContain(place);
-    expect(side.firstElementChild).toBe(code);
-    expect(side.lastElementChild).toBe(buttons);
-    // From `lg` that cell is as wide as the people and chat panel (same width class), stuck to the
-    // right like the panel, with the room at its left edge.
-    const panel = screen.getByRole("complementary");
-    expect(classes(panel)).toContain("lg:w-88");
-    for (const place of ["lg:w-88", "lg:justify-self-end", "lg:justify-between"]) {
-      expect(classes(side)).toContain(place);
+    expect(name.textContent).toBe(texts.home.title);
+    expect(code.textContent).toBe(`${texts.room.codeLabel} abcdefghjk`);
+    // Reading order: the product, a discreet separator, the room, then the buttons.
+    expect(header.firstElementChild).toBe(crumb);
+    const room = code.parentElement!;
+    const separator = code.previousElementSibling!;
+    expect(name.nextElementSibling).toBe(room);
+    expect(texts.room.breadcrumbSeparator).toBe("/");
+    expect(separator.textContent).toBe("/");
+    expect(separator.getAttribute("aria-hidden")).toBe("true");
+    expect(crumb.textContent).toBe(`${texts.home.title}/${texts.room.codeLabel} abcdefghjk`);
+    expect(code.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The room in gray, so it does not compete with the product; the product is not centered anymore.
+    expect(classes(room)).toContain("text-muted");
+    expect(classes(name)).not.toContain("text-muted");
+    expect(name.className).not.toMatch(/text-center|col-start-2/);
+    expect(header.className).not.toContain("md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]");
+    expect(within(header).queryByTestId("occupancy")).toBeNull();
+    expect(header.textContent).not.toContain(texts.room.occupancy(3, ROOM_MAX_PEOPLE));
+  });
+
+  it("starts the header at the left edge of the stage, and lets the room wrap under the product where it does not fit", () => {
+    renderApp({ state: makeConnectedState() });
+
+    const header = screen.getByRole("banner");
+    const classes = (element: Element) => element.className.split(" ");
+    const crumb = within(header).getByTestId("room-breadcrumb");
+    const name = within(crumb).getByRole("heading", { level: 1 });
+    const code = within(crumb).getByTestId("room-code");
+    const buttons = within(header).getByTestId("room-header-buttons");
+
+    // Same left padding as the row of the stage below, on a phone and on wide screens.
+    const main = screen.getByRole("main");
+    expect(main.contains(screen.getByRole("region", { name: texts.stage.label }))).toBe(true);
+    for (const [ofHeader, ofMain] of [
+      ["pl-2", "px-2"],
+      ["lg:pl-4", "lg:px-4"],
+    ] as const) {
+      expect(classes(header)).toContain(ofHeader);
+      expect(classes(main)).toContain(ofMain);
     }
+    // Two columns: the breadcrumb takes what is left, the buttons stay at the right in the same row.
+    expect(classes(header)).toContain("grid-cols-[minmax(0,1fr)_auto]");
+    for (const place of ["col-start-1", "row-start-1", "min-w-0"]) expect(classes(crumb)).toContain(place);
+    for (const place of ["col-start-2", "row-start-1", "justify-end"]) {
+      expect(classes(buttons)).toContain(place);
+    }
+    expect(buttons.lastElementChild).toBe(leaveButton());
+    // Beside the product while it fits; otherwise it wraps to the line below (a phone), where the
+    // separator falls outside the clipped box, and a long name is cut with an ellipsis.
+    const row = name.parentElement!;
+    for (const place of ["flex", "flex-wrap", "items-baseline", "-ml-5"]) {
+      expect(classes(row)).toContain(place);
+    }
+    expect(classes(crumb)).toContain("overflow-hidden");
+    expect(classes(name)).toContain("pl-5");
+    for (const place of ["relative", "pl-5", "min-w-0", "max-w-full"]) {
+      expect(classes(code.parentElement!)).toContain(place);
+    }
+    for (const place of ["absolute", "left-0", "w-5"]) {
+      expect(classes(code.previousElementSibling!)).toContain(place);
+    }
+    expect(classes(code)).toContain("truncate");
+    // The room left its old place, above the side panel.
+    expect(within(header).queryByTestId("room-header-side")).toBeNull();
+    expect(header.innerHTML).not.toContain("lg:w-88");
+    expect(classes(screen.getByRole("complementary"))).toContain("lg:w-88");
   });
 
   it("shows the occupancy as a pill over the stage: top right on a phone, top left on wide screens", () => {
@@ -606,6 +640,16 @@ describe("header", () => {
     expect(leave.className).toContain("text-ink");
     expect(leave.className).toContain("shadow-outline-soft");
     expect(leave.className).not.toContain("accent");
+    // Only the icon, in every width: as big as the other icon buttons of the header.
+    const theme = within(header).getByRole("button", { name: texts.room.themeToDark });
+    expect(leave.textContent).toBe("");
+    expect(leave.querySelector("svg")).toBeTruthy();
+    expect(leave.className.split(" ")).toContain("size-11");
+    expect(leave.className).not.toMatch(/md:w-auto|md:px-/);
+    for (const name of ["size-11", "rounded-button"]) {
+      expect(theme.className.split(" ")).toContain(name);
+      expect(leave.className.split(" ")).toContain(name);
+    }
 
     expect(within(toolbar()).queryByRole("button", { name: texts.controls.leave })).toBeNull();
     expect(
@@ -620,6 +664,80 @@ describe("header", () => {
       texts.controls.reactions,
       texts.controls.copyLink,
     ]);
+  });
+});
+
+describe("leaving", () => {
+  it("asks before leaving, and stays in the room when the person cancels", async () => {
+    const actions = makeActions();
+    renderApp({ state: makeConnectedState(), actions });
+    expect(leaveConfirmation()).toBeNull();
+
+    act(() => leaveButton().focus());
+    fireEvent.click(leaveButton());
+
+    const dialog = leaveConfirmation()!;
+    expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(texts.controls.leaveConfirm.question).toBe("Quer realmente sair da sala?");
+    expect(within(dialog).getByRole("heading", { name: texts.controls.leaveConfirm.question })).toBeTruthy();
+    expect(dialog.getAttribute("aria-labelledby")).toBe(within(dialog).getByRole("heading").id);
+    // Two answers: confirm and cancel. Nothing happened yet.
+    expect(
+      within(dialog)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual([texts.controls.leaveConfirm.confirm, texts.common.cancel]);
+    expect(actions.leave).not.toHaveBeenCalled();
+    // The focus goes to the safe answer.
+    const cancel = within(dialog).getByRole("button", { name: texts.common.cancel });
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+
+    fireEvent.click(cancel);
+
+    await waitFor(() => expect(leaveConfirmation()).toBeNull());
+    expect(actions.leave).not.toHaveBeenCalled();
+    expect(toolbar()).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(leaveButton()));
+  });
+
+  it("closes the question with Escape without leaving", async () => {
+    const actions = makeActions();
+    renderApp({ state: makeConnectedState(), actions });
+    act(() => leaveButton().focus());
+    fireEvent.click(leaveButton());
+    const dialog = leaveConfirmation()!;
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    fireEvent.keyUp(document.activeElement!, { key: "Escape" });
+
+    await waitFor(() => expect(leaveConfirmation()).toBeNull());
+    expect(actions.leave).not.toHaveBeenCalled();
+    expect(toolbar()).toBeTruthy();
+  });
+
+  it("leaves only after the confirmation", async () => {
+    const actions = makeActions();
+    renderApp({ state: makeConnectedState(), actions });
+
+    fireEvent.click(leaveButton());
+    expect(actions.leave).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(leaveConfirmation()!).getByRole("button", { name: texts.controls.leaveConfirm.confirm }),
+    );
+
+    expect(actions.leave).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: texts.home.create })).toBeTruthy();
+    expect(leaveConfirmation()).toBeNull();
+  });
+
+  it("asks while reconnecting too", () => {
+    const actions = makeActions();
+    renderApp({ state: makeConnectedState({ phase: "reconnecting" }), actions });
+
+    leaveRoom();
+
+    expect(actions.leave).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -728,7 +846,7 @@ describe("theme", () => {
     renderApp({ state: makeConnectedState() });
     expect(themeOnPage()).toBe("dark");
 
-    fireEvent.click(screen.getByRole("button", { name: texts.controls.leave }));
+    leaveRoom();
 
     expect(await screen.findByRole("button", { name: texts.home.create })).toBeTruthy();
     expect(themeOnPage()).toBeNull();
@@ -818,7 +936,7 @@ describe("controls", () => {
     fireEvent.click(screen.getByRole("button", { name: texts.controls.copyLink }));
     expect(actions.copyLink).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: texts.controls.leave }));
+    leaveRoom();
     expect(actions.leave).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole("button", { name: texts.home.create })).toBeTruthy();
   });

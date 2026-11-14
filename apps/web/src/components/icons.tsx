@@ -22,6 +22,13 @@ function Icon({ children, size = 20 }: { children: ReactNode; size?: number }) {
 
 const SLASH = <path d="M4 4l16 16" />;
 
+/** "<": back to the previous page. */
+export const BackIcon = () => (
+  <Icon>
+    <path d="M14.5 5.5L8 12l6.5 6.5" />
+  </Icon>
+);
+
 export const MicIcon = () => (
   <Icon>
     <rect x="9" y="3" width="6" height="11" rx="3" />

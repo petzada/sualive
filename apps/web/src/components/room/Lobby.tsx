@@ -92,7 +92,7 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
         ) : request === "done" ? (
           <p className="px-6 text-center text-body-sm text-muted">{texts.lobby.previewUnavailable}</p>
         ) : (
-          <div className="flex flex-col items-center gap-3 px-4 text-center">
+          <div className="flex flex-col items-center px-4 text-center">
             <Button
               variant="outline"
               className="min-h-11 rounded-button border-outline bg-canvas px-5 text-body-sm"
@@ -102,8 +102,6 @@ function DevicePreviewCard({ state, actions }: LobbyProps) {
               {request === "starting" && <Spinner />}
               {request === "starting" ? texts.lobby.previewStarting : texts.lobby.previewStart}
             </Button>
-            {/* Goes away with the button, once the test ran. */}
-            <p className="text-body-sm text-muted">{texts.lobby.previewOptional}</p>
           </div>
         )}
       </div>

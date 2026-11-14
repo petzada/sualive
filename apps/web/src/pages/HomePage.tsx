@@ -28,8 +28,7 @@ function HomeLogin() {
 
 /**
  * Who is logged: a block of its own after the create button (as far from it as the other blocks of
- * the column are from each other), in two lines: the text, then the picture and the nickname,
- * leading to the profile.
+ * the column are from each other): only the picture and the nickname, leading to the profile.
  */
 function HomeAccount() {
   const { state } = useAccountClient().useAccount();
@@ -38,7 +37,6 @@ function HomeAccount() {
 
   return (
     <div className="flex flex-col items-center text-body-sm text-muted" data-testid="home-account">
-      <p>{texts.home.account.continue}</p>
       <Link
         to={PATHS.profile}
         aria-label={texts.nav.profile(user.nickname)}
