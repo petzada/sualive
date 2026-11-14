@@ -79,3 +79,29 @@
     outline-offset: 2px;
   }
 }
+
+/*
+ * Cosméticos da loja (DESIGN.md, "Cosméticos da loja"): os valores vêm do catálogo, como variáveis
+ * no próprio elemento, e o tema escolhe qual usar. Única exceção a "sem gradiente".
+ */
+.cosmetic {
+  --cosmetic-a: var(--cosmetic-light-a);
+  --cosmetic-b: var(--cosmetic-light-b);
+}
+:root[data-theme="dark"] .cosmetic {
+  --cosmetic-a: var(--cosmetic-dark-a);
+  --cosmetic-b: var(--cosmetic-dark-b);
+}
+.cosmetic-name {
+  color: var(--cosmetic-a);
+  background-image: linear-gradient(90deg, var(--cosmetic-a), var(--cosmetic-b));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cosmetic-frame {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9999px;
+  background-image: linear-gradient(135deg, var(--cosmetic-a), var(--cosmetic-b));
+}
