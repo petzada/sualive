@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import { ACCOUNT_SESSION_TTL_SECONDS, PLUS_GIFT_PRICE_GOLD, TERMS_VERSION } from "@sualive/config";
+import {
+  ACCOUNT_SESSION_TTL_SECONDS,
+  PLUS_GIFT_PRICE_GOLD,
+  PROTECTED_ROOM_GOLD_PER_HOUR,
+  TERMS_VERSION,
+} from "@sualive/config";
 
 /**
  * Contas da fumaça, gravadas direto no D1 local do simulador antes de o Worker subir (nenhuma rota
@@ -48,6 +53,13 @@ const SEEDS = {
   roomReceiver: { handle: "e2e_sala_recebe", nickname: "Nara" },
   plusGiver: { handle: "e2e_plus_envia", nickname: "Otto", gold: PLUS_GIFT_PRICE_GOLD + 10 },
   plusReceiver: { handle: "e2e_plus_recebe", nickname: "Iris" },
+  // Entrega 4: assinante com ouro para 2 horas de sala protegida.
+  protector: {
+    handle: "e2e_protegida",
+    nickname: "Vera",
+    plus: true,
+    gold: PROTECTED_ROOM_GOLD_PER_HOUR * 2,
+  },
 } satisfies Record<string, AccountSeed>;
 
 export type AccountName = keyof typeof SEEDS;

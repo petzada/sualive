@@ -3,6 +3,7 @@ import {
   PLUS_GIFT_DAYS,
   PLUS_GIFT_PRICE_GOLD,
   PLUS_VIDEO_QUALITY,
+  PROTECTED_ROOM_GOLD_PER_HOUR,
   VIDEOS_PER_PERSON,
 } from "@sualive/config";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
@@ -664,4 +665,56 @@ test(`presente de Plus: debita ${PLUS_GIFT_PRICE_GOLD} de ouro e dá ${PLUS_GIFT
   expect(user.badges).toEqual(["plus"]);
   // Plus de presente não rende ouro.
   expect((await walletOf(receiver.page)).gold).toBe(0);
+});
+
+// ---------- Entrega 4: sala protegida, franquia em horas e Plus novo ----------
+
+test("sala protegida: o assinante vê preço e horas do saldo; sem retransmissão no ambiente, não cria", async ({
+  browser,
+}) => {
+  const { page } = await newPerson(browser, "protector");
+  await page.goto("/");
+  await page.getByTestId("protected-room-open").click();
+  const panel = page.getByTestId("protected-room-panel");
+  await expect(panel.getByTestId("protected-room-price")).toContainText(String(PROTECTED_ROOM_GOLD_PER_HOUR));
+  // 2 × o preço por hora de saldo: cobre 2 horas.
+  await expect(panel.getByTestId("protected-room-balance")).toContainText("2 h");
+  await panel.getByTestId("protected-room-confirm").click();
+  // O simulador roda sem a chave de retransmissão: a sala protegida nunca abre como sala direta.
+  await expect(page.getByRole("alert")).toContainText(texts.home.errors.protectedUnavailable);
+  await expect(page).toHaveURL(/\/$/);
+  expect(await walletOf(page)).toMatchObject({ gold: PROTECTED_ROOM_GOLD_PER_HOUR * 2 });
+
+  // A carteira mostra o mesmo ouro em tempo de sala protegida.
+  await page.goto("/carteira");
+  await expect(page.getByTestId("gold-protected-time")).toContainText("2 h");
+
+  // No plano, o link fixo pode abrir como sala protegida (a sala está vazia).
+  await page.goto("/plano");
+  const fixed = page.getByTestId("fixed-room-protected");
+  await expect(fixed).toHaveAttribute("data-state", "off");
+  await fixed.getByTestId("fixed-room-protected-toggle").click();
+  await expect(fixed).toHaveAttribute("data-state", "on");
+  const user = (await me(page)).user as unknown as { fixedRoomProtected: boolean };
+  expect(user.fixedRoomProtected).toBe(true);
+});
+
+test("quem não é Plus não cria sala protegida; a sala comum continua a um clique", async ({ browser }) => {
+  const free = await newPerson(browser, "free");
+  await free.page.goto("/");
+  await expect(free.page.getByTestId("protected-room-open")).toHaveCount(0);
+  await expect(free.page.getByTestId("protected-room-plus-only")).toBeVisible();
+  // Direto na API também não: o servidor decide.
+  const refused = await free.page.request.post("/api/rooms", {
+    data: { turnstileToken: "XXXX.DUMMY.TOKEN.XXXX", protected: true },
+    headers: { Origin: new URL(free.page.url()).origin },
+  });
+  expect(refused.status()).toBe(403);
+  expect(await refused.json()).toEqual({ error: "plus_required" });
+
+  const guest = await newPerson(browser);
+  await guest.page.goto("/");
+  await expect(guest.page.getByTestId("protected-room-open")).toHaveCount(0);
+  await createRoom(guest.page);
+  await joinAsGuest(guest.page, "Visita");
 });

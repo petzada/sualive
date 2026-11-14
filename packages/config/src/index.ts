@@ -12,12 +12,6 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 
 /** Pessoas na sala direta (12 a partir da entrega 4). */
 export const ROOM_MAX_PEOPLE = 12;
-/**
- * Teto antigo de vídeos por sala. A entrega 4 tirou o teto da sala direta (vale só o limite por
- * pessoa e o de vídeos assistidos); a sala protegida tem o seu (PROTECTED_ROOM_MAX_VIDEOS).
- * @deprecated some quando o último uso sair.
- */
-export const ROOM_MAX_VIDEOS = 4;
 /** Vídeos simultâneos por pessoa (tela ou webcam). */
 export const VIDEOS_PER_PERSON = 2;
 /** Sala vazia expira depois de (ms). Vale também para a sala criada e nunca usada. */
