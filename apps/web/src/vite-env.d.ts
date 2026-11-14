@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN?: string;
   /** Token público do Cloudflare Web Analytics. Vazio desliga o beacon. */
   readonly VITE_CF_ANALYTICS_TOKEN?: string;
+  /** Chave pública (site key) do Turnstile. Vazia usa a chave de teste da Cloudflare que sempre passa. */
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
   /** SHA do commit publicado. */
   readonly VITE_COMMIT_SHA?: string;
   /** "production" | "staging" | "development". */

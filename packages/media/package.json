@@ -15,7 +15,10 @@
     "e2e": "node -e \"\"",
     "build": "node -e \"\""
   },
-  "dependencies": {},
+  "dependencies": {
+    "@sualive/config": "workspace:*",
+    "@sualive/protocol": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "6.0.3",
     "vitest": "4.1.12"

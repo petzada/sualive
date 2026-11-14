@@ -1,5 +1,10 @@
 /**
- * Única parte do front que conhece WebRTC. A interface única para os dois caminhos de mídia
- * (sala direta e sala no servidor) nasce na entrega 1; este pacote está vazio de propósito.
+ * Única parte do front que conhece WebRTC. Expõe uma interface única (`MediaSession`) para os
+ * dois caminhos de mídia; nesta entrega só existe a malha direta.
  */
-export {};
+export type * from "./types";
+
+// Implementação (tarefa de mídia da entrega 1):
+//   export const createMediaSession: CreateMediaSession
+//   export function createDevicePreview(): Promise<DevicePreview>
+//   export function getMediaCapabilities(): MediaCapabilities

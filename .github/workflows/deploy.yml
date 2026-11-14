@@ -36,6 +36,7 @@ jobs:
         env:
           VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEB }}
           VITE_CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN_STAGING }}
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY_STAGING }}
           VITE_COMMIT_SHA: ${{ github.sha }}
           VITE_ENVIRONMENT: staging
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -49,15 +50,15 @@ jobs:
         working-directory: apps/api
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY_STAGING }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET_STAGING }}
+          TURN_KEY_ID: ${{ secrets.TURN_KEY_ID_STAGING }}
+          TURN_KEY_API_TOKEN: ${{ secrets.TURN_KEY_API_TOKEN_STAGING }}
         run: |
-          args=(--env staging --var "COMMIT_SHA:${GITHUB_SHA}")
-          if [ -n "${SENTRY_DSN}" ]; then
-            secrets_file="${RUNNER_TEMP}/worker-secrets.json"
-            trap 'rm -f "${secrets_file}"' EXIT
-            node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ SENTRY_DSN: process.env.SENTRY_DSN }), { mode: 0o600 })' "${secrets_file}"
-            args+=(--secrets-file "${secrets_file}")
-          fi
-          pnpm exec wrangler deploy "${args[@]}"
+          secrets_file="${RUNNER_TEMP}/worker-secrets.json"
+          trap 'rm -f "${secrets_file}"' EXIT
+          node ../../scripts/write-worker-secrets.mjs "${secrets_file}" SENTRY_DSN TURNSTILE_SECRET_KEY SESSION_SECRET TURN_KEY_ID TURN_KEY_API_TOKEN
+          pnpm exec wrangler deploy --env staging --var "COMMIT_SHA:${GITHUB_SHA}" --secrets-file "${secrets_file}"
 
       - name: Verificação (homologação)
         env:
@@ -83,6 +84,7 @@ jobs:
         env:
           VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN_WEB }}
           VITE_CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }}
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
           VITE_COMMIT_SHA: ${{ github.sha }}
           VITE_ENVIRONMENT: production
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -97,15 +99,15 @@ jobs:
         working-directory: apps/api
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_API }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          TURN_KEY_ID: ${{ secrets.TURN_KEY_ID }}
+          TURN_KEY_API_TOKEN: ${{ secrets.TURN_KEY_API_TOKEN }}
         run: |
-          args=(--env="" --var "COMMIT_SHA:${GITHUB_SHA}")
-          if [ -n "${SENTRY_DSN}" ]; then
-            secrets_file="${RUNNER_TEMP}/worker-secrets.json"
-            trap 'rm -f "${secrets_file}"' EXIT
-            node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ SENTRY_DSN: process.env.SENTRY_DSN }), { mode: 0o600 })' "${secrets_file}"
-            args+=(--secrets-file "${secrets_file}")
-          fi
-          pnpm exec wrangler deploy "${args[@]}"
+          secrets_file="${RUNNER_TEMP}/worker-secrets.json"
+          trap 'rm -f "${secrets_file}"' EXIT
+          node ../../scripts/write-worker-secrets.mjs "${secrets_file}" SENTRY_DSN TURNSTILE_SECRET_KEY SESSION_SECRET TURN_KEY_ID TURN_KEY_API_TOKEN
+          pnpm exec wrangler deploy --env="" --var "COMMIT_SHA:${GITHUB_SHA}" --secrets-file "${secrets_file}"
 
       - name: Verificação (produção)
         env:
