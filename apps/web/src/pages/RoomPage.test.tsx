@@ -141,36 +141,67 @@ describe("lobby", () => {
     expect(form.textContent).not.toContain(texts.lobby.mutedHint);
   });
 
-  it("offers the device test centered in the gray card, with the muted hint under it and the intro outside", () => {
+  it("offers the device test centered in the gray card, with only 'Opcional' under it, and the muted hint under the card", () => {
     renderApp();
 
     const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
     const card = section.firstElementChild!;
     const test = within(card as HTMLElement).getByRole("button", { name: texts.lobby.previewStart });
-    const hint = within(card as HTMLElement).getByText(texts.lobby.mutedHint);
-    const intro = screen.getByText(texts.lobby.previewIntro);
+    const optional = within(card as HTMLElement).getByText(texts.lobby.previewOptional);
+    const hint = screen.getByText(texts.lobby.mutedHint);
 
     expect(card.className.split(" ")).toContain("bg-mist");
     for (const name of ["items-center", "justify-center"]) expect(card.className.split(" ")).toContain(name);
-    // Button first, the hint right under it, in one line where it fits.
-    expect(test.nextElementSibling).toBe(hint);
+    // In the card: the button and, right under it, the single word. Nothing else.
+    expect(texts.lobby.previewOptional).toBe("Opcional");
+    expect(test.nextElementSibling).toBe(optional);
     expect(test.parentElement?.className.split(" ")).toContain("items-center");
-    expect(hint.className.split(" ")).toContain("sm:whitespace-nowrap");
-    // The intro left the card: under it, in the same section, centered.
-    expect(card.contains(intro)).toBe(false);
-    expect(section.lastElementChild).toBe(intro);
-    for (const name of ["mx-auto", "text-center"]) expect(intro.className.split(" ")).toContain(name);
+    expect(card.textContent).toBe(`${texts.lobby.previewStart}${texts.lobby.previewOptional}`);
+    expect("previewIntro" in texts.lobby).toBe(false);
+    // The muted hint left the card: under it, outside the gray, centered, in one line where it fits.
+    expect(card.contains(hint)).toBe(false);
+    expect(section.lastElementChild?.lastElementChild).toBe(hint);
+    for (const name of ["mx-auto", "text-center", "sm:whitespace-nowrap"]) {
+      expect(hint.className.split(" ")).toContain(name);
+    }
   });
 
-  it("keeps the muted hint in sight, under the card, once the device test ran", async () => {
+  it("drops 'Opcional' with the button once the device test ran, and keeps the muted hint under the card", async () => {
     renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: texts.lobby.previewStart }));
 
     await screen.findByText(texts.lobby.previewUnavailable);
     const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
+    expect(screen.queryByText(texts.lobby.previewOptional)).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.lobby.previewStart })).toBeNull();
     expect(section.lastElementChild?.textContent).toBe(texts.lobby.mutedHint);
-    expect(screen.queryByText(texts.lobby.previewIntro)).toBeNull();
+    expect(section.firstElementChild?.contains(section.lastElementChild)).toBe(false);
+  });
+
+  it("centers the lobby in the window, with the two columns aligned by their vertical centers", () => {
+    renderApp();
+
+    const main = screen.getByRole("main");
+    // No gap in the column: the (empty) notice region takes no room, so nothing pushes the content down.
+    expect(main.className).not.toContain("gap-");
+    expect(main.firstElementChild?.className).toBe("");
+    for (const name of ["mx-auto", "w-full", "min-h-dvh", "flex-col", "justify-center"]) {
+      expect(main.className.split(" ")).toContain(name);
+    }
+    const section = screen.getByRole("region", { name: texts.lobby.previewTitle });
+    const columns = section.parentElement!;
+    expect(columns.children).toHaveLength(2);
+    expect(columns.lastElementChild?.tagName).toBe("FORM");
+    for (const name of ["grid", "items-center", "md:grid-cols-2"]) {
+      expect(columns.className.split(" ")).toContain(name);
+    }
+    expect(columns.lastElementChild?.className.split(" ")).toContain("items-center");
+    // What goes under the card hangs out of the flow beside the form: the card alone is centered against it.
+    expect(section.className.split(" ")).toContain("relative");
+    for (const name of ["md:absolute", "md:top-full"]) {
+      expect(section.lastElementChild?.className.split(" ")).toContain(name);
+    }
   });
 
   it("rejects a nickname that is too short and does not join", async () => {
@@ -478,23 +509,88 @@ describe("people", () => {
 });
 
 describe("header", () => {
-  it("shows the room code and the occupancy before the centered name", () => {
+  it("shows the name of the product and then the room, with no occupancy in the header", () => {
     renderApp({ state: makeConnectedState() });
 
     const header = screen.getByRole("banner");
     const code = within(header).getByTestId("room-code");
-    const occupancy = within(header).getByLabelText(texts.room.occupancyLabel(3, ROOM_MAX_PEOPLE));
     const name = within(header).getByRole("heading", { level: 1 });
+    const theme = within(header).getByRole("button", { name: texts.room.themeToDark });
 
     expect(code.textContent).toContain("abcdefghjk");
     expect(code.textContent).toContain(texts.room.codeLabel);
-    expect(occupancy.textContent).toBe(texts.room.occupancy(3, ROOM_MAX_PEOPLE));
-    expect(occupancy.className).toContain("bg-accent");
-    expect(occupancy.className).toContain("text-on-accent");
-    expect(code.compareDocumentPosition(occupancy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(occupancy.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(name.textContent).toBe(texts.home.title);
-    expect(name.className).toContain("text-center");
+    // Reading order: the product, the room, then the buttons.
+    expect(header.firstElementChild).toBe(name);
+    expect(name.compareDocumentPosition(code) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(code.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(header).queryByTestId("occupancy")).toBeNull();
+    expect(header.textContent).not.toContain(texts.room.occupancy(3, ROOM_MAX_PEOPLE));
+  });
+
+  it("puts the room under the product name on a phone, and above the left edge of the side panel on wide screens", () => {
+    renderApp({ state: makeConnectedState() });
+
+    const header = screen.getByRole("banner");
+    const classes = (element: Element) => element.className.split(" ");
+    const name = within(header).getByRole("heading", { level: 1 });
+    const code = within(header).getByTestId("room-code");
+    const side = within(header).getByTestId("room-header-side");
+    const buttons = within(header).getByRole("button", { name: texts.controls.leave }).parentElement!;
+
+    // Phone: two columns; the product in the first row and the room right under it, at the left.
+    expect(classes(header)).toContain("grid-cols-[minmax(0,1fr)_auto]");
+    for (const place of ["col-start-1", "row-start-1"]) expect(classes(name)).toContain(place);
+    for (const place of ["col-start-1", "row-start-2", "truncate"]) expect(classes(code)).toContain(place);
+    // ...and the buttons at the right, beside both rows.
+    for (const place of ["col-start-2", "row-start-1", "row-span-2"])
+      expect(classes(buttons)).toContain(place);
+    expect(classes(side)).toContain("contents");
+    // From `md`: the product centered, and the room in the cell of the buttons, before them.
+    expect(classes(header)).toContain("md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]");
+    for (const place of ["md:col-start-2", "md:text-center"]) expect(classes(name)).toContain(place);
+    for (const place of ["md:col-start-3", "md:flex", "md:justify-end"])
+      expect(classes(side)).toContain(place);
+    expect(side.firstElementChild).toBe(code);
+    expect(side.lastElementChild).toBe(buttons);
+    // From `lg` that cell is as wide as the people and chat panel (same width class), stuck to the
+    // right like the panel, with the room at its left edge.
+    const panel = screen.getByRole("complementary");
+    expect(classes(panel)).toContain("lg:w-88");
+    for (const place of ["lg:w-88", "lg:justify-self-end", "lg:justify-between"]) {
+      expect(classes(side)).toContain(place);
+    }
+  });
+
+  it("shows the occupancy as a pill over the stage: top right on a phone, top left on wide screens", () => {
+    for (const videos of [[], [makeVideo()]]) {
+      const view = renderApp({
+        state: makeConnectedState({
+          videos,
+          reactions: [{ id: "r1", from: "p1", reaction: REACTIONS[0] }],
+        }),
+      });
+
+      const stage = screen.getByRole("region", { name: texts.stage.label });
+      const occupancy = within(stage).getByLabelText(texts.room.occupancyLabel(3, ROOM_MAX_PEOPLE));
+      const classes = occupancy.className.split(" ");
+
+      expect(occupancy.textContent).toBe(texts.room.occupancy(3, ROOM_MAX_PEOPLE));
+      expect(screen.getAllByTestId("occupancy")).toEqual([occupancy]);
+      // Its own filled pair, so it reads over any video.
+      for (const token of ["bg-accent", "text-on-accent"]) expect(classes).toContain(token);
+      // Pinned to a corner of the stage, whatever it shows...
+      expect(stage.className.split(" ")).toContain("relative");
+      for (const place of ["absolute", "top-3", "right-3", "md:right-auto", "md:left-3"]) {
+        expect(classes).toContain(place);
+      }
+      // ...and painted last, above the reactions (and so above the video and the empty state).
+      const reactions = within(stage).getByTestId("reaction").parentElement!;
+      expect(stage.lastElementChild).toBe(occupancy);
+      expect(reactions.className.split(" ")).toContain("z-10");
+      expect(classes).toContain("z-20");
+      view.unmount();
+    }
   });
 
   it("has the leave button at the end of the header, neutral, and not in the actions bar", () => {

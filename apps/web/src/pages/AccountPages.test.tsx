@@ -902,9 +902,13 @@ describe("plan", () => {
         .mockResolvedValueOnce({ ok: true, value: makeCheckout({ paymentId: "pay-2" }) });
       renderApp({ path: "/plus", account: logged(), accountActions });
       await reachPayment();
+      // O acompanhamento começa num efeito: emitir antes dele não chega a ninguém.
+      await waitFor(() =>
+        expect(accountActions.watchPlusPayment).toHaveBeenLastCalledWith("pay-1", expect.any(Function)),
+      );
 
       act(() => accountActions.emitPayment(status));
-      expect(screen.getByText(texts.plus.checkout[status])).toBeTruthy();
+      expect(await screen.findByText(texts.plus.checkout[status])).toBeTruthy();
       expect(screen.queryByAltText(texts.plus.checkout.qrAlt)).toBeNull();
 
       fireEvent.click(screen.getByRole("button", { name: texts.plus.checkout.retry }));
@@ -1012,15 +1016,30 @@ describe("home page with accounts", () => {
     expect(footer.getByRole("link", { name: texts.nav.privacy }).getAttribute("href")).toBe("/privacidade");
   });
 
-  it("shows the nickname with a small picture, leading to the profile, in the same place", () => {
+  it("invites who is logged to continue, in two lines, as a block of its own after the button", () => {
     renderApp({ path: "/", account: logged(makeUser({ avatarUrl: "https://example.test/a.png" })) });
 
     const profile = within(account()).getByRole("link", { name: texts.nav.profile("Marina") });
     expect(profile.getAttribute("href")).toBe("/perfil");
     expect(profile.textContent).toBe("Marina");
     expect(profile.querySelector("img")?.getAttribute("src")).toBe("https://example.test/a.png");
+    // Two lines: the text first, then the picture with the nickname.
+    expect(texts.home.account.continue).toBe("Continue com sua conta");
+    expect(account().textContent).toBe(`${texts.home.account.continue}Marina`);
+    const line = within(account()).getByText(texts.home.account.continue);
+    expect(line.tagName).toBe("P");
+    expect(line.nextElementSibling).toBe(profile);
+    expect(account().className.split(" ")).toContain("flex-col");
     expect(account().textContent).not.toContain(texts.home.account.question);
-    expect(createButton().nextElementSibling).toBe(account());
+    // Not glued to the button anymore: it left the button's block and is the next block of the
+    // column, so the column's own gap separates them, as it does the other blocks.
+    const buttonBlock = createButton().parentElement!;
+    expect(buttonBlock.contains(account())).toBe(false);
+    expect(buttonBlock.nextElementSibling).toBe(account());
+    expect(account().parentElement).toBe(screen.getByText(texts.home.hint).parentElement);
+    expect(account().parentElement?.className.split(" ")).toContain("gap-gap");
+    expect(account().className).not.toMatch(/(^| )-?m[ty]-/);
+    expect(screen.getAllByTestId("home-account")).toHaveLength(1);
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 

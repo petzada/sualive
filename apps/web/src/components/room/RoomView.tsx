@@ -6,6 +6,7 @@ import { useRoomTheme } from "../../lib/theme";
 import { texts } from "../../texts";
 import { Hint } from "../Hint";
 import { LeaveIcon, MoonIcon, Spinner, SunIcon, VoiceBars } from "../icons";
+import { AccountShortcuts } from "./AccountShortcuts";
 import { ChatPanel } from "./ChatPanel";
 import { ControlBar } from "./ControlBar";
 import { VoiceOutputs } from "./media";
@@ -65,52 +66,33 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
   return (
     <div className="flex h-dvh flex-col bg-mist">
       {/*
-        Small screens: who is speaking and the reconnecting message take a second row (always
-        reserved, so the stage does not jump when someone starts to speak).
+        Phones: the name of the product at the left with the room under it, and the buttons (plan,
+        picture, theme, leave) at the right. From `md`: the name of the product centered, and the
+        room beside the theme and leave buttons; from `lg` that side is as wide as the people and
+        chat panel below it, so the room starts at the panel's left edge. Who is speaking and the
+        reconnecting message take a row of their own below `lg` (always reserved, so the stage does
+        not jump when someone starts to speak) and the free left side from `lg`.
       */}
-      {/* With the theme picker the right side has three buttons: on small screens it takes the room it needs. */}
-      <header
-        className={`grid min-h-11 shrink-0 items-center gap-x-2 px-4 pt-1 ${
-          canPickRoomTheme
-            ? "grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-            : "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-        }`}
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-compact font-medium sm:text-body-sm" data-testid="room-code">
+      <header className="grid min-h-11 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-4 pt-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <h1 className="col-start-1 row-start-1 font-display text-title font-semibold md:col-start-2 md:text-center">
+          {texts.home.title}
+        </h1>
+        {/* Phones: its two children are placed in the grid by themselves. From `md`: one cell at the right. */}
+        <div
+          data-testid="room-header-side"
+          className="contents md:col-start-3 md:row-start-1 md:flex md:min-w-0 md:items-center md:justify-end md:gap-3 lg:w-88 lg:justify-between lg:justify-self-end"
+        >
+          <p
+            className="col-start-1 row-start-2 min-w-0 truncate text-compact font-medium md:text-body-sm"
+            data-testid="room-code"
+          >
             {/* Fixed-link room: the @handle of its owner takes the place of the code. */}
             <span className="sr-only">{fixedHandle ? texts.room.fixedLabel : texts.room.codeLabel} </span>
             {fixedHandle ? texts.handle.display(fixedHandle) : state.code}
           </p>
-          <span
-            className="shrink-0 rounded-button bg-accent px-2.5 py-1 text-compact font-medium text-on-accent"
-            aria-label={texts.room.occupancyLabel(state.occupancy.participants, state.occupancy.capacity)}
-          >
-            {texts.room.occupancy(state.occupancy.participants, state.occupancy.capacity)}
-          </span>
-        </div>
-        <h1 className="text-center font-display text-title font-semibold">{texts.home.title}</h1>
-        {/* Wide screens: one cell at the right. Small screens: the buttons stay in the first row. */}
-        <div className="contents lg:flex lg:min-w-0 lg:items-center lg:justify-end lg:gap-2">
-          <div className="col-span-3 row-start-2 flex min-h-5 min-w-0 items-center justify-center gap-3 lg:min-h-0">
-            {speakers.length > 0 && (
-              <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted lg:hidden">
-                <VoiceBars />
-                <span className="truncate">
-                  {speakers.map((participant) => participant.nickname).join(", ")}
-                </span>
-              </span>
-            )}
-            <div role="status" aria-live="polite" className="min-w-0 text-body-sm">
-              {reconnecting && (
-                <span className="mb-1 flex items-center gap-2 rounded-button bg-canvas px-3 py-1.5 shadow-outline lg:mb-0">
-                  <Spinner />
-                  <span className="truncate">{texts.room.reconnecting}</span>
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="col-start-3 row-start-1 flex shrink-0 items-center justify-end gap-1.5">
+          <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 items-center justify-end gap-1.5">
+            {/* Phones only: from `md` the plan and the picture are in the row of the actions. */}
+            <AccountShortcuts className="md:hidden" />
             {canPickRoomTheme && <RoomThemePicker theme={state.theme} onChange={actions.setRoomTheme} />}
             <Hint text={themeLabel} placement="bottom">
               <Button
@@ -125,13 +107,31 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
             <Hint text={texts.controls.leave} placement="bottom">
               <Button
                 aria-label={texts.controls.leave}
-                className={`h-11 min-w-11 px-3 text-body-sm font-normal ${NEUTRAL_PILL}`}
+                className={`size-11 min-w-11 px-0 text-body-sm font-normal md:w-auto md:px-3 ${NEUTRAL_PILL}`}
                 onPress={onLeave}
               >
                 <LeaveIcon />
-                <span className="hidden sm:inline">{texts.controls.leaveShort}</span>
+                <span className="hidden md:inline">{texts.controls.leaveShort}</span>
               </Button>
             </Hint>
+          </div>
+        </div>
+        <div className="col-span-2 row-start-3 flex min-h-5 min-w-0 items-center justify-center gap-3 md:col-span-3 md:row-start-2 lg:col-span-1 lg:col-start-1 lg:row-start-1 lg:min-h-0 lg:justify-start">
+          {speakers.length > 0 && (
+            <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted lg:hidden">
+              <VoiceBars />
+              <span className="truncate">
+                {speakers.map((participant) => participant.nickname).join(", ")}
+              </span>
+            </span>
+          )}
+          <div role="status" aria-live="polite" className="min-w-0 text-body-sm">
+            {reconnecting && (
+              <span className="mb-1 flex items-center gap-2 rounded-button bg-canvas px-3 py-1.5 shadow-outline lg:mb-0">
+                <Spinner />
+                <span className="truncate">{texts.room.reconnecting}</span>
+              </span>
+            )}
           </div>
         </div>
       </header>

@@ -85,39 +85,58 @@ describe("App", () => {
     expect(container.className).toContain("empty:hidden");
     expect(container.className).not.toContain("min-h");
     // Not inside the page at all: it floats over it, straight on the body.
-    const toast = screen.getByTestId("turnstile-toast");
-    expect(toast.contains(container)).toBe(true);
-    expect(toast.parentElement).toBe(document.body);
-    expect(screen.getByRole("main").contains(toast)).toBe(false);
-    expect(toast.className.split(" ")).toContain("fixed");
-    // No chrome while nothing is demanded from the person.
-    expect(toast.dataset.interactive).toBe("false");
-    expect(toast.innerHTML).not.toContain("bg-frost");
+    const overlay = screen.getByTestId("turnstile-overlay");
+    expect(container.parentElement).toBe(overlay);
+    expect(overlay.parentElement).toBe(document.body);
+    expect(screen.getByRole("main").contains(overlay)).toBe(false);
+    expect(overlay.className.split(" ")).toContain("fixed");
+    // Nothing demanded from the person: no veil, and the clicks go through to the page.
+    expect(overlay.dataset.interactive).toBe("false");
+    expect(overlay.className.split(" ")).toContain("pointer-events-none");
+    expect(overlay.className).not.toContain("bg-");
+    expect(container.className.split(" ")).toContain("invisible");
   });
 
-  it("shows the Turnstile as a floating notice at the top only while an interaction is demanded", async () => {
+  it("shows the Turnstile alone in the center of the window, over a veil, only while an interaction is demanded", async () => {
     const { api, callbacks } = installTurnstileStub({ pass: false });
     renderAt("/");
     await waitFor(() => expect(api.render).toHaveBeenCalled());
-    const toast = screen.getByTestId("turnstile-toast");
-    const box = () => screen.getByTestId("turnstile").parentElement!.className.split(" ");
+    const overlay = screen.getByTestId("turnstile-overlay");
+    const widget = screen.getByTestId("turnstile");
+    const classes = () => overlay.className.split(" ");
 
     act(() => callbacks.beforeInteractive?.());
-    expect(toast.dataset.interactive).toBe("true");
-    // Fixed at the top center of the window, above everything, in a discreet box of the theme.
-    for (const name of ["fixed", "inset-x-0", "top-4", "justify-center", "z-[1000]"]) {
-      expect(toast.className.split(" ")).toContain(name);
+    expect(overlay.dataset.interactive).toBe("true");
+    // Covers the window, centered both ways, above everything else on the page.
+    for (const name of ["fixed", "inset-0", "flex", "items-center", "justify-center", "z-[2147483647]"]) {
+      expect(classes()).toContain(name);
     }
-    for (const name of ["bg-frost", "rounded-nav", "shadow-outline-soft"]) expect(box()).toContain(name);
+    // The veil, of a theme token, takes the clicks instead of the page.
+    expect(classes()).toContain("bg-stage/40");
+    expect(classes()).not.toContain("pointer-events-none");
+    // Only the widget: straight in the veil, with no box, border or background of ours around it.
+    expect(overlay.children).toHaveLength(1);
+    expect(widget.parentElement).toBe(overlay);
+    expect(widget.className.split(" ")).not.toContain("invisible");
+    for (const chrome of ["bg-", "rounded", "shadow", "border", "p-"]) {
+      expect(widget.className.split(" ").some((name) => name.startsWith(chrome))).toBe(false);
+    }
+    // Never a focus trap: nothing in the veil is focusable besides what the widget brings.
+    expect(overlay.getAttribute("tabindex")).toBeNull();
 
+    // Over: the veil goes and so does the widget, even if Cloudflare leaves its "success" drawn.
     act(() => callbacks.afterInteractive?.());
-    expect(toast.dataset.interactive).toBe("false");
-    expect(box()).not.toContain("bg-frost");
+    expect(overlay.dataset.interactive).toBe("false");
+    expect(classes()).toContain("pointer-events-none");
+    expect(widget.className.split(" ")).toContain("invisible");
+    expect(classes()).not.toContain("bg-stage/40");
 
     // Passing the check also ends it, even if the widget does not say that the interaction is over.
     act(() => callbacks.beforeInteractive?.());
+    expect(classes()).toContain("bg-stage/40");
     act(() => callbacks.token?.("token-after-interaction"));
-    expect(toast.dataset.interactive).toBe("false");
+    expect(overlay.dataset.interactive).toBe("false");
+    expect(classes()).toContain("pointer-events-none");
   });
 
   it("creates a room with the Turnstile token and goes to its link", async () => {

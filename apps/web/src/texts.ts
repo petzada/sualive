@@ -444,8 +444,11 @@ export const texts = {
     create: "Criar sala",
     creating: "Criando a sala…",
     hint: "Voz, tela, webcam e chat.",
-    /** Plain line right under the create button: only the last word is the link. */
-    account: { question: "Já tem conta?", login: "Entrar" },
+    /**
+     * Visitor: plain line right under the create button, only the last word is the link.
+     * Logged: `continue` on a line of its own, above the picture and the nickname.
+     */
+    account: { question: "Já tem conta?", login: "Entrar", continue: "Continue com sua conta" },
     manifesto: {
       title: "Nosso manifesto",
       description: "Conheça a plataforma",
@@ -482,7 +485,8 @@ export const texts = {
     /** Shown only while the nickname is outside the accepted length. */
     nicknameInvalid: `De ${NICKNAME_MIN_LENGTH} a ${NICKNAME_MAX_LENGTH} caracteres.`,
     previewTitle: "Prévia de câmera e microfone",
-    previewIntro: "Opcional: confira como você aparece e se o microfone capta sua voz antes de entrar.",
+    /** Under the button of the test, inside the card. */
+    previewOptional: "Opcional",
     previewStart: "Testar câmera e microfone",
     previewStarting: "Pedindo permissão…",
     previewCameraLabel: "Prévia da sua câmera",
