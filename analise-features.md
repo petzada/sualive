@@ -1,8 +1,10 @@
 # Estudo de caso: features lançadas pelo concorrente (Go Live)
 
+> As decisões finais estão no `POS-MVP.md` (versão 3), que junta e substitui os documentos pós-MVP citados aqui.
+
 Base: `features.md`, com 13 posts do próprio desenvolvedor, de 18/agosto a 29/outubro de 2026. Comparado
-com o `DECISOES.md` (versão de 2026-11-14), o `objecoes.md`, o `analise-objecoes.md` e o
-`POS-MVP-OBJECOES.md`, todos só para leitura. Nada do que está sendo implementado foi alterado.
+com o `DECISOES.md` (versão de 2026-11-14), o `objecoes.md`, o `analise-objecoes.md` e o plano pós-MVP
+das objeções, todos só para leitura. Nada do que está sendo implementado foi alterado.
 
 **Como contei:** uma linha por feature anunciada. O post de lançamento (18/agosto) conta como as features
 de base. Teasers (24/agosto e 01/setembro) contam à parte, marcados como tal. Uma feature pode entrar em
@@ -103,7 +105,7 @@ da feature, ou seja, o problema não acabou.
 
 | Feature | Objeção que ela responde | Depois da feature? | Leitura |
 |---|---|---|---|
-| F27.1 App que escolhe o som por programa | Áudio e eco (26 itens) | **Sim**: 30.5, 02/09.1, 13/09.4, 29/10.1 | O app resolve só para quem instala. Quem fica no navegador continua com eco. Confirma que o S1 e o A2 (correção na web) valem mais que o desktop. |
+| F27.1 App que escolhe o som por programa | Áudio e eco (26 itens) | **Sim**: 30.5, 02/09.1, 13/09.4, 29/10.1 | O app resolve só para quem instala. Quem fica no navegador continua com eco. Confirma que o A2 (correção na web) valem mais que o desktop. |
 | F25.2 Código na sala privada | Sala invadida, falta de senha (18.1 a 25.1) | **Não** (só 03/09.3, sobre moderação) | A invasão vinha do F18.2, sala por nome livre. Depois do código, as queixas pararam. Nós já nascemos com código de 10 caracteres. |
 | F19.4 Supressão de ruído no microfone | Áudio "abafado" (19.5, 28.1) | Sim, 28.1 | Hipótese: o processamento também alcança o som da tela. Reforça o A1 (som da tela sem processamento). |
 | F20.1 2K a 120 fps grátis | FPS do jogo cai (24.2), Windows travando (22.2) | Sim | Qualidade alta pesa no computador de quem transmite. Reforça o A7 (escolher qualidade menor). |
@@ -120,9 +122,9 @@ da feature, ou seja, o problema não acabou.
 
 ---
 
-## Cruzamento com o `DECISOES.md` e o `POS-MVP-OBJECOES.md`
+## Cruzamento com o `DECISOES.md` e o plano pós-MVP das objeções
 
-Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md` ou no `POS-MVP-OBJECOES.md`;
+Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md` ou no plano pós-MVP;
 **Diferente** = fazemos de outro jeito, de propósito; **Não atende** = não aparece em nenhum dos dois;
 **Fora** = excluído de propósito.
 
@@ -154,7 +156,7 @@ Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md`
 | F26.1 Mapa-múndi de salas | **Não atende** | — | Expõe localização; o público inclui quem não tem conta, sem verificação de idade. |
 | F26.2 Administradores e permissões | **Não atende** | Sala direta: só o dono; B7 transfere o dono | — |
 | F26.3 Descrição e categoria | **Fora** no MVP | Entrega 4: "não criar categorias, busca" | A vitrine tem só título. |
-| F27.1 Som por programa (app) | Pós-MVP | S1, A2, Grupo C (desktop) | A web tenta primeiro com `windowAudio`. |
+| F27.1 Som por programa (app) | Pós-MVP | A2, Grupo C (desktop) | A web tenta primeiro com `windowAudio`. |
 | F30.1 Música sincronizada | **Fora** | D20 (música ambiente) | O D20 tratou de música de fundo; música sincronizada é "ouvir junto". |
 | F30.2 Expulsar e banir | Atende | Entrega 1 | — |
 | F30.3 Arquivo local como fonte | **Não atende** | — | Subir o arquivo conflitaria com "não guardar nada". Tocar o vídeo numa aba e compartilhar a aba já funciona. |
@@ -174,7 +176,7 @@ Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md`
 
 - **O concorrente cresceu em largura, não no problema central.** Foram 47 features em 10 semanas, e a
   queixa de áudio e eco continuou até 29/out. O único remédio (F27.1) exige instalar o app. Isso reforça a
-  ordem do `POS-MVP-OBJECOES.md`: S1 e Grupo A antes de qualquer feature nova.
+  ordem do `POS-MVP.md`: Grupo A antes de qualquer feature nova.
 - **Ele corrigiu um erro com que nós já começamos certo.** O F18.2 (sala por nome) gerou as invasões, e
   o F25.2 (código) as encerrou. Nosso MVP já nasce com código aleatório.
 - **Diferença de modelo:** ele dá tudo grátis (2K a 120 fps, vitrine, ferramentas) e parece monetizar com
@@ -185,4 +187,4 @@ Legenda: **Atende** = já está no MVP; **Pós-MVP** = previsto no `DECISOES.md`
 - **Arriscadas, para não copiar sem decisão:** mapa com localização (F26.1), arquivo local e música
   (F30.1, F30.3: direitos autorais), temas da comunidade (F13/09.3: moderação), ferramentas (F17/10.1:
   escopo) e reações por gesto (F29/10.3: desempenho).
-- **Decisões:** as respostas do dono do produto estão no `POS-MVP-FEATURES.md` (DF1 a DF17).
+- **Decisões:** as respostas do dono do produto estão no `POS-MVP.md` (versão 3, D1 a D31).

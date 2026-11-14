@@ -1,5 +1,7 @@
 # Estudo de caso: objeções do público ao concorrente (Go Live)
 
+> As decisões finais estão no `POS-MVP.md` (versão 3), que junta e substitui os documentos pós-MVP citados aqui.
+
 Base: `objecoes.md`, 78 itens coletados de 18/agosto a 29/outubro de 2026.
 Comparado com: `DECISOES.md` (versão de 2026-11-14), somente leitura. Nada do que está sendo implementado foi alterado.
 
@@ -94,7 +96,7 @@ Legenda: **Atende** = já está no escopo; **Parcial** = existe, mas não cobre 
 | Verificação de bot demais | 22.6 | **Parcial** | Turnstile na criação e na entrada, sem política de repetição. | Definir que o Turnstile roda uma vez por navegador por período, não a cada entrada. |
 | Transcrição ou gravação | 03/09.1 | **Fora** | Nunca gravar, transcrever nem gerar clipe. | Conflito de princípio. Manter fora. |
 | Plugins e temas da comunidade | 03/09.2 | **Fora** | Fora do produto: bots e integrações de terceiros. Tema de sala Plus com 6 temas. | Manter fora. |
-| Console | 27.5 | **Parcial** | Não citado. A placa de captura já aparece como câmera. | O áudio da placa sai processado e no lugar do microfone. Decidido: botão "Transmitir console" (B11 no `POS-MVP-OBJECOES.md`). |
+| Console | 27.5 | **Parcial** | Não citado. A placa de captura já aparece como câmera. | O áudio da placa sai processado e no lugar do microfone. Decidido: botão "Transmitir console" (B11 no `POS-MVP.md`). |
 | Overlay sobre o jogo | 13/09.5 | **Fora do MVP, com plano** | Desktop (Electron) cita "sobreposição". | Já previsto. |
 | Música ambiente, clima de cinema | 25.9 | **Não atende** | Nada. | Baixa prioridade. |
 | Volume do microfone abaixando sozinho | 07/09.2 | **Não atende** | Nada. | Provável causa: o ganho automático do microfone, ligado no código em andamento. Decidido: opção de desligar (A8). |
@@ -104,7 +106,7 @@ Legenda: **Atende** = já está no escopo; **Parcial** = existe, mas não cobre 
 
 ## Resumo do cruzamento
 
-- **O risco nº 1 está aberto:** o nosso MVP web reproduz a maior queixa do público (áudio e eco). Revisão de 2026-11-14: o Chrome 141 trouxe `windowAudio` e `restrictOwnAudio`, que podem resolver boa parte na web; o spike S1 do `POS-MVP-OBJECOES.md` confirma.
+- **O risco nº 1 está aberto:** o nosso MVP web reproduz a maior queixa do público (áudio e eco). Revisão de 2026-11-14: o Chrome 141 trouxe `windowAudio` e `restrictOwnAudio`, que podem resolver boa parte na web; o `POS-MVP.md` pede as duas opções sempre que o navegador declarar suporte e mede o resultado pelo feedback.
 - **Já somos melhores em:** IP oculto sem pagar o plano caro (modo protegido), foto de perfil, link fixo, pagamento por Pix, sala P2P sem servidor.
 - **Lacunas pequenas e baratas, de maior retorno:** senha de sala, seletor de dispositivo, aviso quando o navegador não captura áudio, tela cheia com chat, transferir o dono, política do Turnstile.
 - **Decisões de produto pendentes:** atividade do Discord, assistir junto, moderação na sala direta, ordem do desktop.
