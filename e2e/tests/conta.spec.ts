@@ -400,3 +400,50 @@ test("sair da conta volta ao início como visitante", async ({ browser }) => {
   await page.goto("/perfil");
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fperfil$/);
 });
+
+// ---------- Pré-entrega 3: faixa de aviso de termos ----------
+
+function termsBanner(page: Page) {
+  return page.getByRole("region", { name: texts.termsBanner.label });
+}
+
+test("termos mudaram: a faixa aparece para a conta, fecha no x e não volta", async ({ browser }) => {
+  const { page } = await newPerson(browser, "termsCloser");
+  await page.goto("/perfil");
+  await expect(termsBanner(page)).toBeVisible();
+  await expect(termsBanner(page)).toContainText(texts.termsBanner.link);
+
+  await termsBanner(page).getByRole("button", { name: texts.termsBanner.close }).click();
+  await expect(termsBanner(page)).toHaveCount(0);
+
+  // O servidor gravou a versão vista: recarregar não traz a faixa de volta.
+  await expect
+    .poll(async () => ((await me(page)).user as { termsUpdate?: string | null } | null)?.termsUpdate)
+    .toBeNull();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(termsBanner(page)).toHaveCount(0);
+});
+
+test("termos mudaram: abrir o link leva aos Termos de Uso e a faixa some", async ({ browser }) => {
+  const { page } = await newPerson(browser, "termsReader");
+  await page.goto("/");
+  await termsBanner(page).getByRole("link", { name: texts.termsBanner.link }).click();
+  await expect(page.getByRole("heading", { name: texts.legal.terms.title, level: 1 })).toBeVisible();
+  await expect(termsBanner(page)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: texts.legal.terms.title, level: 1 })).toBeVisible();
+  await expect(termsBanner(page)).toHaveCount(0);
+});
+
+test("sem conta e com os termos em dia não há faixa", async ({ browser }) => {
+  const guest = await newPerson(browser);
+  await guest.page.goto("/");
+  await expect(guest.page.getByRole("button", { name: texts.home.create })).toBeVisible();
+  await expect(termsBanner(guest.page)).toHaveCount(0);
+
+  const current = await newPerson(browser, "free");
+  await current.page.goto("/perfil");
+  await expect(current.page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(termsBanner(current.page)).toHaveCount(0);
+});

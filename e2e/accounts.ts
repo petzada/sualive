@@ -19,7 +19,12 @@ interface AccountSeed {
   nickname: string;
   /** Linha de assinatura anual ativa, como o webhook da Woovi gravaria. */
   plus?: boolean;
+  /** Versão dos termos aceita no primeiro acesso; sem ela, a atual (nenhuma faixa de aviso). */
+  termsVersion?: string;
 }
+
+/** Versão anterior dos termos: quem aceitou esta vê a faixa de aviso. */
+const OLD_TERMS_VERSION = "2026-11-14";
 
 /** Uma conta por cenário: nenhum teste depende do que outro fez. */
 const SEEDS = {
@@ -28,6 +33,8 @@ const SEEDS = {
   plus: { handle: "e2e_plus", nickname: "Pri", plus: true },
   deleter: { handle: "e2e_excluir", nickname: "Edu" },
   leaver: { handle: "e2e_sair", nickname: "Sami" },
+  termsCloser: { handle: "e2e_termos_x", nickname: "Teo", termsVersion: OLD_TERMS_VERSION },
+  termsReader: { handle: "e2e_termos_link", nickname: "Lia", termsVersion: OLD_TERMS_VERSION },
 } satisfies Record<string, AccountSeed>;
 
 export type AccountName = keyof typeof SEEDS;
@@ -67,12 +74,12 @@ function sqlText(value: string | null): string {
 export function seedSql(now = Date.now()): string {
   const statements: string[] = [];
   for (const name of Object.keys(SEEDS) as AccountName[]) {
-    const { userId, handle, nickname, plus, token } = account(name);
+    const { userId, handle, nickname, plus, token, termsVersion } = account(name);
     const onboardedAt = handle === null ? "NULL" : String(now);
     statements.push(
       `INSERT INTO users (id, handle, nickname, adult_confirmed_at, terms_accepted_at, terms_version, created_at)
        VALUES (${sqlText(userId)}, ${sqlText(handle)}, ${sqlText(nickname)}, ${onboardedAt}, ${onboardedAt},
-         ${handle === null ? "NULL" : sqlText(TERMS_VERSION)}, ${now});`,
+         ${handle === null ? "NULL" : sqlText(termsVersion ?? TERMS_VERSION)}, ${now});`,
       `INSERT INTO sessions (id, user_id, created_at, expires_at)
        VALUES (${sqlText(base64UrlSha256(`account-session:${token}`))}, ${sqlText(userId)}, ${now},
          ${now + ACCOUNT_SESSION_TTL_SECONDS * 1000});`,

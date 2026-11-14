@@ -169,7 +169,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
     title: "Com conta",
     blocks: [
       "A conta é criada pelo login do Google ou do Discord. Não guardamos a sua senha.",
-      "Guardamos: o identificador da sua conta no Google ou no Discord (para reconhecer você no próximo login), o e-mail informado pelo Google ou pelo Discord no login, o @nome, o apelido, o endereço da foto do perfil nesses serviços, o registro do aceite dos Termos de Uso (com a versão aceita) e a declaração de que você tem a idade mínima.",
+      "Guardamos: o identificador da sua conta no Google ou no Discord (para reconhecer você no próximo login), o e-mail informado pelo Google ou pelo Discord no login, o @nome, o apelido, o endereço da foto do perfil nesses serviços, o registro do aceite dos Termos de Uso (com a versão aceita e a última versão que você viu) e a declaração de que você tem a idade mínima.",
       "O e-mail serve para entrarmos em contato com você e para enviar avisos de cobrança. Não usamos o e-mail para marketing.",
       "Para manter você logado usamos um cookie de sessão, que só o servidor lê.",
     ],
@@ -232,7 +232,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Mudanças nestas Políticas de Privacidade",
     blocks: [
-      "Quando estas Políticas de Privacidade mudarem, a versão indicada no topo desta página muda junto. Quem tem conta vê, depois do login, uma faixa de aviso no topo do serviço, com a data da mudança e o link para os Termos de Uso atualizados. Continuar usando o serviço depois da mudança vale como aceite da nova versão.",
+      "Quando estas Políticas de Privacidade mudarem, a versão indicada no topo desta página muda junto. Quem tem conta vê, depois do login, uma faixa de aviso no topo do serviço, com a data da mudança e o link para os Termos de Uso atualizados.",
     ],
   },
 ];
