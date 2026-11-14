@@ -902,9 +902,13 @@ describe("plan", () => {
         .mockResolvedValueOnce({ ok: true, value: makeCheckout({ paymentId: "pay-2" }) });
       renderApp({ path: "/plus", account: logged(), accountActions });
       await reachPayment();
+      // O acompanhamento começa num efeito: emitir antes dele não chega a ninguém.
+      await waitFor(() =>
+        expect(accountActions.watchPlusPayment).toHaveBeenLastCalledWith("pay-1", expect.any(Function)),
+      );
 
       act(() => accountActions.emitPayment(status));
-      expect(screen.getByText(texts.plus.checkout[status])).toBeTruthy();
+      expect(await screen.findByText(texts.plus.checkout[status])).toBeTruthy();
       expect(screen.queryByAltText(texts.plus.checkout.qrAlt)).toBeNull();
 
       fireEvent.click(screen.getByRole("button", { name: texts.plus.checkout.retry }));
