@@ -31,9 +31,9 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   // Limite por IP em POST /api/rooms e POST /api/rooms/:code/join. Os valores espelham
   // API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_SECONDS de @sualive/config (o binding só aceita
-  // período de 10 ou 60 s). namespace_id é único por conta: produção 1001, homologação 1002.
+  // período de 10 ou 60 s). namespace_id é único por conta: produção 714001, homologação 714002.
   "ratelimits": [
-    { "name": "API_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
+    { "name": "API_RATE_LIMITER", "namespace_id": "714001", "simple": { "limit": 20, "period": 60 } },
   ],
   "env": {
     "staging": {
@@ -50,7 +50,7 @@
       "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "Room" }] },
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
       "ratelimits": [
-        { "name": "API_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } },
+        { "name": "API_RATE_LIMITER", "namespace_id": "714002", "simple": { "limit": 20, "period": 60 } },
       ],
     },
   },
