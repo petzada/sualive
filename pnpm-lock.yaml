@@ -218,6 +218,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 5.20261114.1
         version: 5.20261114.1
+      '@sualive/web':
+        specifier: workspace:*
+        version: link:../web
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11

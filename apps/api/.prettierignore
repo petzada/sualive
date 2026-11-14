@@ -1,0 +1,7 @@
+# O Prettier só lê o .prettierignore da pasta onde roda; este espelha o da raiz para `apps/api`.
+dist
+.wrangler
+.turbo
+*.md
+migrations
+worker-configuration.d.ts
