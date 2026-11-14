@@ -13,6 +13,10 @@ export const PATHS = {
   welcome: "/bem-vindo",
   /** O plano da própria conta (quem não tem plano é levado a `plus`). */
   plan: "/plano",
+  /** Saldos, extrato, compra e envio de ouro da própria conta. */
+  wallet: "/carteira",
+  /** Catálogo de cosméticos. */
+  shop: "/loja",
 } as const;
 
 export const RETURN_TO_PARAM = "returnTo";
