@@ -7,12 +7,19 @@ import {
   FakeNetwork,
   type FakeEnvOptions,
   type FakePeerConnection,
-  type FakeTrack,
+  FakeTrack,
 } from "./testing/fakes";
 import type { MediaSession, PeerStatus, RemoteVideo } from "./types";
 
 const QUALITY: VideoQuality = { width: 1280, height: 720, frameRate: 30, maxBitrate: 1_500_000 };
 const RELAY: VideoQuality = { width: 640, height: 360, frameRate: 24, maxBitrate: 500_000 };
+/** O que a captura de tela pede para o áudio: sem processamento de voz. */
+const SCREEN_AUDIO = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  channelCount: 2,
+};
 
 interface Node {
   id: string;
@@ -294,7 +301,7 @@ describe("vídeo", () => {
     const local = await a.session.publishVideo("v1", "screen");
     expect(a.fake.displayMediaCalls[0]).toEqual({
       video: { width: { max: 1280 }, height: { max: 720 }, frameRate: { max: 30 } },
-      audio: true,
+      audio: SCREEN_AUDIO,
     });
     expect(local.stream.getTracks()).toHaveLength(2);
     expect(local.stream.getVideoTracks()[0]!.contentHint).toBe("detail");
@@ -316,6 +323,89 @@ describe("vídeo", () => {
         .sort(),
     ).toEqual(["audio", "video"]);
     expect(b.events.remoteAudio).toHaveLength(0); // não confunde com a voz
+  });
+
+  it("áudio da tela: sem processamento de voz, estéreo e marcado como música", async () => {
+    const a = node("a", { screenAudio: true });
+    const local = await a.session.publishVideo("v1", "screen");
+    expect(a.fake.displayMediaCalls).toHaveLength(1);
+    const audio = local.stream.getAudioTracks()[0] as unknown as FakeTrack;
+    expect(audio.contentHint).toBe("music");
+    expect(audio.getSettings()).toMatchObject({
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: 2,
+    });
+    expect(audio.appliedConstraints).toHaveLength(0); // já veio certo: não mexe de novo
+  });
+
+  it("áudio da tela: navegador que recusa as opções cai no pedido simples e corrige depois", async () => {
+    const a = node("a", { screenAudio: true, screenAudioConstraints: "reject" });
+    const local = await a.session.publishVideo("v1", "screen");
+    expect(a.fake.displayMediaCalls.map((call) => call.audio)).toEqual([SCREEN_AUDIO, true]);
+    const audio = local.stream.getAudioTracks()[0] as unknown as FakeTrack;
+    expect(audio.contentHint).toBe("music");
+    expect(audio.appliedConstraints).toEqual([SCREEN_AUDIO]);
+    expect(audio.getSettings()).toMatchObject({ echoCancellation: false, noiseSuppression: false });
+    expect(a.session.getLocalVideos()).toHaveLength(1);
+  });
+
+  it("áudio da tela: navegador que ignora as opções recebe a correção no track", async () => {
+    const a = node("a", { screenAudio: true, screenAudioConstraints: "ignore" });
+    const local = await a.session.publishVideo("v1", "screen");
+    expect(a.fake.displayMediaCalls).toHaveLength(1);
+    const audio = local.stream.getAudioTracks()[0] as unknown as FakeTrack;
+    expect(audio.appliedConstraints).toEqual([SCREEN_AUDIO]);
+    expect(audio.getSettings()).toMatchObject({ autoGainControl: false });
+  });
+
+  it("áudio da tela: a correção recusada pelo track não impede a transmissão", async () => {
+    const a = node("a", { screenAudio: true, screenAudioConstraints: "ignore" });
+    const b = node("b");
+    await connectAll([a, b]);
+    const spy = vi.spyOn(FakeTrack.prototype, "applyConstraints");
+    spy.mockRejectedValueOnce(new DOMException("não", "OverconstrainedError"));
+    const local = await a.session.publishVideo("v1", "screen");
+    spy.mockRestore();
+    expect(local.stream.getAudioTracks()[0]!.contentHint).toBe("music");
+    await settle();
+    expect(b.events.added).toHaveLength(1);
+  });
+
+  it("tela sem áudio (a pessoa não marcou o som) continua funcionando", async () => {
+    const a = node("a");
+    const b = node("b");
+    await connectAll([a, b]);
+    const local = await a.session.publishVideo("v1", "screen");
+    expect(local.stream.getAudioTracks()).toHaveLength(0);
+    expect(a.fake.displayMediaCalls).toHaveLength(1);
+    await settle();
+    expect(b.events.added).toHaveLength(1);
+  });
+
+  it("negar a tela não repete o pedido", async () => {
+    const a = node("a", { screenAudio: true, deny: { screen: true } });
+    await expect(a.session.publishVideo("v1", "screen")).rejects.toMatchObject({ name: "NotAllowedError" });
+    expect(a.fake.displayMediaCalls).toHaveLength(1);
+  });
+
+  it("parâmetros de vídeo nunca vão para o sender do áudio da tela", async () => {
+    const a = node("a", { screenAudio: true });
+    const b = node("b");
+    await connectAll([a, b]);
+    await a.session.publishVideo("v1", "screen");
+    await settle();
+    const pc = onlyPc(a);
+    pc.relay = true;
+    pc.setConnectionState("disconnected");
+    pc.setConnectionState("connected");
+    await settle();
+    const audioSender = pc.senders.find((s) => s.track?.kind === "audio")!;
+    const videoSender = pc.senders.find((s) => s.track?.kind === "video")!;
+    expect(videoSender.setParametersCalls).toBeGreaterThan(0);
+    expect(audioSender.setParametersCalls).toBe(0);
+    expect(audioSender.params).toEqual({ encodings: [{ active: true }] });
   });
 
   it("webcam: fluidez e câmera escolhida", async () => {
