@@ -1,5 +1,6 @@
 /*
- * Tokens do tema (claro), derivados de DESIGN.md com nomes neutros.
+ * Tokens do tema, derivados de DESIGN.md com nomes neutros. O bloco @theme é o tema claro; o
+ * tema escuro (no fim do arquivo) redefine os mesmos tokens de cor e de contorno.
  * Nenhum componente usa cor, fonte, raio ou sombra fora daqui.
  * Fonte: Inter (substituta indicada em DESIGN.md).
  */
@@ -23,6 +24,10 @@
   --color-accent: #0071e3; /* botão preenchido compacto de ação principal */
   --color-on-accent: #ffffff;
   --color-notice: #b64400; /* rótulo de novidade, texto puro */
+
+  /* Vídeo: fundo atrás do vídeo e etiquetas sobre ele; escuro nos dois temas */
+  --color-stage: #1d1d1f;
+  --color-on-stage: #ffffff;
 
   /* Tipografia */
   --font-sans: "Inter Variable", "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif;
@@ -72,8 +77,8 @@
 
   /* Sombras: só contornos de 1px, nunca sombra projetada */
   --shadow-flat: 0 0 0 0 transparent; /* superfície plana: anula sombras de biblioteca */
-  --shadow-outline-soft: 0 0 0 1px #e6e6e8;
-  --shadow-outline: 0 0 0 1px #86868b;
+  --shadow-outline-soft: 0 0 0 1px var(--color-control); /* acompanha o tema */
+  --shadow-outline: 0 0 0 1px var(--color-outline);
 
   /* Movimento: leve e passageiro (reações, medidor de voz) */
   --animate-reaction-float: reaction-float 2.6s ease-out forwards;
@@ -115,5 +120,32 @@
     50% {
       transform: scaleY(1);
     }
+  }
+}
+
+/*
+ * Tema escuro: os mesmos tokens, com outros valores. Vale enquanto o <html> tem
+ * data-theme="dark" (só dentro da sala; ver lib/theme). Contrastes conferidos em DESIGN.md.
+ */
+@layer theme {
+  :root[data-theme="dark"] {
+    --color-canvas: #1c1c1e;
+    --color-mist: #0e0e10;
+    --color-frost: #242426;
+    --color-control: #2e2e31;
+
+    --color-hairline: #3a3a3d;
+    --color-outline: #8e8e93;
+
+    --color-ink: #f5f5f7;
+    --color-muted: #a8a8ad;
+
+    --color-link: #5eadff;
+    --color-accent: #3d9bff;
+    --color-on-accent: #06121f;
+    --color-notice: #ff9d4d;
+
+    --color-stage: #000000;
+    --color-on-stage: #ffffff;
   }
 }

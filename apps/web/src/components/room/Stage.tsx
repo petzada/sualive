@@ -21,7 +21,7 @@ function ReactionsOverlay({ reactions, nameOf }: { reactions: ReactionEvent[]; n
           style={{ left: `${reactionOffset(event.id)}%` }}
         >
           <span className="text-heading">{event.reaction}</span>
-          <span className="rounded-button bg-ink/70 px-2 py-0.5 text-compact text-canvas">
+          <span className="rounded-button bg-stage/70 px-2 py-0.5 text-compact text-on-stage">
             {nameOf(event.from)}
           </span>
         </div>
@@ -53,8 +53,8 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
       data-featured={featured || undefined}
       className={
         featured
-          ? "relative col-span-3 row-start-1 aspect-video overflow-hidden rounded-card bg-ink lg:col-span-1 lg:col-start-1 lg:row-end-5 lg:aspect-auto lg:min-h-0"
-          : "relative aspect-video overflow-hidden rounded-nav bg-ink lg:col-start-2"
+          ? "relative col-span-3 row-start-1 aspect-video overflow-hidden rounded-card bg-stage lg:col-span-1 lg:col-start-1 lg:row-end-5 lg:aspect-auto lg:min-h-0"
+          : "relative aspect-video overflow-hidden rounded-nav bg-stage lg:col-start-2"
       }
     >
       {video.stream ? (
@@ -66,13 +66,13 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
           className="size-full object-contain"
         />
       ) : (
-        <p className="flex size-full items-center justify-center px-3 text-center text-body-sm text-canvas">
+        <p className="flex size-full items-center justify-center px-3 text-center text-body-sm text-on-stage">
           {texts.stage.waiting}
         </p>
       )}
 
       <span
-        className={`absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-button bg-ink/70 text-canvas ${
+        className={`absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-button bg-stage/70 text-on-stage ${
           featured ? "px-3 py-1.5 text-body-sm" : "px-2 py-1 text-compact"
         }`}
       >
