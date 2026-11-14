@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import { ACCOUNT_SESSION_TTL_SECONDS, TERMS_VERSION } from "@sualive/config";
+import {
+  ACCOUNT_SESSION_TTL_SECONDS,
+  PLUS_GIFT_PRICE_GOLD,
+  PROTECTED_ROOM_GOLD_PER_HOUR,
+  TERMS_VERSION,
+} from "@sualive/config";
 
 /**
  * Contas da fumaça, gravadas direto no D1 local do simulador antes de o Worker subir (nenhuma rota
@@ -39,13 +44,22 @@ const SEEDS = {
   termsCloser: { handle: "e2e_termos_x", nickname: "Teo", termsVersion: OLD_TERMS_VERSION },
   termsReader: { handle: "e2e_termos_link", nickname: "Lia", termsVersion: OLD_TERMS_VERSION },
   // Entrega 3: quem compra na loja, quem envia ouro (por @nome e na sala) e quem recebe.
-  shopper: { handle: "e2e_loja", nickname: "Lola", silver: 300, gold: 500 },
-  giver: { handle: "e2e_envia", nickname: "Davi", silver: 300, gold: 3000 },
+  // A prata paga a cor (70) e não o degradê (200) depois dela; o ouro paga a moldura (200).
+  shopper: { handle: "e2e_loja", nickname: "Lola", silver: 250, gold: 500 },
+  // Depois de enviar 1.500, sobram 900: menos que o presente de Plus.
+  giver: { handle: "e2e_envia", nickname: "Davi", silver: 300, gold: 2400 },
   receiver: { handle: "e2e_recebe", nickname: "Rita", silver: 300 },
   roomGiver: { handle: "e2e_sala_envia", nickname: "Caio", gold: 1000 },
   roomReceiver: { handle: "e2e_sala_recebe", nickname: "Nara" },
-  plusGiver: { handle: "e2e_plus_envia", nickname: "Otto", gold: 2000 },
+  plusGiver: { handle: "e2e_plus_envia", nickname: "Otto", gold: PLUS_GIFT_PRICE_GOLD + 10 },
   plusReceiver: { handle: "e2e_plus_recebe", nickname: "Iris" },
+  // Entrega 4: assinante com ouro para 2 horas de sala protegida.
+  protector: {
+    handle: "e2e_protegida",
+    nickname: "Vera",
+    plus: true,
+    gold: PROTECTED_ROOM_GOLD_PER_HOUR * 2,
+  },
 } satisfies Record<string, AccountSeed>;
 
 export type AccountName = keyof typeof SEEDS;

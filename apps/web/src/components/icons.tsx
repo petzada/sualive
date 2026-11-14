@@ -142,6 +142,31 @@ export const CheckIcon = () => (
   </Icon>
 );
 
+/** An open eye: who is watching a video. */
+export const EyeIcon = () => (
+  <Icon>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="2.75" />
+  </Icon>
+);
+
+/** A crossed eye: stop watching a video. */
+export const EyeOffIcon = () => (
+  <Icon>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="2.75" />
+    {SLASH}
+  </Icon>
+);
+
+/** A shield: the protected room. */
+export const ShieldIcon = () => (
+  <Icon>
+    <path d="M12 3l7.5 2.75v5.5c0 4.5-3 8.25-7.5 9.75-4.5-1.5-7.5-5.25-7.5-9.75v-5.5L12 3z" />
+    <path d="M9 12l2.25 2.25L15.25 10" />
+  </Icon>
+);
+
 export const PaletteIcon = () => (
   <Icon>
     <path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.9 0-1.6-1.1-1.6-1.1-3 0-1 .8-1.6 1.9-1.6H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z" />

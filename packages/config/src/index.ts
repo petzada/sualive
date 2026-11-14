@@ -10,12 +10,10 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 
 // ---------- Sala direta (entrega 1) ----------
 
-/** Pessoas na sala direta. */
-export const ROOM_MAX_PEOPLE = 6;
-/** Vídeos simultâneos por sala. */
-export const ROOM_MAX_VIDEOS = 4;
+/** Pessoas na sala direta (12 a partir da entrega 4). */
+export const ROOM_MAX_PEOPLE = 12;
 /** Vídeos simultâneos por pessoa (tela ou webcam). */
-export const VIDEOS_PER_PERSON = 1;
+export const VIDEOS_PER_PERSON = 2;
 /** Sala vazia expira depois de (ms). Vale também para a sala criada e nunca usada. */
 export const ROOM_EMPTY_TTL_MS = 5 * 60 * 1000;
 
@@ -45,12 +43,12 @@ export interface VideoQuality {
   frameRate: number;
   maxBitrate: number;
 }
-/** Qualidade gratuita: 720p, 30 fps, até 1,5 Mbps. */
+/** Qualidade sem Plus: até 1080p, 60 fps, 5 Mbps. */
 export const FREE_VIDEO_QUALITY: VideoQuality = {
-  width: 1280,
-  height: 720,
-  frameRate: 30,
-  maxBitrate: 1_500_000,
+  width: 1920,
+  height: 1080,
+  frameRate: 60,
+  maxBitrate: 5_000_000,
 };
 /** Conexão retransmitida (TURN): 720p, até 1,5 Mbps, para todos. */
 export const RELAY_VIDEO_QUALITY: VideoQuality = {
@@ -78,7 +76,7 @@ export const MINIMUM_AGE = 18;
  * outra mudança no mesmo dia ganha um sufixo (".2", ".3"). Quem tem conta e ainda não viu esta versão
  * recebe a faixa de aviso (vale o uso continuado).
  */
-export const TERMS_VERSION = "2026-11-14.3";
+export const TERMS_VERSION = "2026-11-14.4";
 /** Data da versão atual dos termos (AAAA-MM-DD), para mostrar. */
 export const TERMS_DATE = TERMS_VERSION.slice(0, 10);
 
@@ -116,8 +114,8 @@ export const RESERVED_HANDLES = [
 export const ACCOUNT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /** Plus: preços em centavos e duração de cada ciclo em dias. */
-export const PLUS_MONTHLY_PRICE_CENTS = 1990;
-export const PLUS_ANNUAL_PRICE_CENTS = 15990;
+export const PLUS_MONTHLY_PRICE_CENTS = 990;
+export const PLUS_ANNUAL_PRICE_CENTS = 7990;
 export const PLUS_MONTHLY_PERIOD_DAYS = 30;
 export const PLUS_ANNUAL_PERIOD_DAYS = 365;
 /** Pix Automático: novas tentativas depois de uma cobrança falhar, dentro da janela (dias). */
@@ -131,13 +129,13 @@ export const EARLY_SUPPORTER_LIMIT = 100;
 export const FIXED_LINK_RESERVE_DAYS = 30;
 
 /** Vídeos simultâneos por pessoa com Plus. */
-export const PLUS_VIDEOS_PER_PERSON = 2;
-/** Qualidade Plus em sala direta: 1080p, 60 fps, até 5 Mbps. */
+export const PLUS_VIDEOS_PER_PERSON = 4;
+/** Qualidade Plus: até 2160p (4K), 240 fps, 32 Mbps. Em conexão retransmitida vale RELAY_VIDEO_QUALITY. */
 export const PLUS_VIDEO_QUALITY: VideoQuality = {
-  width: 1920,
-  height: 1080,
-  frameRate: 60,
-  maxBitrate: 5_000_000,
+  width: 3840,
+  height: 2160,
+  frameRate: 240,
+  maxBitrate: 32_000_000,
 };
 
 /** Temas prontos de sala (o dono Plus escolhe um). O primeiro é o padrão de toda sala. */
@@ -157,7 +155,7 @@ export type Currency = (typeof CURRENCIES)[number];
 export const GOLD_PER_BRL = 100;
 
 /** Ouro do Plus pago: PLUS_GOLD_AMOUNT a cada PLUS_GOLD_INTERVAL_DAYS. */
-export const PLUS_GOLD_AMOUNT = 1000;
+export const PLUS_GOLD_AMOUNT = 500;
 export const PLUS_GOLD_INTERVAL_DAYS = 30;
 /** Créditos de ouro que cada pagamento rende: o mensal paga um mês; o anual, doze. */
 export const PLUS_GOLD_CREDITS_MONTHLY = 1;
@@ -179,7 +177,7 @@ export const GOLD_GIFT_DAILY_LIMIT = 2000;
 export const WALLET_TIME_ZONE = "America/Sao_Paulo";
 
 /** Presentear Plus a outra conta: preço em ouro e dias concedidos. */
-export const PLUS_GIFT_PRICE_GOLD = 1990;
+export const PLUS_GIFT_PRICE_GOLD = 990;
 export const PLUS_GIFT_DAYS = 30;
 
 /** Tipos de item da loja. */
@@ -190,3 +188,47 @@ export type ShopItemKind = (typeof SHOP_ITEM_KINDS)[number];
 export const WALLET_LEDGER_PAGE_SIZE = 30;
 /** Reações disponíveis para uma pessoa: as básicas mais as dos pacotes equipados (teto). */
 export const REACTIONS_MAX_PER_PERSON = 48;
+
+// ---------- Sala de 12, retransmissão paga e sala protegida (entrega 4) ----------
+
+/** Vídeos que uma pessoa assiste ao mesmo tempo. O servidor recusa o seguinte. */
+export const WATCHED_VIDEOS_PER_PERSON = 4;
+/** Até este número de pessoas na sala, o vídeo novo abre sozinho para todos; acima, só com "Assistir". */
+export const AUTO_WATCH_MAX_PEOPLE = 6;
+
+/** Som da tela em conexão retransmitida (bps). */
+export const RELAY_SCREEN_AUDIO_MAX_BITRATE = 64_000;
+
+/** Sala protegida: toda a mídia pela retransmissão, para esconder o IP. */
+export const PROTECTED_ROOM_MAX_PEOPLE = 6;
+export const PROTECTED_ROOM_MAX_VIDEOS = 2;
+
+/**
+ * Preços do que gasta banda nossa, em ouro por hora, debitados por minuto. PROVISÓRIOS até a
+ * medição de custo da entrega 4 (regra: pior caso medido × 2); os finais dependem do dono.
+ */
+export const RELAY_VIDEO_GOLD_PER_HOUR = 45;
+export const PROTECTED_ROOM_GOLD_PER_HOUR = 500;
+/** De quanto em quanto tempo a sala cobra (ms). */
+export const METER_INTERVAL_MS = 60_000;
+/** Avisos ao dono da sala protegida, em minutos de saldo que restam. */
+export const PROTECTED_ROOM_WARNING_MINUTES = [10, 2] as const;
+/** Saldo zerado na sala protegida: tolerância antes de encerrar para todos (ms). */
+export const PROTECTED_ROOM_GRACE_MS = 3 * 60_000;
+
+/** Moderadores permanentes da sala de link fixo (só contas). */
+export const FIXED_ROOM_MODERATORS_MAX = 10;
+
+/**
+ * Limites de frequência por pessoa (não por conexão): no máximo `max` a cada `windowMs`. O do chat
+ * continua em CHAT_RATE_MAX / CHAT_RATE_WINDOW_MS.
+ */
+export const REACTION_RATE_MAX = 10;
+export const REACTION_RATE_WINDOW_MS = 5_000;
+export const HAND_RATE_MAX = 6;
+export const HAND_RATE_WINDOW_MS = 30_000;
+export const MIC_RATE_MAX = 10;
+export const MIC_RATE_WINDOW_MS = 10_000;
+
+/** Registro de acesso (IP, data e hora de login e de entrada em sala): guardado por 6 meses. */
+export const ACCESS_LOG_RETENTION_DAYS = 183;

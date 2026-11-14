@@ -1,4 +1,4 @@
-import { REACTIONS, ROOM_MAX_PEOPLE } from "@sualive/config";
+import { REACTIONS, ROOM_MAX_PEOPLE, VIDEOS_PER_PERSON, WATCHED_VIDEOS_PER_PERSON } from "@sualive/config";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
@@ -75,6 +75,7 @@ export function makeParticipant(overrides: Partial<ParticipantView> = {}): Parti
     nickname: "Ana",
     isSelf: false,
     isOwner: false,
+    isModerator: false,
     micMuted: true,
     handRaised: false,
     speaking: false,
@@ -85,8 +86,23 @@ export function makeParticipant(overrides: Partial<ParticipantView> = {}): Parti
   };
 }
 
+/**
+ * A video already being watched (`watch: "watching"`), or the viewer's own (`watch: "local"`) when
+ * `isLocal` is set. Pass `watch` for the other states ("idle" shows the "Watch" card).
+ */
 export function makeVideo(overrides: Partial<VideoView> = {}): VideoView {
-  return { id: "v1", kind: "camera", ownerId: "p1", stream: null, isLocal: false, ...overrides };
+  return {
+    id: "v1",
+    kind: "camera",
+    ownerId: "p1",
+    stream: null,
+    isLocal: false,
+    watch: overrides.isLocal ? "local" : "watching",
+    blockedReason: null,
+    viewers: [],
+    blockedViewers: [],
+    ...overrides,
+  };
 }
 
 export function makeState(overrides: Partial<RoomState> = {}): RoomState {
@@ -95,13 +111,21 @@ export function makeState(overrides: Partial<RoomState> = {}): RoomState {
     fixed: false,
     ownerHandle: null,
     theme: "default",
-    maxOwnVideos: 1,
+    protected: false,
+    maxVideos: null,
+    maxOwnVideos: VIDEOS_PER_PERSON,
+    maxWatchedVideos: WATCHED_VIDEOS_PER_PERSON,
+    watchedCount: 0,
+    relayMeter: null,
+    protectedMeter: null,
+    endReason: null,
     accountNickname: null,
     code: "abcdefghjk",
     link: "https://sualive.test/s/abcdefghjk",
     occupancy: { participants: 2, capacity: ROOM_MAX_PEOPLE },
     selfId: null,
     isOwner: false,
+    isModerator: false,
     participants: [],
     videos: [],
     featuredVideoId: null,
@@ -148,8 +172,11 @@ export function makeActions(): { [K in keyof RoomActions]: Mock<RoomActions[K]> 
     setMicMuted: vi.fn<RoomActions["setMicMuted"]>(() => Promise.resolve()),
     startVideo: vi.fn<RoomActions["startVideo"]>(() => Promise.resolve()),
     stopVideo: vi.fn<RoomActions["stopVideo"]>(),
+    watchVideo: vi.fn<RoomActions["watchVideo"]>(),
+    unwatchVideo: vi.fn<RoomActions["unwatchVideo"]>(),
     setFeaturedVideo: vi.fn<RoomActions["setFeaturedVideo"]>(),
     moderate: vi.fn<RoomActions["moderate"]>(),
+    setModerator: vi.fn<RoomActions["setModerator"]>(),
     sendGold: vi.fn<RoomActions["sendGold"]>(() => Promise.resolve({ ok: true })),
     copyLink: vi.fn<RoomActions["copyLink"]>(() => Promise.resolve()),
     dismissNotice: vi.fn<RoomActions["dismissNotice"]>(),

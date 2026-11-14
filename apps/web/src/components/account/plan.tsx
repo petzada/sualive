@@ -3,12 +3,12 @@ import { PLUS_ANNUAL_EXPIRY_NOTICE_DAYS } from "@sualive/config";
 import type { Plan } from "@sualive/protocol";
 import { useId, useState } from "react";
 import { Link } from "react-router";
-import type { AccountActions, AccountErrorReason } from "../../lib/account";
+import type { AccountActions, AccountErrorReason, FixedRoomProtectedErrorReason } from "../../lib/account";
 import { texts } from "../../texts";
 import { daysUntil, formatDate } from "../format";
 import { Spinner } from "../icons";
-import { fixedRoomPath } from "./paths";
-import { CARD, FIELD, FIELD_ERROR, OUTLINE_LINK, OUTLINE_PILL } from "./styles";
+import { fixedRoomPath, PATHS } from "./paths";
+import { CARD, FIELD, FIELD_ERROR, OUTLINE_LINK, OUTLINE_PILL, TEXT_LINK } from "./styles";
 
 /** The moment the screen opened. Read once, so rendering stays pure. */
 export function useNow(): number {
@@ -252,6 +252,81 @@ export function FixedLink({ handle }: { handle: string }) {
           {texts.plan.fixedLinkOpen}
         </Link>
       </div>
+    </section>
+  );
+}
+
+interface FixedRoomProtectedProps {
+  /** What the account says now (`user.fixedRoomProtected`). */
+  value: boolean;
+  actions: AccountActions;
+}
+
+/**
+ * Turns the fixed-link room into a protected room, or back. The server only accepts it with the
+ * room empty and for who has the Plus; the price is said before, since the room charges by itself.
+ */
+export function FixedRoomProtected({ value, actions }: FixedRoomProtectedProps) {
+  // The answer of the server is shown at once, whatever the account refresh does.
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<FixedRoomProtectedErrorReason | null>(null);
+  const titleId = useId();
+  const copy = texts.plan.fixedProtected;
+  const on = saved ?? value;
+
+  const toggle = async () => {
+    const next = !on;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const result = await actions.setFixedRoomProtected(next);
+      if (result.ok) setSaved(next);
+      else setFailure(result.reason);
+    } catch {
+      setFailure("error");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={`flex flex-col gap-3 ${CARD}`}
+      data-testid="fixed-room-protected"
+      data-state={on ? "on" : "off"}
+    >
+      <h2 id={titleId} className="font-display text-title font-semibold">
+        {copy.title}
+      </h2>
+      <p className="text-body-sm text-muted">{copy.about}</p>
+      <p className="text-body-sm font-medium" data-testid="fixed-room-protected-price">
+        {copy.price}
+      </p>
+      <p className="text-body-sm text-muted">{copy.rule}</p>
+      <p role="status" className="font-medium" data-testid="fixed-room-protected-state">
+        {on ? copy.state.on : copy.state.off}
+      </p>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <Button
+          variant="outline"
+          className={OUTLINE_PILL}
+          isDisabled={busy}
+          onPress={() => void toggle()}
+          data-testid="fixed-room-protected-toggle"
+        >
+          {busy && <Spinner />}
+          {busy ? texts.common.saving : on ? copy.turnOff : copy.turnOn}
+        </Button>
+        <Link to={PATHS.wallet} className={`inline-flex min-h-11 items-center text-body-sm ${TEXT_LINK}`}>
+          {copy.walletLink}
+        </Link>
+      </div>
+      {failure && (
+        <p role="alert" className={FIELD_ERROR}>
+          {failure === "roomInUse" ? copy.roomInUse : texts.account.errors[failure]}
+        </p>
+      )}
     </section>
   );
 }

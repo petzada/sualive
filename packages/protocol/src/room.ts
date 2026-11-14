@@ -36,6 +36,11 @@ export const participantSchema = z.object({
   cosmetics: cosmeticsSchema.nullable(),
   /** Tem conta: pode receber ouro pelo botão da sala. */
   canReceiveGold: z.boolean(),
+  /**
+   * Moderador (entrega 4): promovido pelo dono para silenciar, remover e banir participantes
+   * comuns. Não age sobre o dono nem sobre outros moderadores, não promove e não encerra a sala.
+   */
+  isModerator: z.boolean(),
 });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -60,6 +65,15 @@ export const roomSettingsSchema = z.object({
   fixed: z.boolean(),
   /** @nome do dono da sala de link fixo (mostrado no cabeçalho no lugar do código). */
   ownerHandle: z.string().nullable(),
+  /**
+   * Sala protegida (entrega 4): toda a mídia passa pela retransmissão e nenhum participante
+   * recebe o IP de outro. Não muda com a sala em andamento.
+   */
+  protected: z.boolean(),
+  /** Lotação desta sala: 12 na direta, 6 na protegida. */
+  capacity: z.number().int().min(1),
+  /** Teto de vídeos ao mesmo tempo na sala: só a protegida tem (nulo = sem teto). */
+  maxVideos: z.number().int().min(1).nullable(),
 });
 export type RoomSettings = z.infer<typeof roomSettingsSchema>;
 
@@ -68,6 +82,13 @@ export const selfLimitsSchema = z.object({
   videosPerPerson: z.number().int().min(1),
   /** Reações que esta pessoa pode enviar: as básicas mais as dos pacotes equipados. */
   reactions: reactionListSchema,
+  /** Quantos vídeos esta pessoa assiste ao mesmo tempo. */
+  watchedVideos: z.number().int().min(1),
+  /**
+   * Esta pessoa pode ter o próprio vídeo enviado por conexão retransmitida (é Plus). O ouro é
+   * conferido a cada minuto; sem ele, o servidor bloqueia o par.
+   */
+  relayVideo: z.boolean(),
 });
 export type SelfLimits = z.infer<typeof selfLimitsSchema>;
 
@@ -137,6 +158,19 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
     to: participantIdSchema,
     amount: giftAmountSchema,
   }),
+  // Vídeo sob demanda (entrega 4). Pede para assistir um vídeo anunciado na lista de quem
+  // transmite; o servidor responde `video.watch.state` e avisa quem transmite (`video.viewers`).
+  z.object({ type: z.literal("video.watch"), videoId: videoIdSchema }),
+  z.object({ type: z.literal("video.unwatch"), videoId: videoIdSchema }),
+  // Diz se a conexão de mídia com `peer` passa por retransmissão (TURN). As duas pontas avisam;
+  // o servidor trata o par como retransmitido se qualquer uma disser que sim.
+  z.object({ type: z.literal("peer.relay"), peer: participantIdSchema, relayed: z.boolean() }),
+  // Só o dono: promove ou rebaixa um moderador.
+  z.object({
+    type: z.literal("moderator.set"),
+    target: participantIdSchema,
+    moderator: z.boolean(),
+  }),
   z.object({ type: z.literal("ping") }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -146,7 +180,7 @@ export type ClientMessage = z.infer<typeof clientMessageSchema>;
 export const roomErrorCodeSchema = z.enum([
   "invalid_message",
   "rate_limited", // passou do limite de mensagens do chat
-  "not_allowed", // ação de dono feita por quem não é dono
+  "not_allowed", // ação de dono ou de moderador feita por quem não pode
   "not_found", // alvo ou vídeo inexistente
 ]);
 
@@ -159,8 +193,32 @@ export const giftFailureSchema = z.enum([
 ]);
 export type GiftFailure = z.infer<typeof giftFailureSchema>;
 
+/**
+ * Situação de um vídeo para quem pediu para assistir:
+ * - `watching`: quem transmite foi avisado e passa a enviar;
+ * - `blocked`: o par é retransmitido e quem transmite não pode pagar (ver `reason`); volta a
+ *   `watching` sozinho se isso mudar;
+ * - `denied`: pedido recusado (limite de vídeos assistidos ou vídeo inexistente);
+ * - `stopped`: deixou de assistir (a pedido, ou o vídeo acabou).
+ */
+export const watchStateSchema = z.enum(["watching", "blocked", "denied", "stopped"]);
+export const watchReasonSchema = z.enum([
+  "watch_limit", // já assiste o máximo de vídeos
+  "not_found", // o vídeo não existe mais
+  "relay_no_plus", // par retransmitido e quem transmite não é Plus
+  "relay_no_gold", // par retransmitido e quem transmite está sem ouro
+]);
+export type WatchReason = z.infer<typeof watchReasonSchema>;
+
+/** Cobrança por minuto de quem paga: o dono da sala protegida ou quem transmite em retransmissão. */
+export const meterStateSchema = z.enum([
+  "ok",
+  "warning", // passou de um aviso de saldo
+  "grace", // saldo zerado: tolerância correndo (só sala protegida)
+]);
+
 export const videoDeniedReasonSchema = z.enum([
-  "room_limit", // a sala já tem o máximo de vídeos
+  "room_limit", // a sala já tem o máximo de vídeos (só a sala protegida tem teto)
   "person_limit", // a pessoa já transmite o máximo dela
 ]);
 
@@ -211,11 +269,43 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
     toNickname: nicknameSchema,
     amount: giftAmountSchema,
   }),
+  // Resposta a `video.watch` / `video.unwatch` e mudanças posteriores, só para quem assiste.
+  z.object({
+    type: z.literal("video.watch.state"),
+    videoId: videoIdSchema,
+    state: watchStateSchema,
+    reason: watchReasonSchema.optional(),
+  }),
+  // Só para quem transmite: a quem enviar este vídeo (`viewers`) e quem quer assistir mas está
+  // bloqueado por retransmissão sem pagamento (`blocked`). O navegador só abre o envio para
+  // quem está em `viewers`.
+  z.object({
+    type: z.literal("video.viewers"),
+    videoId: videoIdSchema,
+    viewers: z.array(participantIdSchema),
+    blocked: z.array(participantIdSchema),
+  }),
+  // Só para quem transmite em retransmissão: quantos pares pagos estão ativos e o preço.
+  z.object({
+    type: z.literal("relay.meter"),
+    pairs: z.number().int().min(0),
+    goldPerHour: z.number().int().min(0),
+    state: z.enum(["paying", "no_gold"]),
+  }),
+  // Sala protegida, para todos: quanto tempo o saldo do dono ainda cobre. `graceEndsAt` só em `grace`.
+  z.object({
+    type: z.literal("protected.meter"),
+    state: meterStateSchema,
+    remainingMs: z.number().int().min(0),
+    goldPerHour: z.number().int().min(0),
+    graceEndsAt: z.number().int().optional(),
+  }),
   // O dono silenciou você: o cliente desliga o microfone.
   z.object({ type: z.literal("force.muted") }),
   // Enviada antes de fechar a conexão de quem foi removido ou banido.
   z.object({ type: z.literal("removed"), reason: z.enum(["kicked", "banned"]) }),
-  z.object({ type: z.literal("room.ended") }),
+  // `no_gold`: sala protegida encerrada porque o saldo do dono acabou e a tolerância passou.
+  z.object({ type: z.literal("room.ended"), reason: z.enum(["no_gold"]).optional() }),
   z.object({ type: z.literal("error"), code: roomErrorCodeSchema }),
   z.object({ type: z.literal("pong") }),
 ]);

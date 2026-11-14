@@ -333,6 +333,7 @@ describe("GET /api/me", () => {
       roomTheme: "default",
       handleChangeAvailableAt: null,
       termsUpdate: null,
+      fixedRoomProtected: false,
     });
   });
 });

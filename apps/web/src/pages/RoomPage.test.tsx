@@ -88,7 +88,10 @@ describe("room phases", () => {
     (phase) => {
       renderApp({ state: makeState({ phase }) });
       expect(heading()).toBe(texts.roomEnd[phase].title);
-      expect(screen.getByText(texts.roomEnd[phase].message)).toBeTruthy();
+      // How many people fit is said by the room itself (see `RoomE4.test.tsx` for the protected one).
+      const message =
+        phase === "full" ? texts.roomEnd.full.message(ROOM_MAX_PEOPLE, false) : texts.roomEnd[phase].message;
+      expect(screen.getByText(message)).toBeTruthy();
     },
   );
 
@@ -97,9 +100,11 @@ describe("room phases", () => {
     expect(screen.getByRole("link", { name: texts.roomEnd.ended.action }).getAttribute("href")).toBe("/");
   });
 
-  it("says the room holds 6 people when it is full and offers to try again", () => {
+  it("says how many people the room holds when it is full and offers to try again", () => {
     renderApp({ state: makeState({ phase: "full" }) });
-    expect(texts.roomEnd.full.message).toContain(String(ROOM_MAX_PEOPLE));
+    expect(screen.getByText(texts.roomEnd.full.message(ROOM_MAX_PEOPLE, false)).textContent).toContain(
+      String(ROOM_MAX_PEOPLE),
+    );
     expect(screen.getByRole("button", { name: texts.roomEnd.full.action })).toBeTruthy();
   });
 
@@ -1118,7 +1123,8 @@ describe("notices", () => {
     const actions = makeActions();
     renderApp({ state: makeConnectedState({ notice }), actions });
 
-    expect(screen.getByText(noticeText(notice))).toBeTruthy();
+    // Inside the room, "too fast" has its own text (reactions, hand and microphone).
+    expect(screen.getByText(noticeText(notice, undefined, { inRoom: true }))).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: texts.notices.dismiss }));
     expect(actions.dismissNotice).toHaveBeenCalledTimes(1);
   });

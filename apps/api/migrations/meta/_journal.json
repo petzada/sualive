@@ -36,6 +36,20 @@
       "when": 1794665081279,
       "tag": "0004_shop_catalog_and_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794673167582,
+      "tag": "0005_sleepy_pride",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794673168394,
+      "tag": "0006_shop_prices_e4",
+      "breakpoints": true
     }
   ]
 }

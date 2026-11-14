@@ -31,6 +31,8 @@ export const users = sqliteTable("users", {
    * login depois desta coluna existir, ou se o provedor não informar um e-mail verificado.
    */
   email: text("email"),
+  /** A sala de link fixo abre como sala protegida (só Plus; muda só com a sala vazia). */
+  fixedRoomProtected: integer("fixed_room_protected").notNull().default(0),
   /** Tema da sala de link fixo (um de ROOM_THEMES). */
   roomTheme: text("room_theme").notNull().default("default"),
   createdAt: integer("created_at").notNull(),
@@ -310,4 +312,53 @@ export const userItems = sqliteTable(
     acquiredAt: integer("acquired_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.itemId] })],
+);
+
+// ---------- Moderador e registro de acesso (entrega 4) ----------
+
+/**
+ * Moderadores permanentes da sala de link fixo de um assinante: só contas, no máximo
+ * FIXED_ROOM_MODERATORS_MAX por dono (conferido pelo código na promoção). Somem com qualquer uma
+ * das duas contas.
+ */
+export const roomModerators = sqliteTable(
+  "room_moderators",
+  {
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ownerUserId, table.userId] })],
+);
+
+/**
+ * Registro de acesso (Marco Civil da Internet): conta ou sessão, IP, data e hora de cada login e de
+ * cada entrada em sala. Guardado por ACCESS_LOG_RETENTION_DAYS; a rotina diária apaga o que passou
+ * disso. `user_id` não é chave estrangeira de propósito: o registro precisa sobreviver à exclusão
+ * da conta até o prazo. Nunca guarda conteúdo de sala. Consulta direto no D1 (não há painel).
+ */
+export const accessLog = sqliteTable(
+  "access_log",
+  {
+    id: text("id").primaryKey(),
+    /** `login` ou `room_join`. */
+    kind: text("kind").notNull(),
+    /** Conta, quando há. */
+    userId: text("user_id"),
+    /** Identificador da sessão de quem entrou sem conta (o `sid` do cookie de visitante). */
+    sessionId: text("session_id"),
+    ip: text("ip").notNull(),
+    /** Código da sala ou `@nome`, nas entradas em sala. */
+    roomKey: text("room_key"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("access_log_created_idx").on(table.createdAt),
+    index("access_log_user_idx").on(table.userId, table.createdAt),
+    check("access_log_kind_check", sql`${table.kind} IN ('login', 'room_join')`),
+  ],
 );

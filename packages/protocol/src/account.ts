@@ -67,6 +67,8 @@ export const meUserSchema = z.object({
    * Nulo quando já viu (ou antes do primeiro acesso, que tem o aceite próprio).
    */
   termsUpdate: z.string().min(1).nullable(),
+  /** A sala de link fixo desta conta abre como sala protegida (só Plus; entrega 4). */
+  fixedRoomProtected: z.boolean(),
 });
 export type MeUser = z.infer<typeof meUserSchema>;
 
@@ -106,6 +108,8 @@ export const updateMeRequestSchema = z
     handle: handleSchema.optional(),
     /** Só Plus. */
     roomTheme: roomThemeSchema.optional(),
+    /** Só Plus, e só com a sala de link fixo vazia (`room_in_use`). */
+    fixedRoomProtected: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "empty update");
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;

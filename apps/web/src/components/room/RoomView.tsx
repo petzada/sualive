@@ -13,6 +13,8 @@ import { GiftNotices } from "./GoldGift";
 import { VoiceOutputs } from "./media";
 import { NoticeBanner } from "./NoticeBanner";
 import { PeopleList } from "./PeopleList";
+import type { PeopleListHandle } from "./PeopleList";
+import { ProtectedAlert, ProtectedBadge, ProtectedRemaining } from "./ProtectedRoom";
 import { RoomThemePicker, useAppliedRoomTheme } from "./RoomThemePicker";
 import { Stage } from "./Stage";
 
@@ -89,11 +91,18 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
   // Last chat message seen before the person switched to the people tab (small screens).
   const [seenChatId, setSeenChatId] = useState<string | null>(null);
   const tabRefs = useRef<Record<PanelTab, HTMLButtonElement | null>>({ chat: null, people: null });
+  const peopleRef = useRef<PeopleListHandle>(null);
 
   const reconnecting = state.phase === "reconnecting";
   const lastChatId = state.chat.at(-1)?.id ?? null;
   const unreadChat = tab !== "chat" && lastChatId !== null && lastChatId !== seenChatId;
   const speakers = state.participants.filter((participant) => participant.speaking);
+  // Protected room with the balance running out: everyone gets the way to keep it open.
+  const meter = state.protected ? state.protectedMeter : null;
+  const balanceLow = meter !== null && meter.state !== "ok";
+  const owner = state.participants.find((participant) => participant.isOwner);
+  const canGiftOwner =
+    state.canSendGold && !reconnecting && owner !== undefined && owner.canReceiveGold && !owner.isSelf;
 
   const selectTab = (next: PanelTab) => {
     if (next !== "chat") setSeenChatId(lastChatId);
@@ -106,6 +115,13 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
     const next = TABS[(TABS.indexOf(tab) + 1) % TABS.length] ?? "chat";
     selectTab(next);
     tabRefs.current[next]?.focus();
+  };
+
+  /** Shows the people (on a phone they are behind a tab) with the form to send gold to the owner open. */
+  const sendGoldToOwner = () => {
+    if (!owner) return;
+    selectTab("people");
+    peopleRef.current?.openGold(owner.id);
   };
 
   const tabLabel = { chat: texts.room.tabs.chat, people: texts.room.tabs.people(state.participants.length) };
@@ -161,6 +177,8 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
           <LeaveButton onLeave={onLeave} />
         </div>
         <div className="col-span-2 row-start-2 flex min-h-5 min-w-0 items-center justify-center gap-3 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:min-h-0 lg:justify-start">
+          {state.protected && <ProtectedBadge state={state} />}
+          <ProtectedRemaining meter={meter} />
           {speakers.length > 0 && (
             <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted lg:hidden">
               <VoiceBars />
@@ -180,15 +198,31 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
         </div>
       </header>
 
+      <ProtectedAlert
+        meter={meter}
+        isOwner={state.isOwner}
+        onSendGoldToOwner={canGiftOwner ? sendGoldToOwner : null}
+        className="mx-2 mt-1 shrink-0 lg:mx-4"
+      />
+
       <main className="relative flex min-h-0 flex-1 flex-col gap-2 px-2 pt-1 lg:flex-row lg:gap-3 lg:px-4">
         <NoticeBanner
           notice={state.notice}
           onDismiss={actions.dismissNotice}
           maxOwnVideos={state.maxOwnVideos}
+          room={{ inRoom: true, maxWatchedVideos: state.maxWatchedVideos, maxVideos: state.maxVideos }}
           className="absolute inset-x-2 top-2 z-30 mx-auto max-w-md"
         />
 
-        <Stage state={state} onFeature={actions.setFeaturedVideo} className="shrink-0 lg:min-h-0 lg:flex-1" />
+        {/* On a phone the stage never takes the whole height: its videos scroll and the chat keeps its share. */}
+        <Stage
+          state={state}
+          onFeature={actions.setFeaturedVideo}
+          onWatch={actions.watchVideo}
+          onUnwatch={actions.unwatchVideo}
+          disabled={reconnecting}
+          className="max-h-[68%] shrink-0 lg:max-h-none lg:min-h-0 lg:flex-1"
+        />
 
         <aside className="flex min-h-0 flex-1 flex-col gap-2 lg:w-88 lg:flex-none lg:gap-3">
           <GiftNotices gifts={state.gifts} />
@@ -234,11 +268,15 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
             }`}
           >
             <PeopleList
+              ref={peopleRef}
               participants={state.participants}
               isOwner={state.isOwner}
+              isModerator={state.isModerator}
               onModerate={actions.moderate}
+              onSetModerator={actions.setModerator}
               canSendGold={state.canSendGold && !reconnecting}
               onSendGold={actions.sendGold}
+              highlightGoldFor={balanceLow && owner ? owner.id : null}
             />
           </section>
 

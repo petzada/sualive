@@ -1,5 +1,6 @@
 import { Button } from "@heroui/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { Ref } from "react";
 import type { ParticipantView, RoomActions } from "../../lib/room";
 import { texts } from "../../texts";
 import { Badges } from "../account/Badges";
@@ -19,11 +20,13 @@ const SENT_NOTICE_MS = 6000;
 interface ModerationProps {
   participant: ParticipantView;
   onModerate: RoomActions["moderate"];
+  /** Only the owner promotes and demotes; a moderator never sees it. */
+  onSetModerator?: RoomActions["setModerator"];
   onDone: () => void;
 }
 
 /** Mute applies at once; removing and banning ask for confirmation first. */
-function Moderation({ participant, onModerate, onDone }: ModerationProps) {
+function Moderation({ participant, onModerate, onSetModerator, onDone }: ModerationProps) {
   const [confirming, setConfirming] = useState<ConfirmableAction | null>(null);
 
   const apply = (action: ModerationAction) => {
@@ -57,7 +60,12 @@ function Moderation({ participant, onModerate, onDone }: ModerationProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 pb-2 pl-12">
+    <div
+      role="group"
+      aria-label={texts.people.moderate(participant.nickname)}
+      data-testid="moderation-menu"
+      className="flex flex-wrap gap-2 pb-2 pl-12"
+    >
       {!participant.micMuted && (
         <Button variant="outline" className={`${PILL} border-outline`} onPress={() => apply("mute")}>
           {texts.people.mute}
@@ -69,21 +77,49 @@ function Moderation({ participant, onModerate, onDone }: ModerationProps) {
       <Button variant="outline" className={`${PILL} border-outline`} onPress={() => setConfirming("ban")}>
         {texts.people.ban}
       </Button>
+      {onSetModerator && (
+        <Button
+          variant="outline"
+          data-testid="set-moderator"
+          className={`${PILL} border-outline`}
+          onPress={() => {
+            onSetModerator(participant.id, !participant.isModerator);
+            onDone();
+          }}
+        >
+          {participant.isModerator ? texts.people.demote : texts.people.promote}
+        </Button>
+      )}
     </div>
   );
 }
 
+/** What the room can ask of the list from outside it. */
+export interface PeopleListHandle {
+  /** Opens the form to send gold to this person (if the viewer can) and moves the focus into it. */
+  openGold(participantId: string): void;
+}
+
 interface PeopleListProps {
   participants: ParticipantView[];
-  /** The viewer owns the room: shows the moderation controls on everyone else. */
+  /** The viewer owns the room: moderates everyone else, promotes and demotes moderators. */
   isOwner: boolean;
+  /** The viewer was promoted by the owner: moderates common participants only. */
+  isModerator?: boolean;
   onModerate: RoomActions["moderate"];
+  onSetModerator?: RoomActions["setModerator"];
   /** The viewer has an account: may send gold to whoever can receive it. */
   canSendGold?: boolean;
   onSendGold?: RoomActions["sendGold"];
+  /**
+   * Person whose "send gold" button stands out: the owner of a protected room whose balance is
+   * running out. `null` for none.
+   */
+  highlightGoldFor?: string | null;
+  ref?: Ref<PeopleListHandle>;
 }
 
-/** One panel at a time under a person: moderation (owner) or sending gold. */
+/** One panel at a time under a person: moderation (owner or moderator) or sending gold. */
 interface OpenPanel {
   id: string;
   kind: "moderation" | "gold";
@@ -92,9 +128,13 @@ interface OpenPanel {
 export function PeopleList({
   participants,
   isOwner,
+  isModerator = false,
   onModerate,
+  onSetModerator,
   canSendGold = false,
   onSendGold,
+  highlightGoldFor = null,
+  ref,
 }: PeopleListProps) {
   const [open, setOpen] = useState<OpenPanel | null>(null);
   const [sent, setSent] = useState<{ id: string; text: string } | null>(null);
@@ -105,6 +145,17 @@ export function PeopleList({
     const timer = setTimeout(() => setSent(null), SENT_NOTICE_MS);
     return () => clearTimeout(timer);
   }, [sent]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      openGold: (participantId) => {
+        setSent(null);
+        setOpen({ id: participantId, kind: "gold" });
+      },
+    }),
+    [],
+  );
 
   const toggle = (panel: OpenPanel) => {
     setSent(null);
@@ -121,10 +172,15 @@ export function PeopleList({
     <ul aria-label={texts.people.label} className="flex flex-col">
       {participants.map((participant) => {
         const connection = texts.people.connection[participant.connection];
-        const canModerate = isOwner && !participant.isSelf;
+        // The owner acts on everyone else; a moderator never on the owner nor on another moderator.
+        // The server checks again.
+        const canModerate =
+          !participant.isSelf &&
+          (isOwner || (isModerator && !participant.isOwner && !participant.isModerator));
         const moderating = open?.id === participant.id && open.kind === "moderation";
         const canGift = canSendGold && participant.canReceiveGold && !participant.isSelf;
         const gifting = canGift && open?.id === participant.id && open.kind === "gold";
+        const highlighted = canGift && highlightGoldFor === participant.id;
 
         return (
           <li key={participant.id} className="flex flex-col">
@@ -146,6 +202,14 @@ export function PeopleList({
                   {participant.isOwner && (
                     <span className="shrink-0 rounded-button bg-mist px-2 py-0.5 text-compact">
                       {texts.people.owner}
+                    </span>
+                  )}
+                  {participant.isModerator && !participant.isOwner && (
+                    <span
+                      data-testid="moderator-badge"
+                      className="shrink-0 rounded-button bg-mist px-2 py-0.5 text-compact"
+                    >
+                      {texts.people.moderator}
                     </span>
                   )}
                 </span>
@@ -189,10 +253,11 @@ export function PeopleList({
                     else goldButtons.current.delete(participant.id);
                   }}
                   isIconOnly
-                  variant="ghost"
+                  variant={highlighted ? "primary" : "ghost"}
                   aria-label={texts.gifts.send(participant.nickname)}
                   aria-expanded={gifting}
-                  className="size-11 shrink-0 rounded-button"
+                  data-highlighted={highlighted || undefined}
+                  className={`size-11 shrink-0 rounded-button ${highlighted ? "bg-accent text-on-accent" : ""}`}
                   onPress={() => toggle({ id: participant.id, kind: "gold" })}
                 >
                   <CoinIcon filled />
@@ -212,7 +277,12 @@ export function PeopleList({
               )}
             </div>
             {canModerate && moderating && (
-              <Moderation participant={participant} onModerate={onModerate} onDone={() => setOpen(null)} />
+              <Moderation
+                participant={participant}
+                onModerate={onModerate}
+                onSetModerator={isOwner ? onSetModerator : undefined}
+                onDone={() => setOpen(null)}
+              />
             )}
             {gifting && onSendGold && (
               <SendGoldForm

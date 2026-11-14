@@ -1,4 +1,10 @@
-import { PLUS_GIFT_DAYS, PLUS_GIFT_PRICE_GOLD } from "@sualive/config";
+import {
+  PLUS_GIFT_DAYS,
+  PLUS_GIFT_PRICE_GOLD,
+  PLUS_GOLD_AMOUNT,
+  PLUS_GOLD_CREDITS_MONTHLY,
+  PLUS_MONTHLY_PRICE_CENTS,
+} from "@sualive/config";
 import { walletResponseSchema } from "@sualive/protocol";
 import { eq, ne } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -266,7 +272,7 @@ describe("presentear Plus", () => {
       id,
       userId: recipient.userId,
       cycle: "monthly",
-      amountCents: 1990,
+      amountCents: PLUS_MONTHLY_PRICE_CENTS,
       status: "pending",
       correlationId: recurrence,
       wooviSubscriptionCorrelationId: recurrence,
@@ -282,6 +288,8 @@ describe("presentear Plus", () => {
       renews: true,
     });
     // O pagamento, sim, rende o ouro do Plus.
-    expect((await expectConsistent(recipient.userId)).gold).toBe(1000);
+    expect((await expectConsistent(recipient.userId)).gold).toBe(
+      PLUS_GOLD_AMOUNT * PLUS_GOLD_CREDITS_MONTHLY,
+    );
   });
 });

@@ -206,15 +206,15 @@ describe("envio de ouro", () => {
 });
 
 describe("catálogo inicial da loja", () => {
-  it("tem 8 cores, 6 degradês, 6 molduras e 3 pacotes com os preços do DECISOES.md", async () => {
+  it("tem 8 cores, 6 degradês, 6 molduras e 3 pacotes com os preços da entrega 4 (migration 0006)", async () => {
     const { results } = await env.DB.prepare(
       "SELECT kind, COUNT(*) AS items, MIN(price) AS low, MAX(price) AS high FROM shop_items WHERE active = 1 GROUP BY kind ORDER BY kind",
     ).all();
     expect(results).toEqual([
-      { kind: "avatar_frame", items: 6, low: 300, high: 600 },
-      { kind: "name_color", items: 8, low: 100, high: 100 },
-      { kind: "name_gradient", items: 6, low: 300, high: 300 },
-      { kind: "reaction_pack", items: 3, low: 400, high: 400 },
+      { kind: "avatar_frame", items: 6, low: 200, high: 400 },
+      { kind: "name_color", items: 8, low: 70, high: 70 },
+      { kind: "name_gradient", items: 6, low: 200, high: 200 },
+      { kind: "reaction_pack", items: 3, low: 280, high: 280 },
     ]);
   });
 });

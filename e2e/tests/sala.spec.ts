@@ -1,4 +1,4 @@
-import { ROOM_MAX_PEOPLE } from "@sualive/config";
+import { AUTO_WATCH_MAX_PEOPLE, ROOM_MAX_PEOPLE } from "@sualive/config";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { texts } from "../../apps/web/src/texts";
 
@@ -239,7 +239,8 @@ test("link de sala inexistente diz que a sala acabou e tem prévia para mensagei
 });
 
 test(`a sala aceita ${ROOM_MAX_PEOPLE} pessoas e recusa a seguinte`, async ({ browser }) => {
-  test.setTimeout(150_000);
+  // Cerca de 25 s por pessoa que entra.
+  test.setTimeout(25_000 * (ROOM_MAX_PEOPLE + 1));
   const owner = await newPerson(browser);
   const link = await createRoom(owner.page);
   await join(owner.page, "Pessoa 1");
@@ -254,4 +255,91 @@ test(`a sala aceita ${ROOM_MAX_PEOPLE} pessoas e recusa a seguinte`, async ({ br
   const extra = await newPerson(browser);
   await extra.page.goto(link);
   await expectRefused(extra.page, `Pessoa ${ROOM_MAX_PEOPLE + 1}`, texts.roomEnd.full.title);
+});
+
+// ---------- Entrega 4: vídeo sob demanda e moderador ----------
+
+/** O vídeo da câmera de `nickname` na página de outra pessoa. */
+function remoteCamera(page: Page, nickname: string) {
+  return page.locator("video").and(page.getByLabel(texts.stage.videoLabel(nickname, "camera", false)));
+}
+
+test("com 7 pessoas o vídeo vira cartão: só quem clica em Assistir recebe, e parar deixa de receber", async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const people = AUTO_WATCH_MAX_PEOPLE + 1;
+  const owner = await newPerson(browser);
+  const link = await createRoom(owner.page);
+  await join(owner.page, "Ana");
+  const guests: Person[] = [];
+  for (let index = 2; index <= people; index += 1) {
+    const guest = await newPerson(browser);
+    await guest.page.goto(link);
+    await join(guest.page, `Pessoa ${index}`);
+    guests.push(guest);
+  }
+  await expect(peopleList(owner.page).getByRole("listitem")).toHaveCount(people);
+  const [watcher, bystander] = guests as [Person, Person];
+
+  await controls(owner.page).getByRole("button", { name: texts.controls.cameraOn }).click();
+  await expect(controls(owner.page).getByRole("button", { name: texts.controls.cameraOff })).toBeVisible();
+
+  // Anunciado para todos como cartão; ninguém recebe o vídeo sozinho.
+  for (const { page } of [watcher, bystander]) {
+    await expect(page.getByTestId("watch-card")).toHaveCount(1);
+    await expect(remoteCamera(page, "Ana")).toHaveCount(0);
+  }
+
+  await watcher.page.getByTestId("watch-video").click();
+  const video = remoteCamera(watcher.page, "Ana");
+  await expect(video).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.videoWidth), { timeout: 30_000 })
+    .toBeGreaterThan(0);
+  // Quem não clicou continua só com o cartão.
+  await expect(remoteCamera(bystander.page, "Ana")).toHaveCount(0);
+  await expect(bystander.page.getByTestId("watch-card")).toHaveCount(1);
+
+  // Parar de assistir: o vídeo some e o cartão volta.
+  await watcher.page.getByTestId("unwatch-video").click();
+  await expect(remoteCamera(watcher.page, "Ana")).toHaveCount(0);
+  await expect(watcher.page.getByTestId("watch-card")).toHaveCount(1);
+});
+
+test("moderador: o dono promove, o moderador remove um participante comum e não age sobre o dono", async ({
+  browser,
+}) => {
+  const { a, b, link } = await twoInRoom(browser);
+  const c = await newPerson(browser);
+  await c.page.goto(link);
+  await join(c.page, "Caio");
+  await expect(peopleList(a.page).getByText("Caio", { exact: true })).toBeVisible();
+
+  // Antes de ser promovida, Bia não modera ninguém.
+  await expect(peopleList(b.page).getByRole("button", { name: texts.people.moderate("Caio") })).toHaveCount(
+    0,
+  );
+
+  await peopleList(a.page)
+    .getByRole("button", { name: texts.people.moderate("Bia") })
+    .click();
+  await peopleList(a.page).getByTestId("set-moderator").click();
+  for (const { page } of [a, b, c]) {
+    await expect(peopleList(page).getByTestId("moderator-badge")).toHaveCount(1);
+  }
+
+  // A moderadora não vê o menu do dono, e remove o participante comum.
+  await expect(peopleList(b.page).getByRole("button", { name: texts.people.moderate("Ana") })).toHaveCount(0);
+  await peopleList(b.page)
+    .getByRole("button", { name: texts.people.moderate("Caio") })
+    .click();
+  await expect(peopleList(b.page).getByTestId("set-moderator")).toHaveCount(0);
+  await peopleList(b.page).getByRole("button", { name: texts.people.kick, exact: true }).click();
+  await peopleList(b.page)
+    .getByRole("group", { name: texts.people.kick })
+    .getByRole("button", { name: texts.people.confirmKickAction, exact: true })
+    .click();
+  await expect(c.page.getByRole("heading", { name: texts.roomEnd.kicked.title })).toBeVisible();
+  await expect(peopleList(a.page).getByText("Caio", { exact: true })).toHaveCount(0);
 });

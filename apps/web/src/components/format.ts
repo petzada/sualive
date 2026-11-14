@@ -1,4 +1,5 @@
 /** Formatting shared by the account screens. Everything is pt-BR. */
+import { PROTECTED_ROOM_GOLD_PER_HOUR } from "@sualive/config";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -45,6 +46,46 @@ export function formatDateTime(timestamp: number): string {
 /** Whole days from `now` until `timestamp`, rounded up; zero or less once it has passed. */
 export function daysUntil(timestamp: number, now: number): number {
   return Math.ceil((timestamp - now) / DAY_MS);
+}
+
+// ---------- Gold as time of protected room ----------
+
+const MINUTES_PER_HOUR = 60;
+
+/** Whole minutes of protected room that a gold balance pays for, rounded down. Never negative. */
+export function protectedRoomMinutes(gold: number): number {
+  return Math.max(0, Math.floor((gold * MINUTES_PER_HOUR) / PROTECTED_ROOM_GOLD_PER_HOUR));
+}
+
+/** 90 → "1 h 30 min", 60 → "1 h", 45 → "45 min", 0 → "0 min". Whole minutes, rounded down. */
+export function formatDuration(minutes: number): string {
+  const whole = Math.max(0, Math.floor(minutes));
+  const hours = Math.floor(whole / MINUTES_PER_HOUR);
+  const rest = whole % MINUTES_PER_HOUR;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${amountFormat.format(hours)} h` : `${amountFormat.format(hours)} h ${rest} min`;
+}
+
+/**
+ * A gold balance as time of protected room: 500 → "1 h", 750 → "1 h 30 min", 250 → "30 min".
+ * The one formatting used by the wallet, the home page and the pages of the Plus.
+ */
+export function formatProtectedRoomTime(gold: number): string {
+  return formatDuration(protectedRoomMinutes(gold));
+}
+
+const MINUTE_MS = 60 * 1000;
+
+/** Whole hours and minutes of a duration, rounded to the minute: 4_980_000 → { hours: 1, minutes: 23 }. */
+export function splitDuration(ms: number): { hours: number; minutes: number } {
+  const total = Math.max(0, Math.round(ms / MINUTE_MS));
+  return { hours: Math.floor(total / 60), minutes: total % 60 };
+}
+
+/** A countdown in minutes and seconds, rounded up to the second: 89_500 → "1:30"; never below "0:00". */
+export function formatCountdown(ms: number): string {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 // ---------- CPF ----------

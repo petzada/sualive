@@ -30,8 +30,27 @@ export async function verifyTurnstile(env: AppEnv, token: string, ip: string | n
   }
 }
 
-function stunOnly(): IceServersResponse {
-  return { iceServers: [{ urls: CLOUDFLARE_STUN_URL }], ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS };
+function stunOnly(relayOnly: boolean): IceServersResponse {
+  return {
+    iceServers: [{ urls: CLOUDFLARE_STUN_URL }],
+    ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS,
+    relayOnly,
+  };
+}
+
+/** A chave de TURN está configurada neste ambiente (condição da sala protegida). */
+export function isTurnConfigured(env: AppEnv): boolean {
+  return Boolean(env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN);
+}
+
+export interface IceServersOptions {
+  /**
+   * Identificador por sessão (sala + participante, em hash), gravado pela Cloudflare em cada
+   * credencial: o uso de cada uma pode ser lido na análise do TURN (risco 10).
+   */
+  customIdentifier: string;
+  /** Sala protegida: o navegador só pode usar candidatos de retransmissão. */
+  relayOnly: boolean;
 }
 
 /** A porta alternativa 53 é bloqueada pelos navegadores (só faz o ICE esperar o tempo limite). */
@@ -41,11 +60,15 @@ function withoutPort53(urls: string | string[]): string[] {
 
 /**
  * Servidores ICE: credenciais de TURN de curta duração geradas pela API Realtime TURN da
- * Cloudflare (a chave nunca sai do Worker). Sem a chave configurada, ou se a API falhar, devolve
- * só o STUN público.
+ * Cloudflare (a chave nunca sai do Worker), marcadas com o identificador da sessão. Sem a chave
+ * configurada, ou se a API falhar, devolve só o STUN público (na sala protegida, com `relayOnly`:
+ * sem retransmissão não há conexão, mas nenhum IP vaza).
  */
-export async function generateIceServers(env: AppEnv): Promise<IceServersResponse> {
-  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return stunOnly();
+export async function generateIceServers(
+  env: AppEnv,
+  { customIdentifier, relayOnly }: IceServersOptions,
+): Promise<IceServersResponse> {
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return stunOnly(relayOnly);
   try {
     const response = await fetch(
       `${TURN_API_BASE}/${encodeURIComponent(env.TURN_KEY_ID)}/credentials/generate-ice-servers`,
@@ -55,7 +78,7 @@ export async function generateIceServers(env: AppEnv): Promise<IceServersRespons
           Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ttl: TURN_CREDENTIAL_TTL_SECONDS }),
+        body: JSON.stringify({ ttl: TURN_CREDENTIAL_TTL_SECONDS, customIdentifier }),
       },
     );
     if (!response.ok) throw new Error(`TURN API respondeu ${response.status}`);
@@ -65,9 +88,13 @@ export async function generateIceServers(env: AppEnv): Promise<IceServersRespons
     const iceServers = parsed
       .map((server) => ({ ...server, urls: withoutPort53(server.urls) }))
       .filter((server) => server.urls.length > 0);
-    return iceServersResponseSchema.parse({ iceServers, ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS });
+    return iceServersResponseSchema.parse({
+      iceServers,
+      ttlSeconds: TURN_CREDENTIAL_TTL_SECONDS,
+      relayOnly,
+    });
   } catch (error) {
     captureException(error);
-    return stunOnly();
+    return stunOnly(relayOnly);
   }
 }

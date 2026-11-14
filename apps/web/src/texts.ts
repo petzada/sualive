@@ -1,7 +1,9 @@
 import {
+  ACCESS_LOG_RETENTION_DAYS,
   APP_NAME,
   EARLY_SUPPORTER_LIMIT,
   FIXED_LINK_RESERVE_DAYS,
+  FREE_VIDEO_QUALITY,
   GOLD_GIFT_DAILY_LIMIT,
   HANDLE_CHANGE_INTERVAL_DAYS,
   HANDLE_MAX_LENGTH,
@@ -9,21 +11,30 @@ import {
   MINIMUM_AGE,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
+  PLUS_ANNUAL_PRICE_CENTS,
   PLUS_GIFT_DAYS,
   PLUS_GIFT_PRICE_GOLD,
   PLUS_GOLD_AMOUNT,
   PLUS_GOLD_INTERVAL_DAYS,
+  PLUS_MONTHLY_PRICE_CENTS,
   PLUS_RETRY_ATTEMPTS,
   PLUS_RETRY_WINDOW_DAYS,
   PLUS_VIDEO_QUALITY,
   PLUS_VIDEOS_PER_PERSON,
+  PROTECTED_ROOM_GOLD_PER_HOUR,
+  PROTECTED_ROOM_GRACE_MS,
+  PROTECTED_ROOM_MAX_PEOPLE,
+  PROTECTED_ROOM_MAX_VIDEOS,
+  PROTECTED_ROOM_WARNING_MINUTES,
+  RELAY_VIDEO_GOLD_PER_HOUR,
+  RELAY_VIDEO_QUALITY,
   ROOM_MAX_PEOPLE,
-  ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
+  WATCHED_VIDEOS_PER_PERSON,
   WELCOME_SILVER,
 } from "@sualive/config";
-import type { Currency, RoomTheme } from "@sualive/config";
-import { formatAmount } from "./components/format";
+import type { Currency, RoomTheme, VideoQuality } from "@sualive/config";
+import { formatAmount, formatCents, formatProtectedRoomTime } from "./components/format";
 
 /** One block of a legal page: plain text, or a passage still waiting for data from the operator. */
 export type LegalBlock = string | { pending: string };
@@ -48,15 +59,43 @@ const ROOM_THEME_NAMES: Record<RoomTheme, string> = {
 const PLUS_GUARANTEE_DAYS = 7;
 const PLUS_GUARANTEE = `Garantia de ${PLUS_GUARANTEE_DAYS} dias`;
 
-const PLUS_QUALITY = `${PLUS_VIDEO_QUALITY.height}p a ${PLUS_VIDEO_QUALITY.frameRate} fps`;
+/** Pixels of width in one "K" of resolution: 3840 wide is "4K". */
+const PIXELS_PER_K = 1000;
+/** "1080p60": the height and the frame rate, the short way. */
+const qualityShort = (quality: VideoQuality) => `${quality.height}p${quality.frameRate}`;
+/** "1080p a 60 fps": the same, inside a sentence. */
+const qualityLong = (quality: VideoQuality) => `${quality.height}p a ${quality.frameRate} fps`;
+
+/** What everyone transmits without the Plus. */
+const FREE_QUALITY_SHORT = qualityShort(FREE_VIDEO_QUALITY);
+const FREE_QUALITY = qualityLong(FREE_VIDEO_QUALITY);
+/** "até 4K e 240 fps": the ceiling of who has the Plus, on a direct connection. */
+const PLUS_QUALITY = `até ${Math.round(PLUS_VIDEO_QUALITY.width / PIXELS_PER_K)}K e ${PLUS_VIDEO_QUALITY.frameRate} fps`;
+/** The ceiling of a video that goes through the relay, by its size in pixels. */
+const RELAY_QUALITY = `HD (${RELAY_VIDEO_QUALITY.width}×${RELAY_VIDEO_QUALITY.height})`;
 
 /** The two currencies, as they are named in the middle of a sentence. */
 const CURRENCY_NAMES: Record<Currency, string> = { silver: "prata", gold: "ouro" };
-/** "1.990 de ouro": an amount with its currency. */
+/** "990 de ouro": an amount with its currency. */
 const coins = (amount: number, currency: Currency) =>
   `${formatAmount(amount)} de ${CURRENCY_NAMES[currency]}`;
 const GOLD_DAILY_LIMIT = coins(GOLD_GIFT_DAILY_LIMIT, "gold");
 const PLUS_GIFT_PRICE = coins(PLUS_GIFT_PRICE_GOLD, "gold");
+
+const PLUS_MONTHLY_PRICE = formatCents(PLUS_MONTHLY_PRICE_CENTS);
+const PLUS_ANNUAL_PRICE = formatCents(PLUS_ANNUAL_PRICE_CENTS);
+/** The gold that comes with the paid Plus, and the same as time of protected room. */
+const PLUS_GOLD = coins(PLUS_GOLD_AMOUNT, "gold");
+const PLUS_GOLD_TIME = formatProtectedRoomTime(PLUS_GOLD_AMOUNT);
+
+/** What spends our bandwidth is paid in gold, by the hour, charged by the minute. */
+const PROTECTED_ROOM_PRICE = `${coins(PROTECTED_ROOM_GOLD_PER_HOUR, "gold")} por hora`;
+const RELAY_VIDEO_PRICE = `${coins(RELAY_VIDEO_GOLD_PER_HOUR, "gold")} por hora`;
+const PROTECTED_ROOM_SIZE = `até ${PROTECTED_ROOM_MAX_PEOPLE} pessoas e ${PROTECTED_ROOM_MAX_VIDEOS} vídeos ao mesmo tempo`;
+/** The warnings of low balance of the protected room, the earliest first, and the tolerance. */
+const PROTECTED_ROOM_WARNINGS = [...PROTECTED_ROOM_WARNING_MINUTES].sort((a, b) => b - a).join(" e ");
+const MS_PER_MINUTE = 60_000;
+const PROTECTED_ROOM_GRACE_MINUTES = Math.round(PROTECTED_ROOM_GRACE_MS / MS_PER_MINUTE);
 
 /**
  * Numbers that only the legal pages state. Not parameters of `@sualive/config` yet: nothing on the
@@ -64,8 +103,11 @@ const PLUS_GIFT_PRICE = coins(PLUS_GIFT_PRICE_GOLD, "gold");
  */
 const REFUND_PAYOUT_BUSINESS_DAYS = 7;
 const BILLING_RECORDS_YEARS = 5;
-const ACCESS_LOG_MONTHS = 6;
 const LIABILITY_WINDOW_MONTHS = 12;
+
+/** The access log is kept for a number of days on the server; the texts say it in months. */
+const DAYS_PER_MONTH = 365 / 12;
+const ACCESS_LOG_MONTHS = Math.round(ACCESS_LOG_RETENTION_DAYS / DAYS_PER_MONTH);
 
 /** Who operates the service and the only channel for questions, complaints and data requests. */
 const OPERATOR = "MARCIO PETIGROSSO, empresa brasileira inscrita no CNPJ sob o nº 63.940.273/0001-36";
@@ -74,15 +116,17 @@ const CONTACT_EMAIL = "contato@sualive.com.br";
 /*
  * TERMOS DE USO E POLÍTICAS DE PRIVACIDADE — LEIA ANTES DE MUDAR O PRODUTO.
  *
- * Os dois textos abaixo descrevem o que o produto faz hoje (entregas 1 a 3) e o que o responsável
+ * Os dois textos abaixo descrevem o que o produto faz hoje (entregas 1 a 4) e o que o responsável
  * decidiu em 14/11/2026: operador, contato, foro, reembolso, prazos de guarda e limite de
  * responsabilidade. Toda entrega que mudar algo descrito aqui (dado coletado ou guardado, operador
  * novo, pagamento, moderação, sala pública, denúncia, moeda, envio de arquivo, limite de idade)
  * revisa os dois textos no mesmo PR e muda `TERMS_VERSION` em `@sualive/config`.
  *
  * Prometido no texto e ainda NÃO implementado (pendência de uma próxima entrega):
- * - guarda do registro de acesso (IP, data e hora) por 6 meses, seção "Registros de acesso";
  * - caixa de entrada do `contato@sualive.com.br`, que depende do domínio (fim do MVP).
+ *
+ * Os preços em ouro da retransmissão de vídeo e da sala protegida são provisórios até a medição de
+ * custo (DECISOES.md, "Parâmetros"): quando mudarem em `@sualive/config`, `TERMS_VERSION` muda junto.
  */
 const TERMS_SECTIONS: LegalSection[] = [
   {
@@ -111,22 +155,37 @@ const TERMS_SECTIONS: LegalSection[] = [
   {
     title: "Como a sala funciona",
     blocks: [
-      `A sala é direta: voz e vídeo trafegam entre os navegadores dos participantes, sem passar por um servidor nosso de mídia, com até ${ROOM_MAX_PEOPLE} pessoas. Por isso os participantes de uma mesma sala podem descobrir o endereço IP uns dos outros. Entre apenas em salas de pessoas em quem você confia.`,
+      `A sala é direta: voz e vídeo trafegam entre os navegadores dos participantes, sem passar por um servidor nosso de mídia, com até ${ROOM_MAX_PEOPLE} pessoas. Por isso os participantes de uma mesma sala direta podem descobrir o endereço IP uns dos outros. Entre apenas em salas de pessoas em quem você confia.`,
+      `A voz vai para todos os participantes. Cada vídeo só é enviado a quem escolhe assistir, e cada pessoa assiste até ${WATCHED_VIDEOS_PER_PERSON} vídeos ao mesmo tempo. Sem o Plus, cada pessoa transmite até ${VIDEOS_PER_PERSON} vídeos ao mesmo tempo, em até ${FREE_QUALITY}.`,
+      "Quando dois navegadores não conseguem se ligar direto, a conexão entre eles passa por um servidor de retransmissão da Cloudflare. A voz passa pela retransmissão para qualquer pessoa, sem custo para ela.",
+      `O vídeo só passa pela retransmissão quando quem transmite assina o Plus e tem ouro. Custa ${RELAY_VIDEO_PRICE} para cada pessoa que assiste por esse caminho, debitado por minuto do ouro de quem transmite, e o vídeo fica limitado a ${RELAY_QUALITY}. Sem o Plus ou sem ouro, o vídeo para naquela conexão e a voz e o chat continuam; os dois lados veem um aviso.`,
       "Não gravamos áudio nem vídeo. O chat existe só enquanto a sala existe e é apagado quando ela acaba. Outros participantes podem gravar ou fotografar a tela por conta própria; não temos como impedir.",
+    ],
+  },
+  {
+    title: "Sala protegida",
+    blocks: [
+      `Na sala protegida, toda a voz e todo o vídeo passam pelo servidor de retransmissão da Cloudflare, e os participantes não recebem o endereço IP uns dos outros. Ela tem ${PROTECTED_ROOM_SIZE}, limitados a ${RELAY_QUALITY}.`,
+      "Só quem assina o Plus e tem ouro abre uma sala protegida. O tipo da sala é escolhido ao criar e não muda com a sala em andamento. Na sala de link fixo, o dono liga ou desliga a sala protegida com a sala vazia.",
+      `A sala protegida custa ${PROTECTED_ROOM_PRICE}, debitado por minuto do ouro do dono. O preço cobre a voz e o vídeo de todos na sala. Antes de confirmar, o dono vê o preço e quanto tempo o saldo dele cobre.`,
+      `O dono é avisado quando o saldo cobre ${PROTECTED_ROOM_WARNINGS} minutos. Quando o saldo zera, a sala espera ${PROTECTED_ROOM_GRACE_MINUTES} minutos; sem recarga nesse tempo, ela é encerrada para todos e não vira sala direta. O saldo nunca fica negativo.`,
+      "O ouro gasto nos minutos já usados, de sala protegida ou de vídeo em retransmissão, não volta.",
+      "Os preços em ouro do vídeo em retransmissão e da sala protegida são provisórios, até concluirmos a medição do custo, e podem mudar. Quando mudarem, a versão destes Termos de Uso muda junto.",
     ],
   },
   {
     title: "Conduta e moderação",
     blocks: [
       "Não use o serviço para atividade ilegal, assédio, ameaça, conteúdo sexual envolvendo menores, violação de direitos de terceiros ou para prejudicar o funcionamento do serviço.",
-      "Quem cria a sala é o dono dela e pode silenciar, remover e banir participantes. Cada dono responde pela moderação da própria sala.",
+      "Quem cria a sala é o dono dela e pode silenciar, remover e banir participantes. O dono pode promover participantes a moderador: o moderador também silencia, remove e bane, mas não age sobre o dono nem sobre outro moderador. Cada dono responde pela moderação da própria sala.",
       "Podemos encerrar salas e contas que violem estes Termos de Uso. Não ter gravação não significa não ter regra: atendemos às ordens das autoridades com os registros que a lei nos manda guardar, descritos nas Políticas de Privacidade.",
     ],
   },
   {
     title: "Plus e pagamento",
     blocks: [
-      "O Plus é o único plano pago. O pagamento é só por Pix, processado pela Woovi. O plano mensal usa o Pix Automático e renova sozinho até ser cancelado; o plano anual é um Pix único, vale pelo período pago e não renova sozinho.",
+      `O Plus é o único plano pago: ${PLUS_MONTHLY_PRICE} por mês ou ${PLUS_ANNUAL_PRICE} por ano. Ele dá: transmitir acima de ${FREE_QUALITY}, ${PLUS_QUALITY}; ${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo; vídeo em conexão retransmitida e sala protegida, os dois pagos em ouro; link fixo; tema de sala; selo; e ${PLUS_GOLD} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias de Plus pago.`,
+      "O pagamento é só por Pix, processado pela Woovi. O plano mensal usa o Pix Automático e renova sozinho até ser cancelado; o plano anual é um Pix único, vale pelo período pago e não renova sozinho.",
       `Se uma cobrança do plano mensal falhar, tentamos de novo (até ${PLUS_RETRY_ATTEMPTS} vezes em ${PLUS_RETRY_WINDOW_DAYS} dias) e os benefícios continuam durante as tentativas. Você pode cancelar pela página do plano; o Plus vale até o fim do período já pago.`,
       `Quando o Plus acaba, os benefícios cessam e o link fixo fica reservado por ${FIXED_LINK_RESERVE_DAYS} dias.`,
     ],
@@ -145,6 +204,7 @@ const TERMS_SECTIONS: LegalSection[] = [
     blocks: [
       `Prata e ouro são moedas de uso exclusivo dentro do ${APP_NAME}. A prata se ganha: toda conta recebe ${coins(WELCOME_SILVER, "silver")} de boas-vindas. O ouro se compra por Pix, em pacotes, ou vem com o Plus pago: ${coins(PLUS_GOLD_AMOUNT, "gold")} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias de Plus pago. O Plus recebido de presente não dá ouro.`,
       "A compra de ouro é um Pix único, processado pela Woovi, e pede o CPF, como a assinatura do Plus. O ouro entra na carteira quando o pagamento é confirmado.",
+      "O ouro também paga o vídeo em conexão retransmitida e a sala protegida, pelos preços descritos nestes Termos de Uso. Prata não paga nenhum dos dois.",
       "Moeda não vira dinheiro: não existe saque, reembolso em dinheiro nem conversão de ouro em prata. Prata e ouro não expiram.",
       "Os itens da loja (cor do nome, degradê do nome, moldura do avatar e pacotes de reações) têm um preço só, pago com prata ou com ouro, à sua escolha. Item comprado é permanente e pessoal: fica na sua conta e não passa para outra.",
       `Você pode enviar ouro a outra conta, até ${GOLD_DAILY_LIMIT} por dia. O envio não se desfaz. Prata não pode ser enviada.`,
@@ -204,16 +264,20 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Dentro da sala",
     blocks: [
-      "Voz, vídeo e tela trafegam direto entre os navegadores dos participantes. Para isso funcionar, os navegadores trocam endereços de rede, e os participantes de uma mesma sala podem ver o endereço IP uns dos outros. Em algumas redes a mídia passa por um servidor de retransmissão da Cloudflare, que não guarda o conteúdo.",
+      "Na sala direta, voz, vídeo e tela trafegam direto entre os navegadores dos participantes. Para isso funcionar, os navegadores trocam endereços de rede, e os participantes de uma mesma sala direta podem ver o endereço IP uns dos outros. Quando dois navegadores não conseguem se ligar direto, a mídia entre eles passa pelo servidor de retransmissão da Cloudflare, que não guarda o conteúdo.",
+      "Na sala protegida, toda a mídia passa pelo servidor de retransmissão da Cloudflare, e os participantes não recebem o endereço IP uns dos outros. O nosso servidor e o de retransmissão continuam recebendo o seu endereço IP.",
+      "A credencial de retransmissão que o seu navegador recebe leva um identificador da sua sessão, para medirmos o uso da retransmissão de cada sessão.",
       "Não gravamos áudio nem vídeo. O chat fica guardado só enquanto a sala existe e é apagado quando ela acaba.",
-      "O servidor usa o endereço IP para limitar abusos (excesso de tentativas) e para manter um banimento feito pelo dono, até a sala acabar.",
+      "O servidor usa o endereço IP para limitar abusos (excesso de tentativas) e para manter um banimento feito pelo dono ou por um moderador, até a sala acabar.",
       "Os cosméticos que você equipa (cor ou degradê do nome, moldura do avatar e reações) e o ouro que você envia a alguém dentro da sala são vistos pelos outros participantes.",
     ],
   },
   {
     title: "Registros de acesso",
     blocks: [
-      `Guardamos o registro de acesso ao serviço (endereço IP, data e hora) por ${ACCESS_LOG_MONTHS} meses, como manda o Marco Civil da Internet. Esse registro não inclui o conteúdo das salas e só é entregue a autoridades mediante ordem judicial.`,
+      `Guardamos o registro de acesso ao serviço: a conta ou a sessão, o endereço IP, a data e a hora de cada login e de cada entrada em sala. O registro fica guardado por ${ACCESS_LOG_MONTHS} meses, como manda o Marco Civil da Internet, e depois é apagado.`,
+      "Esse registro não inclui o conteúdo das salas e só é entregue a autoridades mediante ordem judicial.",
+      "Se você excluir a conta, o registro de acesso continua guardado até o fim desse prazo.",
     ],
   },
   {
@@ -227,6 +291,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
     title: "Carteira e loja",
     blocks: [
       "Guardamos os saldos de prata e de ouro, o extrato de cada movimento (nos presentes, com a outra conta envolvida), os itens que você comprou e os que estão equipados, e o registro das compras de ouro.",
+      "O ouro debitado por minuto, pelo vídeo em retransmissão e pela sala protegida, aparece no extrato como qualquer outro movimento.",
     ],
   },
   {
@@ -249,6 +314,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
     blocks: [
       "Você exclui a conta pela página do perfil. A exclusão apaga os seus dados pessoais: e-mail, @nome, apelido, endereço da foto, vínculo com o Google ou o Discord, aceite dos Termos de Uso e declaração de idade. Registros de cobrança que precisem ser mantidos deixam de estar ligados à conta.",
       "A exclusão apaga também a carteira (saldos e extrato) e os itens comprados e equipados. No extrato de quem trocou presentes com você, o seu @nome deixa de aparecer. As compras de ouro já pagas ficam como registro contábil, sem ligação com a conta, como já acontece com a cobrança do Plus.",
+      `O registro de acesso não é apagado com a conta: fica guardado até completar os ${ACCESS_LOG_MONTHS} meses, como descrito em "Registros de acesso".`,
     ],
   },
   {
@@ -407,17 +473,30 @@ export const texts = {
     benefitsTitle: "O que você ganha ajudando",
     benefits: [
       {
-        title: `Vídeo em ${PLUS_QUALITY}`,
-        text: "Sua tela e sua câmera com mais nitidez e fluidez, em qualquer sala.",
+        title: `Qualidade acima de ${FREE_QUALITY_SHORT}`,
+        text: `Sua tela e sua câmera em ${PLUS_QUALITY}, em conexão direta.`,
       },
       {
         title: `${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo`,
-        text: "Tela e câmera juntas, sem precisar escolher.",
+        text: `Telas e câmeras juntas. Sem o Plus são ${VIDEOS_PER_PERSON}.`,
+      },
+      {
+        title: "Vídeo em retransmissão",
+        text: `Quando a conexão direta não é possível, seu vídeo segue pela retransmissão, em ${RELAY_QUALITY}. Pago em ouro: ${RELAY_VIDEO_PRICE} para cada pessoa que assiste por esse caminho.`,
+      },
+      {
+        title: "Sala protegida",
+        text: `Toda a mídia passa pela retransmissão, para esconder o IP de quem participa, com ${PROTECTED_ROOM_SIZE}. Paga em ouro: ${PROTECTED_ROOM_PRICE}.`,
       },
       { title: "Link fixo", text: "Uma sala permanente no endereço do seu @nome." },
       { title: "Tema de sala", text: "Escolha as cores da sua sala entre os temas prontos." },
       { title: "Selo ao lado do nome", text: "Quem está na sala vê que você apoia o projeto." },
     ],
+    /** The monthly gold of the paid Plus, said also as time of protected room. */
+    gold: {
+      title: `${PLUS_GOLD} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias`,
+      text: `Vem com o Plus pago e cobre cerca de ${PLUS_GOLD_TIME} de sala protegida. O ouro não expira.`,
+    },
     earlySupporter: `Os ${EARLY_SUPPORTER_LIMIT} primeiros assinantes ganham também o selo permanente de apoiador inicial.`,
     cyclesTitle: "Escolha o ciclo",
     cycles: {
@@ -489,7 +568,7 @@ export const texts = {
       expiresAt: "Válido até",
       pending: "Aguardando o pagamento…",
       paidTitle: "Pagamento confirmado",
-      paid: `Seu Plus está ativo. Você já transmite em ${PLUS_QUALITY}, pode ligar ${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo, tem o link fixo no seu @nome, o tema de sala e o selo.`,
+      paid: `Seu Plus está ativo. Você já transmite em ${PLUS_QUALITY}, pode ligar ${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo e abrir sala protegida, e tem o link fixo no seu @nome, o tema de sala e o selo.`,
       paidAction: "Ver o meu plano",
       expired: "O QR Code venceu antes do pagamento.",
       failed: "O pagamento não foi concluído.",
@@ -511,6 +590,19 @@ export const texts = {
     fixedLinkHint: "Uma sala permanente no seu @nome. Ela não expira quando esvazia.",
     fixedLinkLabel: "Endereço do seu link fixo",
     fixedLinkOpen: "Abrir a sala",
+    /** The fixed-link room as a protected room: turned on and off by its owner, with the room empty. */
+    fixedProtected: {
+      title: "Sala protegida no link fixo",
+      about: `Ligada, a sala do seu link fixo abre como sala protegida: toda a mídia passa pela retransmissão, para esconder o IP de quem participa, com ${PROTECTED_ROOM_SIZE}.`,
+      price: `Custa ${PROTECTED_ROOM_PRICE}, debitado do seu ouro por minuto.`,
+      rule: "Só dá para ligar ou desligar com a sala vazia.",
+      state: { on: "Sala protegida ligada.", off: "Sala protegida desligada." },
+      turnOn: "Ligar a sala protegida",
+      turnOff: "Desligar a sala protegida",
+      roomInUse:
+        "Tem gente na sala do seu link fixo. Espere a sala esvaziar para ligar ou desligar a sala protegida.",
+      walletLink: "Ver o meu ouro",
+    },
   },
   welcome: {
     title: (nickname: string) => `Boas-vindas, ${nickname}!`,
@@ -525,8 +617,10 @@ export const texts = {
     plans: {
       title: "O que o Plus oferece",
       benefits: (fixedLinkPath: string) => [
-        `Vídeo em ${PLUS_QUALITY}`,
+        `Qualidade acima de ${FREE_QUALITY_SHORT}, ${PLUS_QUALITY}`,
         `${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo`,
+        "Vídeo em retransmissão e sala protegida, pagos em ouro",
+        `${PLUS_GOLD} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias: cerca de ${PLUS_GOLD_TIME} de sala protegida`,
         `Link fixo em ${fixedLinkPath}`,
         "Tema de sala",
         "Selo ao lado do nome",
@@ -554,15 +648,17 @@ export const texts = {
   wallet: {
     title: "Carteira",
     loadFailed: "Não foi possível carregar a sua carteira agora.",
-    /** "1.990 de ouro": an amount with its currency. */
+    /** "990 de ouro": an amount with its currency. */
     amount: coins,
     balances: {
       title: "Seus saldos",
       names: { silver: "Prata", gold: "Ouro" },
       about: {
         silver: "A prata você ganha, não compra. Ela só compra cosméticos da loja.",
-        gold: "O ouro você compra por Pix ou recebe com o Plus pago. Ele compra cosméticos e pode ser enviado de presente.",
+        gold: "O ouro você compra por Pix ou recebe com o Plus pago. Ele compra cosméticos, paga a sala protegida e o vídeo em retransmissão e pode ser enviado de presente.",
       },
+      /** Under the gold balance: the same balance as time ("1 h 30 min") of protected room. */
+      protectedTime: (time: string) => `Cerca de ${time} de sala protegida`,
       shopLink: "Ir para a loja",
     },
     ledger: {
@@ -580,6 +676,8 @@ export const texts = {
         welcome: "Prata de boas-vindas",
         plus_gold: "Ouro do Plus",
         gold_purchase: "Compra de ouro",
+        relay_video: "Vídeo em retransmissão",
+        protected_room: "Sala protegida",
         shop_purchase: (item: string | null) => (item ? `Compra na loja: ${item}` : "Compra na loja"),
         gift_sent: (who: string) => `Ouro enviado para ${who}`,
         gift_received: (who: string) => `Ouro recebido de ${who}`,
@@ -692,11 +790,32 @@ export const texts = {
       title: "Nosso manifesto",
       action: "Saiba mais",
     },
+    /** Only who has the Plus opens one: what it is, the price and the time the balance pays for. */
+    protectedRoom: {
+      open: "Criar sala protegida",
+      title: "Sala protegida",
+      about: `Toda a voz e todo o vídeo passam pela retransmissão, para esconder o IP de quem participa. Tem ${PROTECTED_ROOM_SIZE}.`,
+      price: `Custa ${PROTECTED_ROOM_PRICE}, debitado do seu ouro por minuto.`,
+      /** `gold` is "750 de ouro" and `time` is "1 h 30 min". */
+      balance: (gold: string, time: string) => `Seu saldo de ${gold} cobre cerca de ${time}.`,
+      balanceEmpty: "Seu saldo de ouro não cobre nenhum minuto de sala protegida.",
+      balanceLoading: "Carregando o seu saldo…",
+      balanceFailed: "Não foi possível carregar o seu saldo.",
+      rule: "O tipo da sala não muda depois de criada. Se o ouro acabar, a sala avisa e encerra para todos.",
+      confirm: "Confirmar e criar",
+      walletLink: "Ir para a carteira",
+      /** For an account without the Plus: one plain line, only the last part is the link. */
+      plusOnly: { text: "A sala protegida é do Plus.", link: "Conheça o Plus" },
+    },
     errors: {
       turnstileFailed:
         "A verificação contra robôs não passou. Refaça a verificação e tente criar a sala de novo.",
       rateLimited: "Muitas tentativas em pouco tempo. Espere um minuto e tente de novo.",
       error: "Não foi possível criar a sala agora. Tente de novo em instantes.",
+      plusRequired: "A sala protegida é só para quem assina o Plus.",
+      insufficientFunds: "Seu ouro não é suficiente para abrir a sala protegida.",
+      protectedUnavailable: "A sala protegida não está disponível agora. Tente de novo mais tarde.",
+      unauthorized: "A sua sessão acabou. Entre de novo para criar a sala protegida.",
     },
   },
   manifesto: {
@@ -714,7 +833,7 @@ export const texts = {
       `A gente fez o ${APP_NAME} para que esses encontros continuem: um lugar simples, com regras claras, onde quem cria a sala cuida dela.`,
     ],
     closing: "A gente só quer se divertir junto.",
-    ageNotice: `O ${APP_NAME} é uma plataforma para maiores de 18 anos.`,
+    ageNotice: `O ${APP_NAME} é uma plataforma para maiores de ${MINIMUM_AGE} anos.`,
   },
   lobby: {
     title: "Entrar na sala",
@@ -760,6 +879,8 @@ export const texts = {
       people: (count: number) => `Pessoas (${count})`,
       unread: "novas mensagens",
     },
+    /** Read after a link that opens in another tab, so the call goes on. */
+    newTab: "(abre em outra aba)",
   },
   roomEnd: {
     ended: {
@@ -767,18 +888,26 @@ export const texts = {
       message: "A sala foi encerrada ou o link nunca existiu. Você pode criar outra em um clique.",
       action: "Criar outra sala",
     },
+    /** The protected room that ended because the gold of its owner ran out (`endReason: "no_gold"`). */
+    endedNoGold: {
+      title: "A sala protegida encerrou",
+      message:
+        "A sala protegida encerrou porque o saldo do dono acabou. Ela não continua como sala direta, para não expor o IP de ninguém.",
+    },
     full: {
       title: "Sala cheia",
-      message: `Esta sala já tem ${ROOM_MAX_PEOPLE} pessoas, o máximo da sala direta. Tente de novo quando alguém sair.`,
+      /** `capacity`: how many people this room holds, as the server said. */
+      message: (capacity: number, isProtected: boolean) =>
+        `Esta sala já tem ${capacity} pessoas, o máximo da sala ${isProtected ? "protegida" : "direta"}. Tente de novo quando alguém sair.`,
       action: "Tentar de novo",
     },
     banned: {
       title: "Você foi banido desta sala",
-      message: "O dono da sala bloqueou a sua entrada até a sala acabar.",
+      message: "O dono ou um moderador da sala bloqueou a sua entrada até a sala acabar.",
     },
     kicked: {
       title: "Você foi removido da sala",
-      message: "O dono da sala removeu você. Se quiser, pode tentar entrar de novo.",
+      message: "O dono ou um moderador da sala removeu você. Se quiser, pode tentar entrar de novo.",
       action: "Entrar de novo",
     },
     replaced: {
@@ -805,10 +934,70 @@ export const texts = {
     thumbnails: "Outros vídeos",
     unknownPerson: "Participante",
     speaking: "falando",
+    /** Video on demand: the cards of the videos the person is not watching, and the way out of one. */
+    watch: {
+      listLabel: "Vídeos para assistir",
+      count: (watched: number, max: number) => `Você assiste ${watched} de ${max} vídeos`,
+      limit: (max: number) =>
+        `Você já assiste ${max} vídeos, o máximo ao mesmo tempo. Pare de assistir um deles para abrir outro.`,
+      kind: { screen: "Tela", camera: "Câmera" },
+      action: "Assistir",
+      actionLabel: (nickname: string, kind: "screen" | "camera") =>
+        `Assistir ${kind === "screen" ? "a tela" : "a câmera"} de ${nickname}`,
+      requesting: "Abrindo o vídeo…",
+      /** On the stage of who watches nothing, while there are videos to pick. */
+      none: "Você não assiste nenhum vídeo",
+      noneHint: "Escolha um dos vídeos da sala para assistir.",
+      blocked: {
+        relay_no_plus:
+          "Sem vídeo: a conexão entre vocês passa pela retransmissão, e para enviar vídeo por ela quem transmite precisa do Plus. A voz continua.",
+        relay_no_gold:
+          "Sem vídeo: a conexão entre vocês passa pela retransmissão, e quem transmite está sem ouro para pagar por ela. A voz continua.",
+      },
+      stop: "Parar de assistir",
+      stopLabel: (nickname: string, kind: "screen" | "camera") =>
+        `Parar de assistir ${kind === "screen" ? "a tela" : "a câmera"} de ${nickname}`,
+    },
+    /** For who transmits: who watches each own video and what the relay costs or blocks. */
+    broadcast: {
+      label: "Sobre o que você transmite",
+      viewers: (count: number) =>
+        count === 0 ? "Ninguém assiste" : count === 1 ? "1 pessoa assiste" : `${count} pessoas assistem`,
+      viewersLabel: (count: number, kind: "screen" | "camera") =>
+        `${count === 0 ? "Ninguém assiste" : count === 1 ? "1 pessoa assiste" : `${count} pessoas assistem`} ${
+          kind === "screen" ? "a sua tela" : "a sua câmera"
+        }`,
+      /** `names` arrives joined ("Ana e Bia"); `count` is how many people it names. */
+      blocked: {
+        relay_no_plus: (names: string, count: number, kind: "screen" | "camera") =>
+          `${names} ${count === 1 ? "não recebe" : "não recebem"} ${
+            kind === "screen" ? "a sua tela" : "a sua câmera"
+          }: a conexão passa pela retransmissão, e o vídeo por ela é um recurso do Plus. A voz continua.`,
+        relay_no_gold: (names: string, count: number, kind: "screen" | "camera") =>
+          `${names} ${count === 1 ? "não recebe" : "não recebem"} ${
+            kind === "screen" ? "a sua tela" : "a sua câmera"
+          }: a conexão passa pela retransmissão, que é paga em ouro, e o seu ouro acabou. A voz continua.`,
+      },
+      plusLink: "Conheça o Plus",
+      walletLink: "Abrir a carteira",
+      /** `perPair` and `total` arrive already formatted ("45"). A pair = one own video to one person. */
+      relayPaying: (pairs: number, perPair: string, total: string) =>
+        pairs === 1
+          ? `Retransmissão paga: 1 par de vídeo (um vídeo seu para uma pessoa que o recebe por retransmissão), a ${perPair} de ouro por hora.`
+          : `Retransmissão paga: ${pairs} pares de vídeo (cada vídeo seu para cada pessoa que o recebe por retransmissão), a ${perPair} de ouro por hora por par: ${total} de ouro por hora no total.`,
+      relayNoGold:
+        "Seu ouro acabou: o seu vídeo parou para quem o recebia por retransmissão. A voz continua.",
+    },
   },
   people: {
     label: "Pessoas na sala",
     owner: "dono",
+    moderator: "moderador",
+    promote: "Tornar moderador",
+    demote: "Tirar de moderador",
+    /** "Ana", "Ana e Bia", "Ana, Bia e Caio". */
+    names: (names: readonly string[]) =>
+      names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}`,
     micMuted: "microfone mudo",
     micOn: "microfone ligado",
     handRaised: "mão levantada",
@@ -854,6 +1043,28 @@ export const texts = {
       lost: "Não deu para confirmar o envio. Confira o extrato da sua carteira antes de tentar de novo.",
     },
   },
+  /** The protected room: what it is and how long the gold of its owner still covers. */
+  protectedRoom: {
+    badge: "Sala protegida",
+    /** Name of the badge as a button: it opens the explanation. */
+    about: "Sala protegida: o que significa",
+    explanation: (capacity: number, maxVideos: number) =>
+      `A mídia passa pela retransmissão, e os participantes não veem o IP uns dos outros. Até ${capacity} pessoas e ${maxVideos} vídeos ao mesmo tempo.`,
+    /** A stretch of time, rounded: "menos de 1 min", "cerca de 42 min", "cerca de 1 h 20 min". */
+    duration: (hours: number, minutes: number) =>
+      hours === 0 && minutes === 0
+        ? "menos de 1 min"
+        : `cerca de ${[hours > 0 ? `${hours} h` : "", minutes > 0 ? `${minutes} min` : ""].filter(Boolean).join(" ")}`,
+    /** Followed by the duration: "O saldo do dono cobre cerca de 42 min". */
+    remainingLead: "O saldo do dono cobre",
+    warning: (duration: string) =>
+      `O saldo do dono está acabando: cobre ${duration} de sala protegida. Sem recarga, a sala encerra para todos.`,
+    grace: "O saldo do dono acabou. Sem recarga, a sala protegida encerra para todos em",
+    graceTimerLabel: "Tempo até a sala encerrar",
+    ownerWallet: "Recarregar na carteira",
+    sendToOwner: "Enviar ouro ao dono",
+    giftHint: "Quem tem conta pode enviar ouro ao dono pela lista de pessoas.",
+  },
   controls: {
     label: "Controles da sala",
     micOn: "Ligar microfone",
@@ -896,10 +1107,14 @@ export const texts = {
   },
   notices: {
     dismiss: "Dispensar aviso",
-    videoRoomLimit: `A sala já tem ${ROOM_MAX_VIDEOS} vídeos ao mesmo tempo, o máximo. Espere alguém parar para transmitir.`,
+    /** Only the protected room has a ceiling of videos; `max` is the one the server sent. */
+    videoRoomLimit: (max: number) =>
+      `A sala protegida já tem ${max} vídeos ao mesmo tempo, o máximo. Espere alguém parar para transmitir.`,
+    watchLimit: (max: number) =>
+      `Você já assiste ${max} vídeos, o máximo ao mesmo tempo. Pare de assistir um deles para abrir outro.`,
     videoPersonLimit: `Você já transmite ${VIDEOS_PER_PERSON} vídeo, o máximo por pessoa. Pare o vídeo atual antes de iniciar outro.`,
     chatRateLimited: "Você enviou mensagens rápido demais. Espere alguns segundos.",
-    mutedByOwner: "O dono da sala silenciou o seu microfone.",
+    mutedByOwner: "O dono ou um moderador da sala silenciou o seu microfone.",
     mediaPermissionDenied: {
       microphone: "O navegador não liberou o microfone. Autorize o acesso nas permissões do site.",
       camera: "O navegador não liberou a câmera. Autorize o acesso nas permissões do site.",
@@ -907,6 +1122,8 @@ export const texts = {
     },
     turnstileFailed: "A verificação contra robôs não passou. Refaça a verificação e tente de novo.",
     rateLimited: "Muitas tentativas em pouco tempo. Espere um minuto e tente de novo.",
+    /** Inside the room: reactions, raising the hand and the microphone switched too fast. */
+    roomRateLimited: "Você está fazendo isso rápido demais. Espere alguns segundos e tente de novo.",
     videoPersonLimitPlus: `Você já transmite ${PLUS_VIDEOS_PER_PERSON} vídeos, o máximo por pessoa. Pare um deles antes de iniciar outro.`,
     linkCopied: "Link da sala copiado.",
   },

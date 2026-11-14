@@ -1,4 +1,4 @@
-import { VIDEOS_PER_PERSON } from "@sualive/config";
+import { PROTECTED_ROOM_MAX_VIDEOS, VIDEOS_PER_PERSON, WATCHED_VIDEOS_PER_PERSON } from "@sualive/config";
 import { useEffect, useRef } from "react";
 import type { RoomNotice } from "../../lib/room";
 import { texts } from "../../texts";
@@ -7,13 +7,33 @@ import { CloseIcon } from "../icons";
 /** How long the "link copied" confirmation stays; every other notice waits to be dismissed. */
 const TRANSIENT_NOTICE_MS = 4000;
 
+/** What the notices name about the room the person is in. Outside a room, the defaults apply. */
+export interface NoticeRoom {
+  /** Inside the room, "too fast" is about reactions, the hand and the microphone, not about the IP. */
+  inRoom?: boolean;
+  /** How many videos this person may watch at once, as the server sent. */
+  maxWatchedVideos?: number;
+  /** Ceiling of videos of the room (only the protected room has one). */
+  maxVideos?: number | null;
+}
+
 /** `maxOwnVideos`: how many videos this person may send at once (the limit notice names it). */
-export function noticeText(notice: RoomNotice, maxOwnVideos: number = VIDEOS_PER_PERSON): string {
+export function noticeText(
+  notice: RoomNotice,
+  maxOwnVideos: number = VIDEOS_PER_PERSON,
+  room: NoticeRoom = {},
+): string {
   switch (notice.kind) {
     case "videoPersonLimit":
       return maxOwnVideos > VIDEOS_PER_PERSON
         ? texts.notices.videoPersonLimitPlus
         : texts.notices.videoPersonLimit;
+    case "videoRoomLimit":
+      return texts.notices.videoRoomLimit(room.maxVideos ?? PROTECTED_ROOM_MAX_VIDEOS);
+    case "watchLimit":
+      return texts.notices.watchLimit(room.maxWatchedVideos ?? WATCHED_VIDEOS_PER_PERSON);
+    case "rateLimited":
+      return room.inRoom ? texts.notices.roomRateLimited : texts.notices.rateLimited;
     case "mediaPermissionDenied":
       return texts.notices.mediaPermissionDenied[notice.device];
     default:
@@ -25,11 +45,12 @@ interface NoticeBannerProps {
   notice: RoomNotice | null;
   onDismiss: () => void;
   maxOwnVideos?: number;
+  room?: NoticeRoom;
   className?: string;
 }
 
 /** The live region is always mounted so screen readers announce each new notice. */
-export function NoticeBanner({ notice, onDismiss, maxOwnVideos, className = "" }: NoticeBannerProps) {
+export function NoticeBanner({ notice, onDismiss, maxOwnVideos, room, className = "" }: NoticeBannerProps) {
   const transient = notice?.kind === "linkCopied";
 
   const dismissRef = useRef(onDismiss);
@@ -48,7 +69,7 @@ export function NoticeBanner({ notice, onDismiss, maxOwnVideos, className = "" }
     <div role="status" aria-live="polite" className={className}>
       {notice && (
         <div className="flex items-center gap-1 rounded-card bg-canvas py-1 pr-1 pl-4 text-left text-body-sm shadow-outline">
-          <p className="flex-1 py-2">{noticeText(notice, maxOwnVideos)}</p>
+          <p className="flex-1 py-2">{noticeText(notice, maxOwnVideos, room)}</p>
           <button
             type="button"
             aria-label={texts.notices.dismiss}

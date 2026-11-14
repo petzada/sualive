@@ -69,6 +69,9 @@ export const apiErrorCodeSchema = z.enum([
   "self_gift", // presente para a própria conta
   "already_owned",
   "not_owned",
+  // Sala protegida (entrega 4)
+  "protected_unavailable", // retransmissão não configurada neste ambiente
+  "room_in_use", // a sala de link fixo só muda de tipo vazia
 ]);
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 
@@ -78,7 +81,14 @@ export type ApiError = z.infer<typeof apiErrorSchema>;
 
 // ---------- POST /api/rooms ----------
 
-export const createRoomRequestSchema = z.object({ turnstileToken: turnstileTokenSchema });
+export const createRoomRequestSchema = z.object({
+  turnstileToken: turnstileTokenSchema,
+  /**
+   * Sala protegida: só conta com Plus ativo e ouro (`plus_required`, `insufficient_funds`); o
+   * dono é reconhecido pela conta e pelo token.
+   */
+  protected: z.boolean().optional(),
+});
 export type CreateRoomRequest = z.infer<typeof createRoomRequestSchema>;
 
 export const createRoomResponseSchema = z.object({
@@ -97,6 +107,8 @@ export const roomInfoResponseSchema = z.object({
   capacity: z.number().int().min(1),
   /** Sala de link fixo de um assinante (não expira quando esvazia). */
   fixed: z.boolean(),
+  /** Sala protegida: o lobby avisa que a mídia passa pela retransmissão. */
+  protected: z.boolean(),
 });
 export type RoomInfoResponse = z.infer<typeof roomInfoResponseSchema>;
 
@@ -128,6 +140,8 @@ export const iceServerSchema = z.object({
 export const iceServersResponseSchema = z.object({
   iceServers: z.array(iceServerSchema),
   ttlSeconds: z.number().int().min(1),
+  /** Sala protegida: o navegador só pode usar candidatos de retransmissão. */
+  relayOnly: z.boolean(),
 });
 export type IceServersResponse = z.infer<typeof iceServersResponseSchema>;
 

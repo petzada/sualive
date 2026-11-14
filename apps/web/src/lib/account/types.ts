@@ -40,7 +40,14 @@ export type AccountErrorReason =
   | "rateLimited"
   | "error";
 
-export type AccountResult<T = void> = { ok: true; value: T } | { ok: false; reason: AccountErrorReason };
+export type AccountResult<T = void, R extends string = AccountErrorReason> =
+  { ok: true; value: T } | { ok: false; reason: R };
+
+/**
+ * Falha de `setFixedRoomProtected`: as de sempre e `roomInUse` (a sala de link fixo só muda de tipo
+ * vazia). Sem Plus, `plusRequired`.
+ */
+export type FixedRoomProtectedErrorReason = AccountErrorReason | "roomInUse";
 
 export type PaymentStatus = "pending" | "paid" | "expired" | "failed";
 
@@ -54,6 +61,11 @@ export interface AccountActions {
   completeOnboarding(input: { handle: string; adult: true; acceptTerms: true }): Promise<AccountResult>;
   updateProfile(input: { nickname?: string; handle?: string }): Promise<AccountResult>;
   checkHandle(handle: string): Promise<AccountResult<HandleAvailabilityResponse>>;
+  /**
+   * Liga ou desliga a sala protegida no link fixo (`user.fixedRoomProtected`). Só Plus
+   * (`plusRequired`) e só com a sala vazia (`roomInUse`). Deu certo → a conta é atualizada.
+   */
+  setFixedRoomProtected(value: boolean): Promise<AccountResult<void, FixedRoomProtectedErrorReason>>;
   /** Grava que a conta viu a versão atual dos termos: a faixa de aviso some (`user.termsUpdate`). */
   markTermsSeen(): Promise<AccountResult>;
   /** Apaga a conta e os dados pessoais; a pessoa volta a anônima. */

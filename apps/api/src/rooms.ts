@@ -1,3 +1,4 @@
+import { captureException } from "@sentry/cloudflare";
 import {
   PLUS_VIDEOS_PER_PERSON,
   ROOM_MAX_PEOPLE,
@@ -17,15 +18,17 @@ import {
   type ApiErrorCode,
 } from "@sualive/protocol";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
-import { findUserByHandle } from "./account";
+import { recordAccess } from "./access/log";
+import { findUserByHandle, findUserById } from "./account";
 import { getViewer, type Viewer } from "./auth/viewer";
 import { getPlanStatus } from "./billing/plan";
 import { generateRoomCode, randomToken, sha256 } from "./crypto";
 import type { AppEnv } from "./env";
 import { apiError } from "./errors";
-import { generateIceServers, verifyTurnstile } from "./external";
+import { generateIceServers, isTurnConfigured, verifyTurnstile } from "./external";
 import { refuse, ROOM_IDENTITY_HEADER, type FixedOwner, type RoomAccount, type RoomIdentity } from "./room";
 import { getEquipped } from "./shop/equipped";
+import { getWallet } from "./wallet/ledger";
 import {
   accountParticipantIdFor,
   newSessionId,
@@ -77,9 +80,15 @@ type RoomTarget =
   /** Não abre. `ownerLostPlus`: a conta do @nome existe, mas não tem Plus (a sala, se aberta, acaba). */
   | { kind: "ended"; ownerLostPlus: boolean };
 
+/** Conta com ouro para pagar a sala protegida (o saldo é lido agora, no servidor). */
+async function hasGold(env: AppEnv, userId: string): Promise<boolean> {
+  return (await getWallet(env, userId, Date.now())).gold > 0;
+}
+
 /**
  * O que a chave abre. Código: a sala comum (o Durable Object diz se existe). `@nome`: a sala de link
- * fixo, que existe enquanto a conta dona do @nome tem Plus ativo, segundo a cobrança.
+ * fixo, que existe enquanto a conta dona do @nome tem Plus ativo, segundo a cobrança. Se a conta
+ * escolheu a sala protegida, ela só abre com a retransmissão configurada e ouro do dono.
  */
 async function resolveTarget(env: AppEnv, key: string): Promise<RoomTarget> {
   if (!isFixedKey(key)) return { kind: "code" };
@@ -87,9 +96,18 @@ async function resolveTarget(env: AppEnv, key: string): Promise<RoomTarget> {
   if (!account?.onboarded) return { kind: "ended", ownerLostPlus: false };
   const { plan } = await getPlanStatus(env, account.userId);
   if (!plan.plus) return { kind: "ended", ownerLostPlus: true };
+  const row = await findUserById(env, account.userId);
+  const isProtected = row?.fixedRoomProtected === 1;
+  const canOpenProtected = isProtected && isTurnConfigured(env) && (await hasGold(env, account.userId));
   return {
     kind: "fixed",
-    owner: { userId: account.userId, handle: account.handle, theme: toTheme(account.roomTheme) },
+    owner: {
+      userId: account.userId,
+      handle: account.handle,
+      theme: toTheme(account.roomTheme),
+      protected: isProtected,
+      canOpenProtected,
+    },
   };
 }
 
@@ -103,7 +121,7 @@ async function openTarget(env: AppEnv, key: string): Promise<boolean> {
     if (target.ownerLostPlus) await roomStub(env, key).endFixed();
     return false;
   }
-  if (target.kind === "fixed") await roomStub(env, key).ensureFixed(target.owner);
+  if (target.kind === "fixed") return roomStub(env, key).ensureFixed(target.owner);
   return true;
 }
 
@@ -154,28 +172,66 @@ const rateLimit: MiddlewareHandler<Env> = async (c, next) => {
 export const rooms = new Hono<Env>();
 
 // Cria a sala comum e devolve o token do dono (só sai aqui; o Durable Object guarda o hash). A sala
-// de link fixo não é criada aqui: existe sozinha enquanto o dono tem Plus.
+// de link fixo não é criada aqui: existe sozinha enquanto o dono tem Plus. A sala protegida exige
+// conta com o primeiro acesso concluído, Plus ativo, ouro e a retransmissão configurada; a conta que
+// cria é quem paga.
 rooms.post("/", rateLimit, async (c) => {
   const body = createRoomRequestSchema.safeParse(await readJson(c));
   if (!body.success) return apiError(c, "invalid_request");
   if (!(await verifyTurnstile(c.env, body.data.turnstileToken, clientIp(c)))) {
     return apiError(c, "turnstile_failed");
   }
+  let protectedOwner: { ownerUserId: string } | undefined;
+  if (body.data.protected) {
+    const viewer = await getViewer(c);
+    if (!viewer) return apiError(c, "unauthorized");
+    const member = onboardedViewer(viewer);
+    if (!member) return apiError(c, "onboarding_required");
+    if (!(await getPlanStatus(c.env, member.userId)).plan.plus) return apiError(c, "plus_required");
+    if (!(await hasGold(c.env, member.userId))) return apiError(c, "insufficient_funds");
+    if (!isTurnConfigured(c.env)) return apiError(c, "protected_unavailable");
+    protectedOwner = { ownerUserId: member.userId };
+  }
   const ownerToken = randomToken(32);
   const ownerTokenHash = await sha256(ownerToken);
   let code = generateRoomCode();
   // Colisão é praticamente impossível (32^10 códigos), mas o código em uso nunca é reaproveitado.
-  while (!(await roomStub(c.env, code).create(ownerTokenHash))) code = generateRoomCode();
+  while (!(await roomStub(c.env, code).create(ownerTokenHash, protectedOwner))) code = generateRoomCode();
   return c.json(createRoomResponseSchema.parse({ code, ownerToken }));
 });
 
 rooms.get("/:key", async (c) => {
-  const ended = { status: "ended" as const, participants: 0, capacity: ROOM_MAX_PEOPLE, fixed: false };
+  const ended = {
+    status: "ended" as const,
+    participants: 0,
+    capacity: ROOM_MAX_PEOPLE,
+    fixed: false,
+    protected: false,
+  };
   const key = parseKey(c);
   if (!key || !(await openTarget(c.env, key))) return c.json(roomInfoResponseSchema.parse(ended));
   const info = await roomStub(c.env, key).info();
-  return c.json(roomInfoResponseSchema.parse({ ...info, capacity: ROOM_MAX_PEOPLE }));
+  return c.json(roomInfoResponseSchema.parse(info));
 });
+
+/**
+ * Registro de acesso da entrada em sala (D28). Falha de escrita não impede a entrada: vai ao Sentry
+ * sem o IP nem os valores da consulta.
+ */
+async function logRoomJoin(
+  env: AppEnv,
+  entry: { userId: string | null; sessionId: string | null; ip: string; roomKey: string },
+): Promise<void> {
+  try {
+    await recordAccess(env, { kind: "room_join", ...entry, now: Date.now() });
+  } catch (error) {
+    captureException(
+      new Error("registro de acesso: falha ao gravar a entrada em sala", {
+        cause: error instanceof Error ? error.name : undefined,
+      }),
+    );
+  }
+}
 
 rooms.post("/:key/join", rateLimit, async (c) => {
   const key = parseKey(c);
@@ -200,6 +256,7 @@ rooms.post("/:key/join", rateLimit, async (c) => {
     const account = await roomAccountFor(c.env, member);
     const result = await stub.admit({ participantId, nickname: member.nickname, ip, account });
     if (result !== "ok") return apiError(c, result);
+    await logRoomJoin(c.env, { userId: member.userId, sessionId: null, ip, roomKey: key });
     return c.json(joinRoomResponseSchema.parse({ participantId, nickname: member.nickname }));
   }
 
@@ -211,6 +268,7 @@ rooms.post("/:key/join", rateLimit, async (c) => {
   if (result !== "ok") return apiError(c, result);
 
   await writeSession(c, sid, nickname);
+  await logRoomJoin(c.env, { userId: null, sessionId: sid, ip, roomKey: key });
   return c.json(joinRoomResponseSchema.parse({ participantId, nickname }));
 });
 
@@ -253,7 +311,14 @@ async function admittedIdentity(
 rooms.get("/:key/ice", async (c) => {
   const admitted = await admittedIdentity(c);
   if ("error" in admitted) return apiError(c, admitted.error);
-  const body = iceServersResponseSchema.parse(await generateIceServers(c.env));
+  const { key, identity } = admitted;
+  const info = await roomStub(c.env, key).info();
+  // Identificador por sessão (risco 10): sem dado pessoal em claro, derivado da sala e do
+  // participante, para conferir o uso de cada credencial na análise do TURN.
+  const customIdentifier = (await sha256(`turn:${key}:${identity.participantId}`)).slice(0, 32);
+  const body = iceServersResponseSchema.parse(
+    await generateIceServers(c.env, { customIdentifier, relayOnly: info.protected }),
+  );
   c.header("Cache-Control", "no-store");
   return c.json(body);
 });

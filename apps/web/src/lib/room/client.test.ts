@@ -1,5 +1,5 @@
 import { welcomeDefaults } from "./testing/fakes";
-import { FREE_VIDEO_QUALITY, RELAY_VIDEO_QUALITY } from "@sualive/config";
+import { FREE_VIDEO_QUALITY, RELAY_VIDEO_QUALITY, ROOM_MAX_PEOPLE } from "@sualive/config";
 import { WS_CLOSE, WS_PING_FRAME } from "@sualive/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -70,7 +70,7 @@ describe("entrada", () => {
     expect(state().link).toBe(`${ORIGIN}/s/${CODE}`);
     await flush();
     expect(state().phase).toBe("lobby");
-    expect(state().occupancy).toEqual({ participants: 1, capacity: 6 });
+    expect(state().occupancy).toEqual({ participants: 1, capacity: ROOM_MAX_PEOPLE });
 
     const joining = client.actions.join({ nickname: "Ana", turnstileToken: "tok" });
     expect(state().phase).toBe("joining");
@@ -103,7 +103,13 @@ describe("entrada", () => {
   });
 
   it("sala encerrada vai para ended", async () => {
-    h.server.room({ status: "ended", participants: 0, capacity: 6, fixed: false });
+    h.server.room({
+      status: "ended",
+      participants: 0,
+      capacity: ROOM_MAX_PEOPLE,
+      fixed: false,
+      protected: false,
+    });
     start();
     await flush();
     expect(state().phase).toBe("ended");
@@ -240,12 +246,23 @@ describe("mídia", () => {
     h.media.emit("peer", { peerId: "bob", state: "connected", relayed: true });
     h.media.emit("remoteAudio", "bob", audio);
     h.media.emit("speaking", "bob", true);
+    h.socket.receive({ type: "video.watch.state", videoId: "v1", state: "watching" });
     h.media.emit("remoteVideoAdded", { peerId: "bob", videoId: "v1", stream: video });
     const bob = state().participants.find((p) => p.id === "bob");
     expect(bob).toMatchObject({ connection: "connected", relayed: true, speaking: true });
     expect(bob?.audioStream).toBe(audio);
     expect(state().videos).toEqual([
-      { id: "v1", kind: "camera", ownerId: "bob", stream: video, isLocal: false },
+      {
+        id: "v1",
+        kind: "camera",
+        ownerId: "bob",
+        stream: video,
+        isLocal: false,
+        watch: "watching",
+        blockedReason: null,
+        viewers: [],
+        blockedViewers: [],
+      },
     ]);
     expect(state().featuredVideoId).toBe("v1");
   });
@@ -407,12 +424,17 @@ describe("destaque", () => {
       participant("bob", { videos: [{ id: "cam-bob", kind: "camera" }] }),
       participant("carol"),
     ]);
+    // Só entra no destaque o que a pessoa assiste.
+    expect(state().featuredVideoId).toBeNull();
+    h.socket.receive({ type: "video.watch.state", videoId: "cam-bob", state: "watching" });
     expect(state().featuredVideoId).toBe("cam-bob");
 
     h.socket.receive({
       type: "participant.updated",
       participant: participant("carol", { videos: [{ id: "scr-carol", kind: "screen" }] }),
     });
+    expect(state().featuredVideoId).toBe("cam-bob");
+    h.socket.receive({ type: "video.watch.state", videoId: "scr-carol", state: "watching" });
     expect(state().featuredVideoId).toBe("scr-carol");
 
     client.actions.setFeaturedVideo("cam-bob");

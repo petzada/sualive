@@ -66,6 +66,8 @@ export const ledgerReasonSchema = z.enum([
   "gift_sent", // ouro enviado a outra conta
   "gift_received", // ouro recebido de outra conta
   "plus_gift", // 30 dias de Plus presenteados a outra conta
+  "relay_video", // vídeo próprio enviado por conexão retransmitida, por minuto
+  "protected_room", // sala protegida aberta, por minuto
 ]);
 export type LedgerReason = z.infer<typeof ledgerReasonSchema>;
 

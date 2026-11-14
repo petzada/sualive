@@ -7,7 +7,7 @@ import { onboardingPath } from "../components/account/paths";
 import { Lobby } from "../components/room/Lobby";
 import { useRoomClient } from "../components/room/RoomClient";
 import { RoomView } from "../components/room/RoomView";
-import type { RoomPhase } from "../lib/room";
+import type { RoomPhase, RoomState } from "../lib/room";
 import { Spinner } from "../components/icons";
 import { texts } from "../texts";
 import { ErrorPage } from "./ErrorPage";
@@ -19,14 +19,35 @@ type EndPhase = Extract<RoomPhase, "ended" | "full" | "banned" | "kicked" | "rep
  * and a fresh load asks the server for the room again. The exception is the room that was opened
  * in another tab (`replaced`): there the button takes the room back to this tab, with no reload.
  */
-function RoomEnd({ phase, onUseThisTab }: { phase: EndPhase; onUseThisTab: () => void }) {
+function RoomEnd({
+  phase,
+  state,
+  onUseThisTab,
+}: {
+  phase: EndPhase;
+  state: RoomState;
+  onUseThisTab: () => void;
+}) {
   const copy = texts.roomEnd[phase];
+  // A protected room that ran out of gold says so; any other ended room keeps the usual text.
+  const noGold = phase === "ended" && state.endReason === "no_gold";
+  const title = noGold ? texts.roomEnd.endedNoGold.title : copy.title;
+  // How many people fit comes from the room itself (the direct and the protected ones differ).
+  const message = noGold
+    ? texts.roomEnd.endedNoGold.message
+    : phase === "full"
+      ? texts.roomEnd.full.message(state.occupancy.capacity, state.protected)
+      : texts.roomEnd[phase].message;
   const linkClass = "rounded-link font-normal";
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-gap px-5 py-16 text-center">
-      <h1 className="font-display text-heading font-semibold">{copy.title}</h1>
-      <p role={phase === "error" ? "alert" : undefined}>{copy.message}</p>
+    <main
+      data-testid="room-end"
+      data-reason={noGold ? "no_gold" : phase}
+      className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-gap px-5 py-16 text-center"
+    >
+      <h1 className="font-display text-heading font-semibold">{title}</h1>
+      <p role={phase === "error" ? "alert" : undefined}>{message}</p>
       {phase === "ended" ? (
         <Link href="/" className={linkClass}>
           {texts.roomEnd.ended.action}
@@ -80,7 +101,7 @@ function RoomSession({ code }: { code: string }) {
         />
       );
     default:
-      return <RoomEnd phase={state.phase} onUseThisTab={actions.useThisTab} />;
+      return <RoomEnd phase={state.phase} state={state} onUseThisTab={actions.useThisTab} />;
   }
 }
 

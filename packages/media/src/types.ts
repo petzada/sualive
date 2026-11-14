@@ -1,6 +1,6 @@
 /**
  * Interface única de mídia. O resto do front fala só com `MediaSession` e não sabe qual caminho
- * está em uso (malha direta nesta entrega; servidor de mídia na entrega 4).
+ * está em uso (no MVP só existe a malha direta).
  */
 import type { VideoQuality } from "@sualive/config";
 import type { SignalData, VideoKind } from "@sualive/protocol";
@@ -24,6 +24,17 @@ export interface MediaSessionOptions {
   quality: VideoQuality;
   /** Teto quando a conexão com um par usa retransmissão (TURN). */
   relayQuality: VideoQuality;
+  /**
+   * Teto (bps) do áudio da tela compartilhada enviado a um par retransmitido. Sai quando o par deixa
+   * de ser retransmitido. Nunca vale para a voz (microfone). Sem valor, o áudio da tela não tem teto.
+   */
+  relayScreenAudioMaxBitrate?: number;
+  /**
+   * Sala protegida: toda conexão só por retransmissão (`iceTransportPolicy: "relay"`), para não
+   * expor o IP. Todo par conta como retransmitido desde o início. Sem servidor TURN nas
+   * credenciais, a conexão não é tentada e o par fica em `failed`.
+   */
+  relayOnly?: boolean;
 }
 
 export type PeerConnectionState = "connecting" | "connected" | "reconnecting" | "failed";
@@ -54,7 +65,9 @@ export interface MediaSessionEvents {
   peer: (status: PeerStatus) => void;
   /** Chegou ou mudou a voz de um par (`null` quando sai). */
   remoteAudio: (peerId: string, stream: MediaStream | null) => void;
+  /** Chegou um vídeo que o par abriu para esta pessoa. */
   remoteVideoAdded: (video: RemoteVideo) => void;
+  /** O par fechou o envio, o vídeo acabou ou o par saiu. */
   remoteVideoRemoved: (peerId: string, videoId: string) => void;
   /** Quem está falando agora. `peerId` é `selfId` para a própria pessoa. */
   speaking: (peerId: string, speaking: boolean) => void;
@@ -85,7 +98,15 @@ export interface MediaSession {
    * `camera` prefere fluidez. Rejeita se a pessoa negar a permissão.
    */
   publishVideo(videoId: string, kind: VideoKind, options?: PublishVideoOptions): Promise<LocalVideo>;
+  /** Para de capturar e fecha o envio do vídeo para todos. */
   unpublishVideo(videoId: string): void;
+  /**
+   * A quem enviar este vídeo local. Abre o envio para quem entrou na lista e fecha para quem saiu.
+   * Publicar não envia o vídeo a ninguém: só quem está na lista (decidida pelo servidor) recebe.
+   * Pode chegar antes de `publishVideo` terminar; a lista vale quando a captura começar. Quem sai
+   * da sala sai também das listas.
+   */
+  setVideoViewers(videoId: string, peerIds: string[]): void;
 
   getPeers(): PeerStatus[];
   getRemoteVideos(): RemoteVideo[];

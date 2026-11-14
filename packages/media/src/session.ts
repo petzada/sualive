@@ -4,8 +4,13 @@
  *
  * Convenções do fio (as duas pontas rodam este mesmo código):
  * - A voz vai num track de áudio sem stream associado; quem recebe reconhece a voz por isso.
- * - Cada vídeo publicado vai com o seu `MediaStream` (vídeo e, na tela, o áudio da aba). O sinal
- *   `streams` liga o id desse stream ao `videoId` autorizado pelo servidor.
+ * - Cada vídeo publicado vai com o seu `MediaStream` (vídeo e, na tela, o áudio da aba), e só para
+ *   os pares da lista de quem assiste (`setVideoViewers`, decidida pelo servidor). O sinal `streams`
+ *   liga o id desse stream ao `videoId` e é por par: cada um só sabe dos vídeos que recebe.
+ * - Fechar o envio para um par tira as faixas daquele vídeo da conexão (`removeTrack`) e guarda o
+ *   transceptor parado; abrir de novo reaproveita um transceptor parado do mesmo tipo
+ *   (`replaceTrack` + `setStreams` + `direction`), para que abrir e fechar muitas vezes não faça a
+ *   descrição crescer sem fim. Só a conexão daquele par renegocia; a voz segue no transceptor dela.
  * - Um canal de dados negociado (`id` fixo, criado pelos dois lados) garante que a conexão nasce
  *   mesmo sem microfone nem vídeo; ele não carrega nada.
  */
@@ -114,8 +119,10 @@ interface Link {
   ignoreOffer: boolean;
   /** Candidatos que chegaram antes da descrição remota. */
   readonly candidates: Candidate[];
-  /** Track local (id) → sender. */
+  /** Track local de vídeo publicado (id) → sender. */
   readonly senders: Map<string, RTCRtpSender>;
+  /** Senders de vídeos fechados para este par, prontos para reaproveitar. */
+  readonly parked: RTCRtpSender[];
   micSender: RTCRtpSender | null;
   /** Streams de vídeo recebidos, por id. */
   readonly remoteStreams: Map<string, MediaStream>;
@@ -147,10 +154,13 @@ export function createMeshSession(
   env: MediaEnvironment,
   timings: MeshTimings = DEFAULT_MESH_TIMINGS,
 ): MediaSession {
-  const { selfId, transport, quality, relayQuality } = options;
+  const { selfId, transport, quality, relayQuality, relayScreenAudioMaxBitrate } = options;
+  const relayOnly = options.relayOnly === true;
   const emitter = createEmitter<MediaSessionEvents>();
   const peers = new Map<string, Peer>();
   const publications = new Map<string, Publication>();
+  /** Quem assiste cada vídeo local (videoId → peerIds), como o servidor mandou. */
+  const viewers = new Map<string, Set<string>>();
   const pendingSignals = new Map<string, { at: number; data: SignalData }[]>();
   const speaking = createSpeakingDetector((id, value) => emitter.emit("speaking", id, value));
 
@@ -175,12 +185,19 @@ export function createMeshSession(
     }
   }
 
-  function streamEntries(): StreamEntry[] {
-    return [...publications.values()].map((pub) => ({ streamId: pub.stream.id, videoId: pub.videoId }));
+  function watches(peerId: string, videoId: string): boolean {
+    return viewers.get(videoId)?.has(peerId) ?? false;
+  }
+
+  /** Só os vídeos que este par recebe. */
+  function streamEntries(peer: Peer): StreamEntry[] {
+    return [...publications.values()]
+      .filter((pub) => watches(peer.id, pub.videoId))
+      .map((pub) => ({ streamId: pub.stream.id, videoId: pub.videoId }));
   }
 
   function sendStreams(peer: Peer): void {
-    send(peer.id, { kind: "streams", streams: streamEntries() });
+    send(peer.id, { kind: "streams", streams: streamEntries(peer) });
   }
 
   function sendDescription(peer: Peer, link: Link): void {
@@ -354,14 +371,37 @@ export function createMeshSession(
     }
   }
 
+  /**
+   * Áudio da tela: só `maxBitrate`, e só em par retransmitido (sem o teto, a codificação volta ao
+   * padrão do navegador). Nada de parâmetro de vídeo aqui.
+   */
+  async function applyScreenAudioSender(sender: RTCRtpSender, relayed: boolean): Promise<void> {
+    const cap = relayed ? relayScreenAudioMaxBitrate : undefined;
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) return; // ainda não negociado
+    if (params.encodings.every((encoding) => encoding.maxBitrate === cap)) return;
+    for (const encoding of params.encodings) {
+      if (cap === undefined) delete encoding.maxBitrate;
+      else encoding.maxBitrate = cap;
+    }
+    await sender.setParameters(params);
+  }
+
   /** Reaplica os tetos de todos os vídeos deste par (em série, por causa do `transactionId`). */
   function applySenderParams(peer: Peer, link: Link): void {
     link.paramsChain = link.paramsChain
       .then(async () => {
         for (const pub of publications.values()) {
-          if (peer.link !== link || closed) return;
-          const sender = link.senders.get(pub.videoTrack.id);
-          if (sender) await applyVideoSender(sender, pub, peer.relayed).catch(() => undefined);
+          for (const track of pub.stream.getTracks()) {
+            if (peer.link !== link || closed) return;
+            const sender = link.senders.get(track.id);
+            if (!sender) continue;
+            if (track === pub.videoTrack) {
+              await applyVideoSender(sender, pub, peer.relayed).catch(() => undefined);
+            } else if (track.kind === "audio") {
+              await applyScreenAudioSender(sender, peer.relayed).catch(() => undefined);
+            }
+          }
         }
       })
       .catch(() => undefined);
@@ -375,7 +415,8 @@ export function createMeshSession(
       return;
     }
     if (peer.link !== link || closed) return;
-    const relayed = isRelayedConnection(report);
+    // Na sala protegida todo par é retransmitido, qualquer que seja o relatório.
+    const relayed = relayOnly || isRelayedConnection(report);
     if (relayed === peer.relayed) return;
     peer.relayed = relayed;
     emitStatus(peer);
@@ -403,15 +444,92 @@ export function createMeshSession(
     link.timer = null;
   }
 
-  function addPublication(link: Link, pub: Publication): void {
-    for (const track of pub.stream.getTracks()) {
-      if (link.senders.has(track.id)) continue;
-      link.senders.set(track.id, link.pc.addTrack(track, pub.stream));
+  /** Reaproveita um sender parado do mesmo tipo; devolve `null` se não houver como. */
+  function reuseParked(link: Link, track: MediaStreamTrack, stream: MediaStream): RTCRtpSender | null {
+    while (true) {
+      const index = link.parked.findIndex((sender) => parkedKind(link, sender) === track.kind);
+      if (index < 0) return null;
+      const [sender] = link.parked.splice(index, 1);
+      if (!sender) return null;
+      const transceiver = link.pc.getTransceivers().find((t) => t.sender === sender);
+      if (
+        !transceiver ||
+        transceiver.currentDirection === "stopped" ||
+        typeof sender.setStreams !== "function"
+      ) {
+        continue; // transceptor parado de vez ou navegador sem `setStreams`: tenta outro ou cria
+      }
+      try {
+        sender.setStreams(stream);
+        transceiver.direction = "sendrecv";
+      } catch {
+        continue;
+      }
+      void sender.replaceTrack(track).catch(() => undefined);
+      return sender;
     }
   }
 
+  /** Tipo de mídia de um sender parado (o track dele já é `null`): pelo receptor do transceptor. */
+  function parkedKind(link: Link, sender: RTCRtpSender): string | undefined {
+    return link.pc.getTransceivers().find((t) => t.sender === sender)?.receiver.track.kind;
+  }
+
+  /** Abre o envio deste vídeo para o par da conexão (renegocia só esta conexão). */
+  function openVideo(link: Link, pub: Publication): boolean {
+    let changed = false;
+    for (const track of pub.stream.getTracks()) {
+      if (link.senders.has(track.id)) continue;
+      const sender = reuseParked(link, track, pub.stream) ?? link.pc.addTrack(track, pub.stream);
+      link.senders.set(track.id, sender);
+      changed = true;
+    }
+    return changed;
+  }
+
+  /** Fecha o envio deste vídeo para o par: nenhuma faixa dele fica aberta nesta conexão. */
+  function closeVideo(link: Link, pub: Publication): boolean {
+    let changed = false;
+    for (const track of pub.stream.getTracks()) {
+      const sender = link.senders.get(track.id);
+      if (!sender) continue;
+      link.senders.delete(track.id);
+      changed = true;
+      try {
+        link.pc.removeTrack(sender);
+        link.parked.push(sender);
+      } catch {
+        // conexão fechada
+      }
+    }
+    return changed;
+  }
+
+  function canConnect(): boolean {
+    if (!relayOnly) return true;
+    return iceServers.some((server) => {
+      const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+      return urls.some((url) => /^turns?:/i.test(url));
+    });
+  }
+
+  /**
+   * Abre a conexão com o par. Na sala protegida sem TURN nas credenciais, nem tenta (o caminho
+   * direto exporia o IP): o par fica em `failed` até um `reconnect()` trazer credenciais com TURN.
+   */
+  function connectPeer(peer: Peer): Link | null {
+    if (!canConnect()) {
+      setStatus(peer, "failed");
+      return null;
+    }
+    if (peer.state === "failed") setStatus(peer, "connecting");
+    return openLink(peer);
+  }
+
   function openLink(peer: Peer): Link {
-    const pc = env.createPeerConnection({ iceServers });
+    const pc = env.createPeerConnection(
+      relayOnly ? { iceServers, iceTransportPolicy: "relay" } : { iceServers },
+    );
     const link: Link = {
       pc,
       abort: new AbortController(),
@@ -419,6 +537,7 @@ export function createMeshSession(
       ignoreOffer: false,
       candidates: [],
       senders: new Map(),
+      parked: [],
       micSender: null,
       remoteStreams: new Map(),
       shownVideos: new Map(),
@@ -494,7 +613,9 @@ export function createMeshSession(
 
     pc.createDataChannel(DATA_CHANNEL_LABEL, { negotiated: true, id: DATA_CHANNEL_ID });
     if (mic) link.micSender = pc.addTrack(mic.track);
-    for (const pub of publications.values()) addPublication(link, pub);
+    for (const pub of publications.values()) {
+      if (watches(peer.id, pub.videoId)) openVideo(link, pub);
+    }
     applySenderParams(peer, link);
     sendStreams(peer);
 
@@ -527,8 +648,15 @@ export function createMeshSession(
 
   function rebuildLink(peer: Peer): Link {
     closeLink(peer);
-    peer.relayed = false;
+    peer.relayed = relayOnly;
     return openLink(peer);
+  }
+
+  /** Recria a conexão com credenciais novas (que, na sala protegida, podem ter perdido o TURN). */
+  function reconnectPeer(peer: Peer): void {
+    closeLink(peer);
+    peer.relayed = relayOnly;
+    connectPeer(peer);
   }
 
   async function recreate(peer: Peer): Promise<void> {
@@ -542,7 +670,7 @@ export function createMeshSession(
     const before = peer.link;
     await refreshIceServers();
     if (closed || peers.get(peer.id) !== peer || peer.link !== before) return;
-    rebuildLink(peer);
+    reconnectPeer(peer);
   }
 
   function startRecovery(peer: Peer, link: Link, delay: number): void {
@@ -601,6 +729,8 @@ export function createMeshSession(
     peers.delete(peer.id);
     pendingSignals.delete(peer.id);
     speaking.remove(peer.id);
+    // Quem volta com o mesmo id só recebe vídeo quando o servidor o puser de novo na lista.
+    for (const set of viewers.values()) set.delete(peer.id);
   }
 
   // ---------- Indicador de fala ----------
@@ -663,23 +793,23 @@ export function createMeshSession(
     const pub = publications.get(videoId);
     if (!pub) return;
     publications.delete(videoId);
+    viewers.delete(videoId);
     pub.abort.abort();
     for (const peer of peers.values()) {
       const link = peer.link;
-      if (!link) continue;
-      for (const track of pub.stream.getTracks()) {
-        const sender = link.senders.get(track.id);
-        if (!sender) continue;
-        link.senders.delete(track.id);
-        try {
-          link.pc.removeTrack(sender);
-        } catch {
-          // conexão fechada
-        }
-      }
-      sendStreams(peer);
+      if (link && closeVideo(link, pub)) sendStreams(peer);
     }
     stopStream(pub.stream);
+  }
+
+  /** Abre ou fecha o envio de um vídeo publicado para um par, conforme a lista. */
+  function syncVideoFor(peer: Peer, pub: Publication): void {
+    const link = peer.link;
+    if (!link) return; // a conexão nova já nasce com os vídeos da lista
+    const changed = watches(peer.id, pub.videoId) ? openVideo(link, pub) : closeVideo(link, pub);
+    if (!changed) return;
+    applySenderParams(peer, link);
+    sendStreams(peer);
   }
 
   // ---------- Interface pública ----------
@@ -697,7 +827,7 @@ export function createMeshSession(
           polite: selfId > id,
           link: null,
           state: "connecting",
-          relayed: false,
+          relayed: relayOnly,
           remoteStreamIds: new Map(),
           attempts: 0,
           signalChain: Promise.resolve(),
@@ -710,7 +840,7 @@ export function createMeshSession(
       if (added.length === 0) return;
       void refreshIceServers().then(() => {
         for (const peer of added) {
-          if (!closed && peers.get(peer.id) === peer && !peer.link) openLink(peer);
+          if (!closed && peers.get(peer.id) === peer && !peer.link) connectPeer(peer);
         }
       });
     },
@@ -787,18 +917,27 @@ export function createMeshSession(
         { signal: pub.abort.signal },
       );
       publications.set(videoId, pub);
+      // Publicar não envia a ninguém: só a quem já está na lista (se ela chegou durante a captura).
       for (const peer of peers.values()) {
-        const link = peer.link;
-        if (!link) continue;
-        addPublication(link, pub);
-        applySenderParams(peer, link);
-        sendStreams(peer);
+        if (watches(peer.id, videoId)) syncVideoFor(peer, pub);
       }
       return { videoId, kind, stream };
     },
 
     unpublishVideo(videoId) {
       unpublish(videoId);
+    },
+
+    setVideoViewers(videoId, peerIds) {
+      if (closed) return;
+      const previous = viewers.get(videoId) ?? new Set<string>();
+      const next = new Set(peerIds.filter((id) => id !== selfId));
+      viewers.set(videoId, next);
+      const pub = publications.get(videoId);
+      if (!pub) return; // vale quando a captura terminar
+      for (const peer of peers.values()) {
+        if (previous.has(peer.id) !== next.has(peer.id)) syncVideoFor(peer, pub);
+      }
     },
 
     getPeers() {
@@ -838,7 +977,7 @@ export function createMeshSession(
           peer.attempts = 0;
           const link = peer.link;
           if (!link) {
-            openLink(peer);
+            connectPeer(peer);
           } else if (peer.state === "connected" && link.pc.connectionState === "connected") {
             // A conexão direta sobreviveu à queda do WebSocket: só renova as credenciais.
             try {
@@ -849,7 +988,7 @@ export function createMeshSession(
             sendStreams(peer);
           } else {
             setStatus(peer, "reconnecting");
-            rebuildLink(peer);
+            reconnectPeer(peer);
           }
         }
       });
@@ -867,6 +1006,7 @@ export function createMeshSession(
         stopStream(pub.stream);
       }
       publications.clear();
+      viewers.clear();
       if (mic) {
         mic.meter?.close();
         stopStream(mic.stream);
