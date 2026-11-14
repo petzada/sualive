@@ -1,0 +1,47 @@
+{
+  // Produção é o nível de cima; homologação é `--env staging`. Deploy só pelo CI.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sualive",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  // O mesmo Worker serve o front (apps/web/dist). /api/* sempre passa pelo Worker.
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  // COMMIT_SHA é sobrescrito no deploy (`--var COMMIT_SHA:<sha>`).
+  // DEBUG_ROUTES="1" liga a rota de erro proposital (só homologação).
+  "vars": { "ENVIRONMENT": "production", "COMMIT_SHA": "dev", "DEBUG_ROUTES": "0" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sualive",
+      "database_id": "2fe12fa2-e372-4736-8610-2ddc3200ac20",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "Room" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "env": {
+    "staging": {
+      "name": "sualive-staging",
+      "vars": { "ENVIRONMENT": "staging", "COMMIT_SHA": "dev", "DEBUG_ROUTES": "1" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "sualive-staging",
+          "database_id": "bb55d9a5-c4b8-474a-9f15-90eb4c76f227",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "Room" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+    },
+  },
+}

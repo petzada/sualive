@@ -1,0 +1,34 @@
+{
+  "name": "@sualive/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
+    "test": "vitest --run --passWithNoTests",
+    "test:related": "vitest related --run --passWithNoTests",
+    "test:ci": "vitest --run --passWithNoTests",
+    "e2e": "node -e \"\"",
+    "build": "wrangler deploy --dry-run --outdir dist --env=\"\"",
+    "db:generate": "drizzle-kit generate",
+    "types": "wrangler types --include-runtime=false --strict-vars=false"
+  },
+  "dependencies": {
+    "@sentry/cloudflare": "11.12.0",
+    "@sualive/config": "workspace:*",
+    "@sualive/protocol": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.18"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@cloudflare/workers-types": "5.20261114.1",
+    "@sualive/web": "workspace:*",
+    "drizzle-kit": "0.31.11",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
+    "wrangler": "4.162.0"
+  }
+}
