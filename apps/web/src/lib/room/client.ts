@@ -12,6 +12,7 @@ import {
   FREE_VIDEO_QUALITY,
   RELAY_VIDEO_QUALITY,
   ROOM_MAX_PEOPLE,
+  VIDEOS_PER_PERSON,
   ROOM_PATH_PREFIX,
   type Reaction,
 } from "@sualive/config";
@@ -158,6 +159,12 @@ export class RoomClient {
       code,
       link: `${deps.origin}${ROOM_PATH_PREFIX}${code}`,
       occupancy: { participants: 0, capacity: ROOM_MAX_PEOPLE },
+      // Provisório (contrato da entrega 2): a tarefa do cliente do front preenche de verdade.
+      fixed: false,
+      ownerHandle: null,
+      theme: "default",
+      maxOwnVideos: VIDEOS_PER_PERSON,
+      accountNickname: null,
       selfId: null,
       isOwner: false,
       participants: [],
@@ -174,6 +181,7 @@ export class RoomClient {
     };
     this.actions = {
       startPreview: () => this.startPreview(),
+      setRoomTheme: () => {},
       join: (options) => this.join(options),
       leave: () => this.leave(),
       sendChat: (text) => void this.send({ type: "chat.send", text }),
@@ -926,6 +934,9 @@ export class RoomClient {
         nickname: p.nickname,
         isSelf,
         isOwner: p.isOwner,
+        handle: p.handle,
+        avatarUrl: p.avatarUrl,
+        badges: p.badges,
         micMuted: isSelf ? this.state.micMuted : p.micMuted,
         handRaised: isSelf ? this.handRaised : p.handRaised,
         speaking: this.speaking.has(p.id),

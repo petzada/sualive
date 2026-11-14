@@ -90,7 +90,7 @@ rooms.get("/:code", async (c) => {
   const info = code.success
     ? await roomStub(c.env, code.data).info()
     : { status: "ended" as const, participants: 0 };
-  return c.json(roomInfoResponseSchema.parse({ ...info, capacity: ROOM_MAX_PEOPLE }));
+  return c.json(roomInfoResponseSchema.parse({ ...info, capacity: ROOM_MAX_PEOPLE, fixed: false }));
 });
 
 rooms.post("/:code/join", rateLimit, async (c) => {
@@ -107,6 +107,8 @@ rooms.post("/:code/join", rateLimit, async (c) => {
   const sid = existing?.sid ?? newSessionId();
   const participantId = await participantIdFor(code.data, sid);
   const nickname = body.data.nickname;
+  // Provisório (contrato da entrega 2): a tarefa das salas com conta preenche de verdade.
+  if (!nickname) return apiError(c, "invalid_request");
   const result = await roomStub(c.env, code.data).admit({ participantId, nickname, ip });
   if (result !== "ok") return apiError(c, result);
 

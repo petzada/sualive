@@ -49,7 +49,7 @@ describe("POST /api/rooms", () => {
     expect([...code].every((ch) => ROOM_CODE_ALPHABET.includes(ch))).toBe(true);
     expect(ownerToken.length).toBeGreaterThanOrEqual(32);
     const info = roomInfoResponseSchema.parse(await (await api(`/api/rooms/${code}`)).json());
-    expect(info).toEqual({ status: "open", participants: 0, capacity: ROOM_MAX_PEOPLE });
+    expect(info).toEqual({ status: "open", participants: 0, capacity: ROOM_MAX_PEOPLE, fixed: false });
   });
 
   it("guarda só o hash do token do dono", async () => {
@@ -114,7 +114,7 @@ describe("GET /api/rooms/:code", () => {
     const code = "zzzzzzzzzz";
     const info = roomInfoResponseSchema.parse(await (await api(`/api/rooms/${code}`)).json());
 
-    expect(info).toEqual({ status: "ended", participants: 0, capacity: ROOM_MAX_PEOPLE });
+    expect(info).toEqual({ status: "ended", participants: 0, capacity: ROOM_MAX_PEOPLE, fixed: false });
     const keys = await runInDurableObject(
       roomStub(code),
       async (_, state) => (await state.storage.list()).size,

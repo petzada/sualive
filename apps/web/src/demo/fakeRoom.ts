@@ -68,6 +68,9 @@ function initialState(code: string, options: DemoOptions): RoomState {
   const count = Math.min(Math.max(options.people, 1), ROOM_MAX_PEOPLE);
   const participants: ParticipantView[] = Array.from({ length: count }, (_, index) => ({
     id: `p${index}`,
+    handle: null,
+    avatarUrl: null,
+    badges: [],
     nickname: NAMES[index] ?? `Pessoa ${index + 1}`,
     isSelf: index === 0,
     isOwner: options.isOwner ? index === 0 : index === 1,
@@ -96,6 +99,11 @@ function initialState(code: string, options: DemoOptions): RoomState {
 
   return {
     phase: options.phase,
+    fixed: false,
+    ownerHandle: null,
+    theme: "default",
+    maxOwnVideos: 1,
+    accountNickname: null,
     code,
     link: `${window.location.origin}/s/${code}`,
     occupancy: { participants: inside ? count : count - 1, capacity: ROOM_MAX_PEOPLE },
@@ -146,6 +154,9 @@ export function createDemoClient(options: DemoOptions): RoomClient {
           }));
 
         return {
+          setRoomTheme(theme) {
+            patch(() => ({ theme }));
+          },
           async startPreview() {
             await new Promise((resolve) => setTimeout(resolve, 400));
             patch(() => ({ preview: fakePreview() }));

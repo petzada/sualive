@@ -2,9 +2,9 @@
  * Contrato entre a lógica do cliente da sala (`src/lib`) e as telas. As telas só conhecem
  * `useRoom`, `createRoom` e estes tipos: nada de WebSocket, fetch ou WebRTC em componente.
  */
-import type { Reaction } from "@sualive/config";
+import type { Reaction, RoomTheme } from "@sualive/config";
 import type { DevicePreview, MediaCapabilities, VideoKind } from "@sualive/media";
-import type { ChatMessage } from "@sualive/protocol";
+import type { Badge, ChatMessage } from "@sualive/protocol";
 
 export type RoomPhase =
   | "loading" // consultando a sala
@@ -43,6 +43,10 @@ export interface ParticipantView {
   nickname: string;
   isSelf: boolean;
   isOwner: boolean;
+  /** Conta (entrega 2): nulos e vazio para quem entrou só com apelido. */
+  handle: string | null;
+  avatarUrl: string | null;
+  badges: Badge[];
   micMuted: boolean;
   handRaised: boolean;
   speaking: boolean;
@@ -66,6 +70,18 @@ export interface RoomState {
   code: string;
   /** Endereço completo da sala, para copiar. */
   link: string;
+  /** Sala de link fixo de um assinante; `ownerHandle` aparece no cabeçalho no lugar do código. */
+  fixed: boolean;
+  ownerHandle: string | null;
+  /** Tema da sala (um dos temas prontos). */
+  theme: RoomTheme;
+  /** Quantos vídeos esta pessoa pode transmitir ao mesmo tempo (1; Plus 2). */
+  maxOwnVideos: number;
+  /**
+   * Quem está logado entra com o apelido do perfil: o lobby mostra esse apelido em vez do campo.
+   * `null` para quem não tem conta.
+   */
+  accountNickname: string | null;
   /** Pessoas na sala agora e lotação (vale no lobby também). */
   occupancy: { participants: number; capacity: number };
   selfId: string | null;
@@ -90,6 +106,7 @@ export interface RoomState {
 }
 
 export interface JoinOptions {
+  /** Ignorado quando há conta logada (vale o apelido do perfil). */
   nickname: string;
   turnstileToken: string;
 }
@@ -107,12 +124,15 @@ export interface RoomActions {
   startVideo(kind: VideoKind): Promise<void>;
   stopVideo(videoId: string): void;
   setFeaturedVideo(videoId: string): void;
+  /** Só o dono Plus, na sala de link fixo dele. */
+  setRoomTheme(theme: RoomTheme): void;
   /** Só o dono. */
   moderate(action: "mute" | "kick" | "ban", participantId: string): void;
   copyLink(): Promise<void>;
   dismissNotice(): void;
 }
 
+/** `code` é o código da sala comum ou `@nome` para a sala de link fixo. */
 export type UseRoom = (code: string) => { state: RoomState; actions: RoomActions };
 
 export type CreateRoomResult =

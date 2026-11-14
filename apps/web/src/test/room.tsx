@@ -34,6 +34,9 @@ export function installTurnstileStub({ pass = true } = {}) {
 export function makeParticipant(overrides: Partial<ParticipantView> = {}): ParticipantView {
   return {
     id: "p1",
+    handle: null,
+    avatarUrl: null,
+    badges: [],
     nickname: "Ana",
     isSelf: false,
     isOwner: false,
@@ -54,6 +57,11 @@ export function makeVideo(overrides: Partial<VideoView> = {}): VideoView {
 export function makeState(overrides: Partial<RoomState> = {}): RoomState {
   return {
     phase: "lobby",
+    fixed: false,
+    ownerHandle: null,
+    theme: "default",
+    maxOwnVideos: 1,
+    accountNickname: null,
     code: "abcdefghjk",
     link: "https://sualive.test/s/abcdefghjk",
     occupancy: { participants: 2, capacity: ROOM_MAX_PEOPLE },
@@ -92,6 +100,7 @@ export function makeConnectedState(overrides: Partial<RoomState> = {}): RoomStat
 export function makeActions(): { [K in keyof RoomActions]: Mock<RoomActions[K]> } {
   return {
     startPreview: vi.fn<RoomActions["startPreview"]>(() => Promise.resolve()),
+    setRoomTheme: vi.fn<RoomActions["setRoomTheme"]>(),
     join: vi.fn<RoomActions["join"]>(() => Promise.resolve()),
     leave: vi.fn<RoomActions["leave"]>(),
     sendChat: vi.fn<RoomActions["sendChat"]>(),

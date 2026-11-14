@@ -305,6 +305,9 @@ export class RoomBase extends DurableObject<AppEnv> {
 
     this.send(ws, {
       type: "welcome",
+      // Provisório (contrato da entrega 2): a tarefa das salas com conta preenche de verdade.
+      room: { theme: "default", fixed: false, ownerHandle: null },
+      limits: { videosPerPerson: VIDEOS_PER_PERSON },
       self: connection.participantId,
       participants: this.readySockets().map((s) => toParticipant(attachmentOf(s))),
       chat: [...history.values()].slice(-CHAT_HISTORY_SIZE),
@@ -492,6 +495,10 @@ function toParticipant(connection: Connection): Participant {
   return {
     id: connection.participantId,
     nickname: connection.nickname,
+    // Provisório (contrato da entrega 2): a tarefa das salas com conta preenche de verdade.
+    handle: null,
+    avatarUrl: null,
+    badges: [],
     isOwner: connection.isOwner,
     micMuted: connection.micMuted,
     handRaised: connection.handRaised,

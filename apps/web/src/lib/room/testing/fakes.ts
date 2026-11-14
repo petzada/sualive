@@ -166,7 +166,7 @@ export class FakeServer {
   readonly routes = new Map<string, Route>();
 
   constructor() {
-    this.room({ status: "open", participants: 1, capacity: 6 });
+    this.room({ status: "open", participants: 1, capacity: 6, fixed: false });
     this.joinOk("me");
     this.on("GET", `/api/rooms/${CODE}/ice`, () => ({
       status: 200,
@@ -316,6 +316,15 @@ export function participant(id: string, overrides: Partial<Participant> = {}): P
     handRaised: false,
     videos: [],
     joinedAt: 1,
+    handle: null,
+    avatarUrl: null,
+    badges: [],
     ...overrides,
   };
 }
+
+/** Campos do `welcome` que valem para a sala e para a própria pessoa, com os valores padrão. */
+export const welcomeDefaults = {
+  room: { theme: "default", fixed: false, ownerHandle: null },
+  limits: { videosPerPerson: 1 },
+} as const;
