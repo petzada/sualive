@@ -447,3 +447,55 @@ test("sem conta e com os termos em dia não há faixa", async ({ browser }) => {
   await expect(current.page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(termsBanner(current.page)).toHaveCount(0);
 });
+
+// ---------- Entrega 3: carteira, loja e presentes ----------
+
+/** Saldos que `/api/wallet` devolve para esta pessoa agora. */
+async function walletOf(page: Page): Promise<{ silver: number; gold: number; goldSentToday: number }> {
+  const response = await page.request.get("/api/wallet");
+  expect(response.ok()).toBe(true);
+  return response.json();
+}
+
+test("ouro enviado na sala: sai de quem envia, chega a quem recebe e a sala inteira vê o aviso", async ({
+  browser,
+}) => {
+  const giver = await newPerson(browser, "roomGiver");
+  const receiver = await newPerson(browser, "roomReceiver");
+  const guest = await newPerson(browser);
+  const room = await createRoom(giver.page);
+  await joinWithAccount(giver.page, account("roomGiver").nickname);
+  await receiver.page.goto(room);
+  await joinWithAccount(receiver.page, account("roomReceiver").nickname);
+  await guest.page.goto(room);
+  await joinAsGuest(guest.page, "Visita");
+
+  const to = account("roomReceiver").nickname;
+  const from = account("roomGiver").nickname;
+  await expect(personRow(giver.page, to)).toBeVisible();
+
+  // Quem não tem conta não envia nem recebe.
+  await expect(guest.page.getByRole("button", { name: texts.gifts.send(to) })).toHaveCount(0);
+  await expect(giver.page.getByRole("button", { name: texts.gifts.send("Visita") })).toHaveCount(0);
+
+  await giver.page.getByRole("button", { name: texts.gifts.send(to) }).click();
+  await giver.page.getByLabel(texts.gifts.amountLabel).fill("250");
+  await giver.page.getByRole("button", { name: texts.gifts.next }).click();
+  await expect(giver.page.getByText(texts.gifts.confirmQuestion("250", to))).toBeVisible();
+  await giver.page.getByRole("button", { name: texts.gifts.confirm }).click();
+
+  const notice = texts.gifts.notice(from, "250", to);
+  for (const { page } of [giver, receiver, guest]) {
+    await expect(page.getByTestId("gift-notices")).toContainText(notice);
+  }
+  expect(await walletOf(giver.page)).toMatchObject({ gold: 750, goldSentToday: 250 });
+  expect(await walletOf(receiver.page)).toMatchObject({ gold: 250 });
+
+  // Mais do que o saldo: recusado, e nada muda.
+  await giver.page.getByRole("button", { name: texts.gifts.send(to) }).click();
+  await giver.page.getByLabel(texts.gifts.amountLabel).fill("900");
+  await giver.page.getByRole("button", { name: texts.gifts.next }).click();
+  await giver.page.getByRole("button", { name: texts.gifts.confirm }).click();
+  await expect(giver.page.getByRole("alert")).toContainText(texts.gifts.errors.insufficient_funds);
+  expect(await walletOf(giver.page)).toMatchObject({ gold: 750, goldSentToday: 250 });
+});
