@@ -1,10 +1,11 @@
 import { CHAT_MAX_LENGTH, NICKNAME_MAX_LENGTH, REACTIONS, ROOM_MAX_PEOPLE } from "@sualive/config";
 import type { DevicePreview } from "@sualive/media";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { NICKNAME_STORAGE_KEY } from "../components/room/Lobby";
 import { noticeText } from "../components/room/NoticeBanner";
 import type { RoomNotice, RoomPhase } from "../lib/room";
+import { THEME_STORAGE_KEY } from "../lib/theme";
 import {
   installTurnstileStub,
   makeActions,
@@ -140,8 +141,59 @@ describe("lobby", () => {
     fireEvent.change(nicknameInput(), { target: { value: " a " } });
     fireEvent.click(screen.getByRole("button", { name: texts.lobby.join }));
 
-    expect(screen.getByRole("alert").textContent).toBe(texts.lobby.nicknameTooShort);
+    expect(screen.getByRole("alert").textContent).toBe(texts.lobby.nicknameInvalid);
     expect(nicknameInput().getAttribute("aria-invalid")).toBe("true");
+    expect(actions.join).not.toHaveBeenCalled();
+  });
+
+  it("centers the title and keeps the field and the join button narrower than the column", () => {
+    renderApp();
+
+    const title = screen.getByRole("heading", { level: 1 });
+    const input = nicknameInput();
+    const label = screen.getByText(texts.lobby.nicknameLabel);
+    const button = screen.getByRole("button", { name: texts.lobby.join });
+
+    expect(title.className.split(" ")).toContain("text-center");
+    expect(title.closest("form")?.className.split(" ")).toContain("items-center");
+    // The label shares the narrow block of the field, so it follows the field's left edge.
+    expect(label.parentElement).toBe(input.parentElement);
+    expect(input.parentElement?.className.split(" ")).toContain("max-w-xs");
+    expect(label.className).not.toContain("text-center");
+    // Same pill as "create room": as wide as its text, never the whole column.
+    expect(button.className.split(" ")).not.toContain("w-full");
+    expect(button.className).toContain("min-h-12");
+    expect(button.className).toContain("px-7");
+  });
+
+  it("shows the nickname rule only while the typed nickname breaks it", () => {
+    renderApp();
+    const rule = texts.lobby.nicknameInvalid;
+
+    // Nothing typed yet: no help text and nothing described.
+    expect(screen.queryByText(rule)).toBeNull();
+    expect(nicknameInput().hasAttribute("aria-invalid")).toBe(false);
+    expect(nicknameInput().hasAttribute("aria-describedby")).toBe(false);
+
+    fireEvent.change(nicknameInput(), { target: { value: "a" } });
+    const message = screen.getByRole("alert");
+    expect(message.textContent).toBe(rule);
+    expect(nicknameInput().getAttribute("aria-invalid")).toBe("true");
+    expect(nicknameInput().getAttribute("aria-describedby")).toBe(message.id);
+
+    fireEvent.change(nicknameInput(), { target: { value: "Ana" } });
+    expect(screen.queryByText(rule)).toBeNull();
+    expect(nicknameInput().hasAttribute("aria-invalid")).toBe(false);
+    expect(nicknameInput().hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("shows the nickname rule when trying to enter with nothing typed", () => {
+    const actions = makeActions();
+    renderApp({ actions });
+
+    fireEvent.click(screen.getByRole("button", { name: texts.lobby.join }));
+
+    expect(screen.getByRole("alert").textContent).toBe(texts.lobby.nicknameInvalid);
     expect(actions.join).not.toHaveBeenCalled();
   });
 
@@ -403,6 +455,148 @@ describe("header", () => {
     expect(name.textContent).toBe(texts.home.title);
     expect(name.className).toContain("text-center");
   });
+
+  it("has the leave button at the end of the header, neutral, and not in the actions bar", () => {
+    renderApp({ state: makeConnectedState() });
+
+    const header = screen.getByRole("banner");
+    const leave = within(header).getByRole("button", { name: texts.controls.leave });
+    const name = within(header).getByRole("heading", { level: 1 });
+
+    expect(name.compareDocumentPosition(leave) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(header).getAllByRole("button").at(-1)).toBe(leave);
+    expect(leave.className).toContain("bg-canvas");
+    expect(leave.className).toContain("text-ink");
+    expect(leave.className).toContain("shadow-outline-soft");
+    expect(leave.className).not.toContain("accent");
+
+    expect(within(toolbar()).queryByRole("button", { name: texts.controls.leave })).toBeNull();
+    expect(
+      within(toolbar())
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      texts.controls.micOn,
+      texts.controls.cameraOn,
+      texts.controls.screenOn,
+      texts.controls.handRaise,
+      texts.controls.reactions,
+      texts.controls.copyLink,
+    ]);
+  });
+});
+
+describe("hints", () => {
+  /** Keyboard focus, as React Aria sees it: a Tab press and then the focus on the control. */
+  const focusByKeyboard = (element: HTMLElement) => {
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    fireEvent.keyUp(document.body, { key: "Tab" });
+    act(() => element.focus());
+  };
+
+  it("has no hint on screen until a control is hovered or focused", () => {
+    renderApp({ state: makeConnectedState() });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it.each([
+    ["microphone", { micMuted: true }, texts.controls.micOn],
+    ["open microphone", { micMuted: false }, texts.controls.micOff],
+    ["camera", {}, texts.controls.cameraOn],
+    ["screen", {}, texts.controls.screenOn],
+    ["hand", { handRaised: true }, texts.controls.handLower],
+    ["reactions", {}, texts.controls.reactions],
+    ["copy link", {}, texts.controls.copyLink],
+    ["leave", {}, texts.controls.leave],
+    ["theme", {}, texts.room.themeToDark],
+  ] as const)("says what the %s button does on keyboard focus, and hides on blur", (_name, state, label) => {
+    renderApp({ state: makeConnectedState(state) });
+    const button = screen.getByRole("button", { name: label });
+
+    focusByKeyboard(button);
+    expect(screen.getByRole("tooltip").textContent).toBe(label);
+
+    act(() => button.blur());
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+});
+
+describe("theme", () => {
+  const themeOnPage = () => document.documentElement.getAttribute("data-theme");
+  const toDark = () => screen.getByRole("button", { name: texts.room.themeToDark });
+  const toLight = () => screen.getByRole("button", { name: texts.room.themeToLight });
+
+  it("starts light, whatever the system prefers", () => {
+    renderApp({ state: makeConnectedState() });
+
+    expect(themeOnPage()).toBeNull();
+    expect(toDark()).toBeTruthy();
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+  });
+
+  it("switches to dark and back, on the page root, and remembers the choice", () => {
+    renderApp({ state: makeConnectedState() });
+
+    fireEvent.click(toDark());
+    expect(themeOnPage()).toBe("dark");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+
+    fireEvent.click(toLight());
+    expect(themeOnPage()).toBeNull();
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+    expect(toDark()).toBeTruthy();
+  });
+
+  it("applies the remembered theme when entering a room, also while reconnecting", () => {
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    renderApp({ state: makeConnectedState({ phase: "reconnecting" }) });
+
+    expect(themeOnPage()).toBe("dark");
+    expect(toLight()).toBeTruthy();
+  });
+
+  it("puts the theme button in the header, right before the leave button, neutral", () => {
+    renderApp({ state: makeConnectedState() });
+
+    const buttons = within(screen.getByRole("banner")).getAllByRole("button");
+    expect(buttons.at(-2)).toBe(toDark());
+    expect(buttons.at(-1)).toBe(screen.getByRole("button", { name: texts.controls.leave }));
+    expect(toDark().className).toContain("bg-canvas");
+    expect(toDark().className).not.toContain("accent");
+  });
+
+  it.each(["loading", "lobby", "joining", "ended", "full", "banned", "kicked", "error"] as const)(
+    "stays light and has no theme button on the %s screen, even with dark remembered",
+    (phase) => {
+      localStorage.setItem(THEME_STORAGE_KEY, "dark");
+      renderApp({ state: makeState({ phase }) });
+
+      expect(themeOnPage()).toBeNull();
+      expect(screen.queryByRole("button", { name: texts.room.themeToDark })).toBeNull();
+      expect(screen.queryByRole("button", { name: texts.room.themeToLight })).toBeNull();
+    },
+  );
+
+  it("stays light and has no theme button on the home page", () => {
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    renderApp({ path: "/" });
+
+    expect(screen.getByRole("button", { name: texts.home.create })).toBeTruthy();
+    expect(themeOnPage()).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.room.themeToLight })).toBeNull();
+  });
+
+  it("goes back to light when the person leaves the room, keeping the choice for the next one", async () => {
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    renderApp({ state: makeConnectedState() });
+    expect(themeOnPage()).toBe("dark");
+
+    fireEvent.click(screen.getByRole("button", { name: texts.controls.leave }));
+
+    expect(await screen.findByRole("button", { name: texts.home.create })).toBeTruthy();
+    expect(themeOnPage()).toBeNull();
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+  });
 });
 
 describe("controls", () => {
@@ -419,7 +613,7 @@ describe("controls", () => {
     const hand = screen.getByRole("button", { name: texts.controls.handLower });
     expect(hand.getAttribute("aria-pressed")).toBe("true");
     expect(hand.dataset.active).toBe("true");
-    expect(screen.getByRole("button", { name: texts.controls.leave }).dataset.active).toBeUndefined();
+    expect(screen.getByRole("button", { name: texts.controls.copyLink }).dataset.active).toBeUndefined();
   });
 
   it("opens the microphone, which starts muted", () => {
@@ -477,8 +671,9 @@ describe("controls", () => {
     fireEvent.click(screen.getByRole("button", { name: texts.controls.handRaise }));
     expect(actions.setHandRaised).toHaveBeenCalledWith(true);
 
-    fireEvent.click(screen.getByRole("button", { name: texts.controls.reactions }));
+    // One reaction per opening of the picker.
     for (const reaction of REACTIONS) {
+      fireEvent.click(screen.getByRole("button", { name: texts.controls.reactions }));
       fireEvent.click(screen.getByRole("button", { name: texts.controls.react(reaction) }));
     }
     expect(actions.react.mock.calls.map(([reaction]) => reaction)).toEqual([...REACTIONS]);
@@ -489,6 +684,28 @@ describe("controls", () => {
     fireEvent.click(screen.getByRole("button", { name: texts.controls.leave }));
     expect(actions.leave).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole("button", { name: texts.home.create })).toBeTruthy();
+  });
+
+  it("closes the reactions picker after one reaction, and opens it again on request", () => {
+    const actions = makeActions();
+    renderApp({ state: makeConnectedState(), actions });
+    const opener = screen.getByRole("button", { name: texts.controls.reactions });
+    const picker = () => screen.queryByRole("group", { name: texts.controls.reactions });
+
+    expect(picker()).toBeNull();
+    fireEvent.click(opener);
+    expect(picker()).toBeTruthy();
+    expect(opener.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: texts.controls.react(REACTIONS[0]) }));
+    expect(actions.react).toHaveBeenCalledTimes(1);
+    expect(picker()).toBeNull();
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+    // The focus goes back to the button that opens the picker.
+    expect(document.activeElement).toBe(opener);
+
+    fireEvent.click(opener);
+    expect(picker()).toBeTruthy();
   });
 });
 

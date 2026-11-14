@@ -1,15 +1,16 @@
 import { Button } from "@heroui/react";
 import { REACTIONS } from "@sualive/config";
+import type { Reaction } from "@sualive/config";
 import type { VideoKind } from "@sualive/media";
-import { useState } from "react";
-import type { ReactNode } from "react";
+import { useRef, useState } from "react";
+import type { ReactNode, Ref } from "react";
 import type { RoomActions, RoomState } from "../../lib/room";
 import { texts } from "../../texts";
+import { Hint } from "../Hint";
 import {
   CameraIcon,
   CameraOffIcon,
   HandIcon,
-  LeaveIcon,
   LinkIcon,
   MicIcon,
   MicOffIcon,
@@ -19,7 +20,7 @@ import {
 } from "../icons";
 
 interface ControlButtonProps {
-  /** Accessible name: says what pressing does now. */
+  /** Accessible name and hint: says what pressing does now. */
   label: string;
   /** Short visible caption on wide screens. */
   caption: string;
@@ -30,6 +31,7 @@ interface ControlButtonProps {
   expanded?: boolean;
   disabled?: boolean;
   onPress: () => void;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 function ControlButton({
@@ -41,23 +43,27 @@ function ControlButton({
   expanded,
   disabled,
   onPress,
+  ref,
 }: ControlButtonProps) {
   return (
-    <Button
-      variant="primary"
-      aria-label={label}
-      aria-pressed={pressed}
-      aria-expanded={expanded}
-      isDisabled={disabled}
-      onPress={onPress}
-      data-active={active ? "true" : undefined}
-      className={`h-11 min-w-11 shrink-0 rounded-button border-2 px-3 text-body-sm font-normal xl:px-4 ${
-        active ? "border-ink" : "border-transparent"
-      }`}
-    >
-      {icon}
-      <span className="hidden xl:inline">{caption}</span>
-    </Button>
+    <Hint text={label}>
+      <Button
+        ref={ref}
+        variant="primary"
+        aria-label={label}
+        aria-pressed={pressed}
+        aria-expanded={expanded}
+        isDisabled={disabled}
+        onPress={onPress}
+        data-active={active ? "true" : undefined}
+        className={`h-11 min-w-11 shrink-0 rounded-button border-2 px-3 text-body-sm font-normal xl:px-4 ${
+          active ? "border-ink" : "border-transparent"
+        }`}
+      >
+        {icon}
+        <span className="hidden xl:inline">{caption}</span>
+      </Button>
+    </Hint>
   );
 }
 
@@ -69,13 +75,14 @@ function run(result: Promise<void>) {
 interface ControlBarProps {
   state: RoomState;
   actions: RoomActions;
-  onLeave: () => void;
-  /** While reconnecting, nothing can be sent: only leaving stays available. */
+  /** While reconnecting, nothing can be sent (leaving stays available in the header). */
   disabled?: boolean;
 }
 
-export function ControlBar({ state, actions, onLeave, disabled = false }: ControlBarProps) {
+/** The actions of the room. Leaving is not one of them: it lives in the header. */
+export function ControlBar({ state, actions, disabled = false }: ControlBarProps) {
   const [reactionsOpen, setReactionsOpen] = useState(false);
+  const reactionsButtonRef = useRef<HTMLButtonElement>(null);
 
   const localVideoOf = (kind: VideoKind) =>
     state.videos.find((video) => video.isLocal && video.kind === kind);
@@ -86,6 +93,13 @@ export function ControlBar({ state, actions, onLeave, disabled = false }: Contro
   const toggleVideo = (kind: VideoKind, current: { id: string } | undefined) => {
     if (current) actions.stopVideo(current.id);
     else run(actions.startVideo(kind));
+  };
+
+  /** One reaction per opening: the picker closes and the focus goes back to its button. */
+  const react = (reaction: Reaction) => {
+    actions.react(reaction);
+    setReactionsOpen(false);
+    reactionsButtonRef.current?.focus();
   };
 
   return (
@@ -102,7 +116,7 @@ export function ControlBar({ state, actions, onLeave, disabled = false }: Contro
               type="button"
               aria-label={texts.controls.react(reaction)}
               disabled={disabled}
-              onClick={() => actions.react(reaction)}
+              onClick={() => react(reaction)}
               className="inline-flex size-11 cursor-pointer items-center justify-center rounded-button text-kicker hover:bg-mist"
             >
               {reaction}
@@ -157,6 +171,7 @@ export function ControlBar({ state, actions, onLeave, disabled = false }: Contro
           onPress={() => actions.setHandRaised(!state.handRaised)}
         />
         <ControlButton
+          ref={reactionsButtonRef}
           label={texts.controls.reactions}
           caption={texts.controls.reactionsShort}
           icon={<SmileIcon />}
@@ -169,12 +184,6 @@ export function ControlBar({ state, actions, onLeave, disabled = false }: Contro
           caption={texts.controls.copyShort}
           icon={<LinkIcon />}
           onPress={() => run(actions.copyLink())}
-        />
-        <ControlButton
-          label={texts.controls.leave}
-          caption={texts.controls.leaveShort}
-          icon={<LeaveIcon />}
-          onPress={onLeave}
         />
       </div>
     </div>

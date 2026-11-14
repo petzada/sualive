@@ -1,8 +1,11 @@
+import { Button } from "@heroui/react";
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { RoomActions, RoomState } from "../../lib/room";
+import { useRoomTheme } from "../../lib/theme";
 import { texts } from "../../texts";
-import { Spinner, VoiceBars } from "../icons";
+import { Hint } from "../Hint";
+import { LeaveIcon, MoonIcon, Spinner, SunIcon, VoiceBars } from "../icons";
 import { ChatPanel } from "./ChatPanel";
 import { ControlBar } from "./ControlBar";
 import { VoiceOutputs } from "./media";
@@ -13,14 +16,22 @@ import { Stage } from "./Stage";
 type PanelTab = "chat" | "people";
 const TABS: PanelTab[] = ["chat", "people"];
 
+/** Header buttons (theme, leave): neutral, unlike the filled actions of the bar below. */
+const NEUTRAL_PILL = "shrink-0 rounded-button bg-canvas text-ink shadow-outline-soft";
+
 interface RoomViewProps {
   state: RoomState;
   actions: RoomActions;
   onLeave: () => void;
 }
 
-/** The room itself. Also rendered while reconnecting, so the layout never jumps. */
+/**
+ * The room itself. Also rendered while reconnecting, so the layout never jumps. The only screen
+ * with a dark theme: it is applied while this is mounted and undone when the person leaves.
+ */
 export function RoomView({ state, actions, onLeave }: RoomViewProps) {
+  const { theme, toggleTheme } = useRoomTheme();
+  const themeLabel = theme === "dark" ? texts.room.themeToLight : texts.room.themeToDark;
   const [tab, setTab] = useState<PanelTab>("chat");
   // Last chat message seen before the person switched to the people tab (small screens).
   const [seenChatId, setSeenChatId] = useState<string | null>(null);
@@ -48,7 +59,10 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
 
   return (
     <div className="flex h-dvh flex-col bg-mist">
-      {/* Small screens: the reconnecting message takes a row of its own, so it is never cut. */}
+      {/*
+        Small screens: who is speaking and the reconnecting message take a second row (always
+        reserved, so the stage does not jump when someone starts to speak).
+      */}
       <header className="grid min-h-11 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-4 pt-1">
         <div className="flex min-w-0 items-center gap-2">
           <p className="truncate text-compact font-medium sm:text-body-sm" data-testid="room-code">
@@ -63,27 +77,48 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
           </span>
         </div>
         <h1 className="text-center font-display text-title font-semibold">{texts.home.title}</h1>
-        <div className="flex min-w-0 items-center justify-end lg:hidden">
-          {speakers.length > 0 && (
-            <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted">
-              <VoiceBars />
-              <span className="truncate">
-                {speakers.map((participant) => participant.nickname).join(", ")}
+        {/* Wide screens: one cell at the right. Small screens: the buttons stay in the first row. */}
+        <div className="contents lg:flex lg:min-w-0 lg:items-center lg:justify-end lg:gap-2">
+          <div className="col-span-3 row-start-2 flex min-h-5 min-w-0 items-center justify-center gap-3 lg:min-h-0">
+            {speakers.length > 0 && (
+              <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted lg:hidden">
+                <VoiceBars />
+                <span className="truncate">
+                  {speakers.map((participant) => participant.nickname).join(", ")}
+                </span>
               </span>
-            </span>
-          )}
-        </div>
-        <div
-          role="status"
-          aria-live="polite"
-          className="col-span-3 min-w-0 justify-self-center text-body-sm lg:col-span-1 lg:justify-self-end"
-        >
-          {reconnecting && (
-            <span className="mb-1 flex items-center gap-2 rounded-button bg-canvas px-3 py-1.5 shadow-outline lg:mb-0">
-              <Spinner />
-              <span className="truncate">{texts.room.reconnecting}</span>
-            </span>
-          )}
+            )}
+            <div role="status" aria-live="polite" className="min-w-0 text-body-sm">
+              {reconnecting && (
+                <span className="mb-1 flex items-center gap-2 rounded-button bg-canvas px-3 py-1.5 shadow-outline lg:mb-0">
+                  <Spinner />
+                  <span className="truncate">{texts.room.reconnecting}</span>
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="col-start-3 row-start-1 flex shrink-0 items-center justify-end gap-1.5">
+            <Hint text={themeLabel} placement="bottom">
+              <Button
+                isIconOnly
+                aria-label={themeLabel}
+                className={`size-11 ${NEUTRAL_PILL}`}
+                onPress={toggleTheme}
+              >
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </Button>
+            </Hint>
+            <Hint text={texts.controls.leave} placement="bottom">
+              <Button
+                aria-label={texts.controls.leave}
+                className={`h-11 min-w-11 px-3 text-body-sm font-normal ${NEUTRAL_PILL}`}
+                onPress={onLeave}
+              >
+                <LeaveIcon />
+                <span className="hidden sm:inline">{texts.controls.leaveShort}</span>
+              </Button>
+            </Hint>
+          </div>
         </div>
       </header>
 
@@ -164,7 +199,7 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
         </aside>
       </main>
 
-      <ControlBar state={state} actions={actions} onLeave={onLeave} disabled={reconnecting} />
+      <ControlBar state={state} actions={actions} disabled={reconnecting} />
       <VoiceOutputs participants={state.participants} />
     </div>
   );
