@@ -325,7 +325,7 @@ function Payment({ cycle, checkout, actions, onRetry }: PaymentProps) {
       </div>
 
       {status === "paid" && (
-        <Link to={PATHS.profile} className={`self-start ${PRIMARY_LINK}`}>
+        <Link to={PATHS.plan} className={`self-start ${PRIMARY_LINK}`}>
           {texts.plus.checkout.paidAction}
         </Link>
       )}

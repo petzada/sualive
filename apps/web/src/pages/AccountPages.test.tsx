@@ -614,7 +614,7 @@ describe("plan", () => {
     expect(live?.textContent).toBe(texts.plus.checkout.paid);
     expect(payment.queryByAltText(texts.plus.checkout.qrAlt)).toBeNull();
     expect(payment.getByRole("link", { name: texts.plus.checkout.paidAction }).getAttribute("href")).toBe(
-      "/perfil",
+      "/plano",
     );
   });
 

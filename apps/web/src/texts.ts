@@ -382,7 +382,7 @@ export const texts = {
       pending: "Aguardando o pagamento…",
       paidTitle: "Pagamento confirmado",
       paid: `Seu Plus está ativo. Você já transmite em ${PLUS_QUALITY}, pode ligar ${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo, tem o link fixo no seu @nome, o tema de sala e o selo.`,
-      paidAction: "Ver o meu perfil",
+      paidAction: "Ver o meu plano",
       expired: "O QR Code venceu antes do pagamento.",
       failed: "O pagamento não foi concluído.",
       retry: "Gerar outro QR Code",
