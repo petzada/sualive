@@ -133,7 +133,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Pagamento",
     blocks: [
-      "O Plus é pago por Pix, processado pela Woovi. Para gerar a cobrança pedimos o seu CPF, que é enviado à Woovi. O CPF é usado só para a cobrança e guardamos apenas o necessário para ela.",
+      "O Plus é pago por Pix, processado pela Woovi. Para gerar a cobrança pedimos o seu CPF. Nós não guardamos o CPF: ele só passa pelo nosso servidor a caminho da Woovi, que processa o Pix.",
       "Guardamos o estado da assinatura (ciclo, período pago, situação) e o registro de cada cobrança.",
       { pending: "prazo de guarda dos registros de cobrança e base legal de cada tratamento" },
     ],
@@ -362,7 +362,7 @@ export const texts = {
       cpfLabel: "CPF",
       cpfPlaceholder: "000.000.000-00",
       cpfWhy:
-        "O CPF é exigido para gerar a cobrança por Pix. Usamos só para isso e guardamos apenas o necessário para a cobrança.",
+        "O CPF é exigido para gerar a cobrança por Pix. Nós não guardamos o CPF: ele só passa pelo nosso servidor a caminho da Woovi, que processa o Pix.",
       cpfInvalid: "CPF inválido. Confira os números.",
       submit: "Gerar o QR Code",
       submitting: "Gerando a cobrança…",
