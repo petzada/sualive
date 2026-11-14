@@ -142,7 +142,7 @@ const TERMS_SECTIONS: LegalSection[] = [
   {
     title: "Mudanças nestes Termos de Uso",
     blocks: [
-      "Quando estes Termos de Uso mudarem, a versão indicada no topo desta página muda junto. Mudanças importantes serão avisadas no próprio serviço. Continuar usando o serviço depois da mudança vale como aceite da nova versão.",
+      "Quando estes Termos de Uso mudarem, a versão indicada no topo desta página muda junto. Quem tem conta vê, depois do login, uma faixa de aviso no topo do serviço, com a data da mudança e o link para os Termos de Uso atualizados. Continuar usando o serviço depois da mudança vale como aceite da nova versão.",
     ],
   },
   {
@@ -168,8 +168,9 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Com conta",
     blocks: [
-      "A conta é criada pelo login do Google ou do Discord. Não guardamos o seu e-mail nem a sua senha.",
-      "Guardamos: o identificador da sua conta no Google ou no Discord (para reconhecer você no próximo login), o @nome, o apelido, o endereço da foto do perfil nesses serviços, o registro do aceite dos Termos de Uso (com a versão aceita) e a declaração de que você tem a idade mínima.",
+      "A conta é criada pelo login do Google ou do Discord. Não guardamos a sua senha.",
+      "Guardamos: o identificador da sua conta no Google ou no Discord (para reconhecer você no próximo login), o e-mail informado pelo Google ou pelo Discord no login, o @nome, o apelido, o endereço da foto do perfil nesses serviços, o registro do aceite dos Termos de Uso (com a versão aceita) e a declaração de que você tem a idade mínima.",
+      "O e-mail serve para entrarmos em contato com você e para enviar avisos de cobrança. Não usamos o e-mail para marketing.",
       "Para manter você logado usamos um cookie de sessão, que só o servidor lê.",
     ],
   },
@@ -212,7 +213,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Excluir a conta",
     blocks: [
-      "Você exclui a conta pela página do perfil. A exclusão apaga os seus dados pessoais: @nome, apelido, endereço da foto, vínculo com o Google ou o Discord, aceite dos Termos de Uso e declaração de idade. Registros de cobrança que precisem ser mantidos deixam de estar ligados à conta.",
+      "Você exclui a conta pela página do perfil. A exclusão apaga os seus dados pessoais: e-mail, @nome, apelido, endereço da foto, vínculo com o Google ou o Discord, aceite dos Termos de Uso e declaração de idade. Registros de cobrança que precisem ser mantidos deixam de estar ligados à conta.",
     ],
   },
   {
@@ -231,7 +232,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Mudanças nestas Políticas de Privacidade",
     blocks: [
-      "Quando estas Políticas de Privacidade mudarem, a versão indicada no topo desta página muda junto. Mudanças importantes serão avisadas no próprio serviço.",
+      "Quando estas Políticas de Privacidade mudarem, a versão indicada no topo desta página muda junto. Quem tem conta vê, depois do login, uma faixa de aviso no topo do serviço, com a data da mudança e o link para os Termos de Uso atualizados. Continuar usando o serviço depois da mudança vale como aceite da nova versão.",
     ],
   },
 ];
@@ -499,6 +500,16 @@ export const texts = {
     pendingLabel: "Pendente de preenchimento pelo responsável:",
     terms: { title: "Termos de Uso", sections: TERMS_SECTIONS },
     privacy: { title: "Políticas de Privacidade", sections: PRIVACY_SECTIONS },
+  },
+  /** Notice at the top after the legal texts change: the date, `before`, the link and `after`. */
+  termsBanner: {
+    label: "Aviso sobre os Termos de Uso",
+    before: ": atualizamos os ",
+    link: "Termos de Uso",
+    after: ". Continuar usando o serviço vale como aceite.",
+    close: "Fechar aviso",
+    /** What the close button shows: only the letter. */
+    closeMark: "x",
   },
   turnstile: {
     failed: "Não foi possível concluir a verificação contra robôs.",

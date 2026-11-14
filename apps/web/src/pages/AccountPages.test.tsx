@@ -1054,6 +1054,25 @@ describe("legal pages", () => {
     },
   );
 
+  it("says that the e-mail of the login is kept, what it is for and that deleting the account erases it", () => {
+    renderApp({ path: "/privacidade" });
+
+    const page = screen.getByRole("main").textContent;
+    expect(page).toContain("o e-mail informado pelo Google ou pelo Discord no login");
+    expect(page).toContain("entrarmos em contato com você e para enviar avisos de cobrança");
+    expect(page).toContain("Não usamos o e-mail para marketing");
+    expect(page).toContain("A exclusão apaga os seus dados pessoais: e-mail,");
+    expect(page).not.toContain("Não guardamos o seu e-mail");
+  });
+
+  it.each(["/termos", "/privacidade"])("says in %s how a change is announced", (path) => {
+    renderApp({ path });
+
+    const page = screen.getByRole("main").textContent;
+    expect(page).toContain("faixa de aviso no topo do serviço, com a data da mudança e o link");
+    expect(page).toContain("Continuar usando o serviço depois da mudança vale como aceite");
+  });
+
   it("calls the two documents by their names, with the capitals, everywhere", () => {
     expect(texts.nav.terms).toBe("Termos de Uso");
     expect(texts.nav.privacy).toBe("Políticas de Privacidade");

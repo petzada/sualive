@@ -9,6 +9,7 @@ import {
   PLUS_MONTHLY_PERIOD_DAYS,
   PLUS_MONTHLY_PRICE_CENTS,
   RESERVED_HANDLES,
+  TERMS_VERSION,
 } from "@sualive/config";
 import type { MeUser, Plan } from "@sualive/protocol";
 import { useSyncExternalStore } from "react";
@@ -19,6 +20,7 @@ export const DEMO_ACCOUNTS = [
   "anon",
   "novo",
   "gratis",
+  "aviso",
   "mensal",
   "anual",
   "vencendo",
@@ -32,6 +34,7 @@ export const DEMO_ACCOUNT_LABELS: Record<DemoAccount, string> = {
   anon: "Sem login",
   novo: "Logado, sem primeiro acesso",
   gratis: "Conta gratuita",
+  aviso: "Conta gratuita com aviso de mudança dos termos",
   mensal: "Plus mensal ativo",
   anual: "Plus anual ativo",
   vencendo: "Plus anual a 5 dias de vencer",
@@ -107,7 +110,7 @@ function userOf(account: DemoAccount): MeUser | null {
     plan,
     roomTheme: "default",
     handleChangeAvailableAt: account === "cancelado" ? Date.now() + 12 * DAY_MS : null,
-    termsUpdate: null,
+    termsUpdate: account === "aviso" ? TERMS_VERSION : null,
   };
 }
 

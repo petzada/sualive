@@ -110,7 +110,8 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
   const tabLabel = { chat: texts.room.tabs.chat, people: texts.room.tabs.people(state.participants.length) };
 
   return (
-    <div className="flex h-dvh flex-col bg-mist">
+    // The window, less the notice about the Termos de Uso when it is at the top (`TermsBanner`).
+    <div className="flex h-[calc(100dvh_-_var(--terms-banner-height,0px))] flex-col bg-mist">
       {/*
         At the left, starting at the left edge of the stage below (same side padding as `main`): the
         name of the product and, right beside it, the room in gray, as a breadcrumb. At the right,
