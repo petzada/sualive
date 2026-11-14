@@ -3,7 +3,7 @@ import { serverTexts } from "../src/texts";
 import { fetchWithEnv } from "./helpers";
 
 const INDEX_HTML =
-  '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8" /><title>sualive</title></head><body><div id="root"></div></body></html>';
+  '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8" /><title>sualive</title><meta name="description" content="genérica" /><meta property="og:title" content="sualive" /><meta property="og:image" content="/og.png" /><meta name="twitter:card" content="summary" /></head><body><div id="root"></div></body></html>';
 
 function fakeAssets(requested: string[]): Fetcher {
   return {
