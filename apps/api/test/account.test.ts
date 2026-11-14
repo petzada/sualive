@@ -57,7 +57,7 @@ describe("início do login", () => {
     expect(state.length).toBeGreaterThan(20);
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
     expect(location.searchParams.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(location.searchParams.get("scope")).toBe("openid profile");
+    expect(location.searchParams.get("scope")).toBe("openid profile email");
     expect(location.searchParams.get("redirect_uri")).toBe(`${ORIGIN}/api/auth/google/callback`);
     const flow = setCookies(response).get(OAUTH_COOKIE);
     expect(flow?.raw).toMatch(/HttpOnly/);
@@ -69,11 +69,11 @@ describe("início do login", () => {
     expect(location.searchParams.get("code_verifier")).toBeNull();
   });
 
-  it("redireciona ao Discord só com o escopo identify", async () => {
+  it("redireciona ao Discord só com os escopos identify e email", async () => {
     const { response, location } = await startLogin("discord");
     expect(response.status).toBe(302);
     expect(location.origin + location.pathname).toBe("https://discord.com/oauth2/authorize");
-    expect(location.searchParams.get("scope")).toBe("identify");
+    expect(location.searchParams.get("scope")).toBe("identify email");
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
   });
 
@@ -99,7 +99,7 @@ describe("início do login", () => {
 });
 
 describe("retorno do login", () => {
-  it("cria conta nova sem @nome nem e-mail e manda para as boas-vindas", async () => {
+  it("cria conta nova sem @nome, com o e-mail, e manda para as boas-vindas", async () => {
     const providerUserId = `g-${crypto.randomUUID()}`;
     const fake = fakeOAuthProviders({
       novo: {
@@ -146,9 +146,9 @@ describe("retorno do login", () => {
       .where(eq(oauthAccounts.providerUserId, providerUserId));
     expect(link?.provider).toBe("google");
     const [row] = await testDb().select().from(users).where(eq(users.id, link!.userId));
-    // Nenhum e-mail gravado em lugar nenhum da conta.
-    expect(JSON.stringify(row)).not.toContain("maria@example.test");
-    expect(JSON.stringify(row)).not.toContain("@");
+    // O e-mail verificado fica só na coluna própria, nunca na resposta da API.
+    expect(row?.email).toBe("maria@example.test");
+    expect(JSON.stringify(me)).not.toContain("maria@example.test");
     // No D1 fica só o hash do token.
     const token = accountCookie!.split("=")[1]!;
     const [session] = await testDb().select().from(sessions).where(eq(sessions.userId, link!.userId));

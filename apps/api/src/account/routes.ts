@@ -98,6 +98,20 @@ me.post("/onboarding", async (c) => {
   }
 });
 
+// Faixa de termos atualizados fechada ou link aberto: grava a versão vista. Idempotente.
+me.post("/terms-seen", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user) return apiError(c, "unauthorized");
+  if (!isOnboarded(user)) return apiError(c, "onboarding_required");
+  const updated = await createDb(c.env.DB)
+    .update(users)
+    .set({ termsSeenVersion: TERMS_VERSION })
+    .where(eq(users.id, user.id))
+    .returning();
+  if (updated.length === 0) return apiError(c, "unauthorized");
+  return c.json(await toMeUser(c.env, updated[0]!));
+});
+
 me.patch("/", async (c) => {
   const user = await getSessionUser(c);
   if (!user) return apiError(c, "unauthorized");
