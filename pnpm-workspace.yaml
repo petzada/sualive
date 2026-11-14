@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+minimumReleaseAgeExclude:
+  - "@cloudflare/workers-types@5.20261114.1"
+  - "@eslint/config-array@0.23.6"
+  - eslint@10.15.0
+  - jsdom@31.0.1
+  - miniflare@5.20261113.0-beta
+  - wrangler@4.162.0
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  workerd: true

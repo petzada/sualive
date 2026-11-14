@@ -1,0 +1,23 @@
+{
+  "name": "@sualive/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
+    "test": "vitest --run --passWithNoTests",
+    "test:related": "vitest related --run --passWithNoTests",
+    "test:ci": "vitest --run --passWithNoTests",
+    "e2e": "node -e \"\"",
+    "build": "node -e \"\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
+  }
+}
