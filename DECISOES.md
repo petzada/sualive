@@ -282,6 +282,7 @@ Quem quiser cria conta em dois cliques, ganha um perfil e pode assinar o Plus po
 - Em sala direta, o assinante transmite em até 1080p a 60 fps e até 2 vídeos ao mesmo tempo. Vale em
   qualquer sala, por pessoa. O teto de 4 vídeos da sala e o limite de 720p na retransmissão continuam.
 - Link fixo: uma sala permanente por assinante no endereço do @nome dele. Ela não expira quando esvazia.
+  No cabeçalho da sala, onde a sala comum mostra o código, a sala de link fixo mostra o @nome.
 - Tema de sala: o dono Plus escolhe um entre 6 temas prontos de cores e fundo **[padrão]**.
 - Selo de Plus ao lado do nome.
 - Selo de apoiador inicial, permanente, para os **100 primeiros** que pagarem o Plus (mensal ou anual).
