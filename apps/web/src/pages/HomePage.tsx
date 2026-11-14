@@ -2,6 +2,7 @@ import { Button } from "@heroui/react";
 import { ROOM_PATH_PREFIX } from "@sualive/config";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { ManifestoCard } from "../components/ManifestoCard";
 import { useRoomClient } from "../components/room/RoomClient";
 import { TurnstileField } from "../components/TurnstileField";
 import { useTurnstileAction } from "../components/useTurnstileAction";
@@ -33,43 +34,49 @@ export function HomePage() {
   const busy = turnstile.status !== "idle";
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center gap-gap px-5 py-16 text-center">
-      <h1 className="font-display text-heading font-semibold sm:text-display-sm lg:text-display">
-        {texts.home.title}
-      </h1>
-      <p className="max-w-xl">
-        {texts.home.tagline.map((line) => (
-          <span key={line} className="block">
-            {line}
-          </span>
-        ))}
-      </p>
+    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center px-5 py-16">
+      <div className="grid items-center gap-10 perspective-[1000px] md:grid-cols-2 md:gap-12">
+        <div className="flex flex-col items-center gap-gap text-center">
+          <h1 className="font-display text-heading font-semibold sm:text-display-sm lg:text-display">
+            {texts.home.title}
+          </h1>
+          <p className="max-w-xl">
+            {texts.home.tagline.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
+          </p>
 
-      <Button
-        variant="primary"
-        className="mt-2 min-h-12 rounded-button px-7 text-body font-medium"
-        isDisabled={busy}
-        onPress={() => {
-          setFailure(null);
-          turnstile.trigger();
-        }}
-      >
-        {busy && <Spinner />}
-        {turnstile.status === "running"
-          ? texts.home.creating
-          : turnstile.status === "waiting"
-            ? texts.turnstile.checking
-            : texts.home.create}
-      </Button>
-      <p className="text-body-sm text-muted">{texts.home.hint}</p>
+          <Button
+            variant="primary"
+            className="mt-2 min-h-12 rounded-button px-7 text-body font-medium"
+            isDisabled={busy}
+            onPress={() => {
+              setFailure(null);
+              turnstile.trigger();
+            }}
+          >
+            {busy && <Spinner />}
+            {turnstile.status === "running"
+              ? texts.home.creating
+              : turnstile.status === "waiting"
+                ? texts.turnstile.checking
+                : texts.home.create}
+          </Button>
+          <p className="text-body-sm text-muted">{texts.home.hint}</p>
 
-      {failure && (
-        <p role="alert" className="max-w-md text-body-sm font-medium text-notice">
-          {texts.home.errors[failure]}
-        </p>
-      )}
+          {failure && (
+            <p role="alert" className="max-w-md text-body-sm font-medium text-notice">
+              {texts.home.errors[failure]}
+            </p>
+          )}
 
-      <TurnstileField {...turnstile} />
+          <TurnstileField {...turnstile} />
+        </div>
+
+        <ManifestoCard />
+      </div>
     </main>
   );
 }

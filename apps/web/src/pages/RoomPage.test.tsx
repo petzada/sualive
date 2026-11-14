@@ -124,7 +124,7 @@ describe("lobby", () => {
       Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
     const button = screen.getByRole("button", { name: texts.lobby.join });
     const hint = screen.getByText(texts.lobby.mutedHint);
-    const turnstile = screen.getByRole("group", { name: texts.turnstile.label });
+    const turnstile = screen.getByTestId("turnstile");
 
     expect(isBefore(nicknameInput(), button)).toBe(true);
     expect(isBefore(button, hint)).toBe(true);
