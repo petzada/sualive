@@ -130,6 +130,14 @@ export const MoreIcon = () => (
   </Icon>
 );
 
+/** A coin: the gold of the wallet (drawn in the text color, like every other icon). */
+export const CoinIcon = () => (
+  <Icon>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="4" />
+  </Icon>
+);
+
 export const ArrowDownIcon = () => (
   <Icon>
     <path d="M12 5v14M6 13l6 6 6-6" />

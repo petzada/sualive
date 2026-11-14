@@ -5,6 +5,7 @@ import type { FormEvent, KeyboardEvent } from "react";
 import type { ParticipantView } from "../../lib/room";
 import { texts } from "../../texts";
 import { Badges } from "../account/Badges";
+import { CosmeticFrame, CosmeticName } from "../cosmetics/Cosmetic";
 import { ArrowDownIcon, SendIcon } from "../icons";
 import { Avatar } from "./media";
 
@@ -18,7 +19,7 @@ const timeFormat = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "
 interface ChatPanelProps {
   messages: ChatMessage[];
   selfId: string | null;
-  /** People in the room now: gives the picture, the @handle and the badges of who wrote. */
+  /** People in the room now: the picture, the @handle, the badges and the cosmetics of who wrote. */
   participants?: ParticipantView[];
   onSend: (text: string) => void;
   /** `false` while the panel is hidden behind another tab. */
@@ -118,10 +119,14 @@ export function ChatPanel({
                   <header className="flex max-w-full items-baseline gap-2">
                     {author?.avatarUrl && (
                       <span className="shrink-0 self-center">
-                        <Avatar nickname={message.nickname} avatarUrl={author.avatarUrl} size="xs" />
+                        <CosmeticFrame paint={author.cosmetics?.frame}>
+                          <Avatar nickname={message.nickname} avatarUrl={author.avatarUrl} size="xs" />
+                        </CosmeticFrame>
                       </span>
                     )}
-                    <span className="truncate font-semibold">{message.nickname}</span>
+                    <CosmeticName paint={author?.cosmetics?.name} className="truncate font-semibold">
+                      {message.nickname}
+                    </CosmeticName>
                     {author && <Badges badges={author.badges} />}
                     {author?.handle && (
                       <span className="min-w-0 shrink truncate text-compact text-muted">

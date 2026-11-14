@@ -667,6 +667,31 @@ export const texts = {
     confirmKickAction: "Remover",
     confirmBanAction: "Banir",
   },
+  /** Sending gold to someone in the room. Amounts arrive already formatted ("1.000"). */
+  gifts: {
+    send: (nickname: string) => `Enviar ouro para ${nickname}`,
+    amountLabel: "Valor em ouro",
+    balance: (gold: string) => `Seu saldo: ${gold} de ouro`,
+    remainingToday: (gold: string) => `Hoje você ainda pode enviar ${gold} de ouro`,
+    walletLoading: "Carregando o seu saldo…",
+    walletError: "Não foi possível carregar o seu saldo.",
+    next: "Continuar",
+    confirmQuestion: (gold: string, nickname: string) => `Enviar ${gold} de ouro para ${nickname}?`,
+    confirm: "Confirmar envio",
+    sending: "Enviando…",
+    sent: (gold: string, nickname: string) => `Você enviou ${gold} de ouro para ${nickname}.`,
+    /** Seen by everyone in the room. */
+    notice: (from: string, gold: string, to: string) => `${from} enviou ${gold} de ouro para ${to}`,
+    invalidAmount: (max: string) => `Digite um valor inteiro de 1 a ${max}.`,
+    errors: {
+      insufficient_funds: "Você não tem ouro suficiente para este envio.",
+      daily_limit: "Este envio passa do seu limite de ouro enviado por dia.",
+      not_allowed: "Não dá para enviar ouro a esta pessoa.",
+      not_found: "Esta pessoa não está mais na sala.",
+      error: "Não foi possível enviar o ouro. Tente de novo.",
+      lost: "Não deu para confirmar o envio. Confira o extrato da sua carteira antes de tentar de novo.",
+    },
+  },
   controls: {
     label: "Controles da sala",
     micOn: "Ligar microfone",

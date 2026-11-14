@@ -9,6 +9,7 @@ import { LeaveIcon, MoonIcon, Spinner, SunIcon, VoiceBars } from "../icons";
 import { AccountShortcuts } from "./AccountShortcuts";
 import { ChatPanel } from "./ChatPanel";
 import { ControlBar } from "./ControlBar";
+import { GiftNotices } from "./GoldGift";
 import { VoiceOutputs } from "./media";
 import { NoticeBanner } from "./NoticeBanner";
 import { PeopleList } from "./PeopleList";
@@ -190,6 +191,7 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
         <Stage state={state} onFeature={actions.setFeaturedVideo} className="shrink-0 lg:min-h-0 lg:flex-1" />
 
         <aside className="flex min-h-0 flex-1 flex-col gap-2 lg:w-88 lg:flex-none lg:gap-3">
+          <GiftNotices gifts={state.gifts} />
           <div
             role="tablist"
             aria-label={texts.room.tabs.label}
@@ -235,6 +237,8 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
               participants={state.participants}
               isOwner={state.isOwner}
               onModerate={actions.moderate}
+              canSendGold={state.canSendGold && !reconnecting}
+              onSendGold={actions.sendGold}
             />
           </section>
 
