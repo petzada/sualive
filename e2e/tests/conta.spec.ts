@@ -1,4 +1,10 @@
-import { FREE_VIDEO_QUALITY, PLUS_VIDEO_QUALITY } from "@sualive/config";
+import {
+  FREE_VIDEO_QUALITY,
+  PLUS_GIFT_DAYS,
+  PLUS_GIFT_PRICE_GOLD,
+  PLUS_VIDEO_QUALITY,
+  VIDEOS_PER_PERSON,
+} from "@sualive/config";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { texts } from "../../apps/web/src/texts";
 import { ACCOUNT_COOKIE, account, type AccountName } from "../accounts";
@@ -245,7 +251,9 @@ test("conta nova: o primeiro acesso vem antes de tudo e devolve ao destino", asy
   await expect(page.getByText(texts.handle.display("e2e_nova"), { exact: true })).toBeVisible();
 });
 
-test("conta gratuita: apelido do perfil na sala de um visitante, com 1 vídeo", async ({ browser }) => {
+test(`conta gratuita: apelido do perfil na sala de um visitante, com ${VIDEOS_PER_PERSON} vídeos`, async ({
+  browser,
+}) => {
   const nickname = "Gil Editado";
   const member = await newPerson(browser, "free");
   await member.page.goto("/perfil");
@@ -271,13 +279,17 @@ test("conta gratuita: apelido do perfil na sala de um visitante, com 1 vídeo", 
   await expect(controls(member.page).getByRole("button", { name: texts.controls.cameraOff })).toBeVisible();
   await expectRemoteVideo(guest.page, nickname, "camera");
 
-  // O segundo vídeo é recusado pelo servidor, com o aviso do limite gratuito.
+  // Sem Plus, câmera e tela juntas (o limite por pessoa fica com os testes da API).
+  expect(VIDEOS_PER_PERSON).toBeGreaterThanOrEqual(2);
   await startVideo(member.page, "screen");
-  await expect(member.page.getByText(texts.notices.videoPersonLimit)).toBeVisible();
-  await expect(controls(member.page).getByRole("button", { name: texts.controls.screenOff })).toHaveCount(0);
+  await expect(controls(member.page).getByRole("button", { name: texts.controls.screenOff })).toBeVisible();
+  await expectRemoteVideo(guest.page, nickname, "screen");
+  await expect(member.page.getByText(texts.notices.videoPersonLimit)).toHaveCount(0);
 });
 
-test("assinante: selo de Plus e 2 vídeos; quem não tem Plus continua com 1", async ({ browser }) => {
+test("assinante: selo de Plus e qualidade do Plus; quem não tem Plus transmite na gratuita", async ({
+  browser,
+}) => {
   const guest = await newPerson(browser);
   const roomPath = await createRoom(guest.page);
   await joinAsGuest(guest.page, "Ana");
@@ -306,10 +318,10 @@ test("assinante: selo de Plus e 2 vídeos; quem não tem Plus continua com 1", a
   await expect(controls(guest.page).getByRole("button", { name: texts.controls.cameraOff })).toBeVisible();
   await expectRemoteVideo(subscriber.page, "Ana", "camera");
   await startVideo(guest.page, "screen");
-  await expect(guest.page.getByText(texts.notices.videoPersonLimit)).toBeVisible();
-  await expect(controls(guest.page).getByRole("button", { name: texts.controls.screenOff })).toHaveCount(0);
+  await expect(controls(guest.page).getByRole("button", { name: texts.controls.screenOff })).toBeVisible();
+  await expectRemoteVideo(subscriber.page, "Ana", "screen");
 
-  // Qualidade de envio de cada um: 60 fps com Plus, 30 fps sem.
+  // Qualidade de envio de cada um: a do Plus para quem assina, a gratuita para quem não.
   await expect.poll(() => sentFrameRateCap(subscriber.page)).toBe(PLUS_VIDEO_QUALITY.frameRate);
   await expect.poll(() => sentFrameRateCap(guest.page)).toBe(FREE_VIDEO_QUALITY.frameRate);
 });
@@ -502,6 +514,7 @@ test("ouro enviado na sala: sai de quem envia, chega a quem recebe e a sala inte
 
 interface ShopEntry {
   id: string;
+  price: number;
   owned: boolean;
   equipped: boolean;
 }
@@ -520,27 +533,42 @@ test("loja: compra com prata e com ouro, equipa, e a sala mostra o nome colorido
   await page.getByRole("link", { name: texts.nav.shop, exact: true }).click();
   await expect(page.getByRole("heading", { name: texts.shop.title, level: 1 })).toBeVisible();
 
-  // Cor a 100, paga com prata.
+  // Preços do catálogo (cor 70, moldura e degradê 200 desde a migration 0006), lidos da API.
+  const priceOf = async (id: string) => (await shopItem(page, id))!.price;
+  const [redPrice, framePrice, gradientPrice] = [
+    await priceOf("color_red"),
+    await priceOf("frame_sky"),
+    await priceOf("gradient_ocean"),
+  ];
+  const seed = account("shopper");
+  const silver = seed.silver! - redPrice;
+  const gold = seed.gold! - framePrice;
+  // A conta da fumaça só faz sentido se a prata pagar a cor e não pagar o degradê depois dela.
+  expect(silver).toBeGreaterThanOrEqual(0);
+  expect(silver).toBeLessThan(gradientPrice);
+  expect(gold).toBeGreaterThanOrEqual(0);
+
+  // Cor paga com prata.
   const red = page.getByTestId("shop-item-color_red");
   await red.getByRole("button", { name: texts.shop.buyLabel("Vermelho") }).click();
   await red.getByRole("button", { name: texts.shop.payWith.silver }).click();
   await expect(red).toHaveAttribute("data-owned", "true");
-  expect(await walletOf(page)).toMatchObject({ silver: 200, gold: 500 });
+  expect(await walletOf(page)).toMatchObject({ silver, gold: seed.gold });
 
-  // Moldura a 300, paga com ouro.
+  // Moldura paga com ouro.
   const frame = page.getByTestId("shop-item-frame_sky");
   await frame.getByRole("button", { name: texts.shop.buyLabel("Céu") }).click();
   await frame.getByRole("button", { name: texts.shop.payWith.gold }).click();
   await expect(frame).toHaveAttribute("data-owned", "true");
-  expect(await walletOf(page)).toMatchObject({ silver: 200, gold: 200 });
+  expect(await walletOf(page)).toMatchObject({ silver, gold });
 
-  // Degradê a 300 com 200 de prata: recusado, e nada é entregue.
+  // Degradê com a prata que sobrou: recusado, e nada é entregue.
   const gradient = page.getByTestId("shop-item-gradient_ocean");
   await gradient.getByRole("button", { name: texts.shop.buyLabel("Oceano") }).click();
   await gradient.getByRole("button", { name: texts.shop.payWith.silver }).click();
   await expect(gradient.getByRole("alert")).toContainText(texts.wallet.errors.insufficientFunds);
   expect((await shopItem(page, "gradient_ocean"))?.owned).toBe(false);
-  expect(await walletOf(page)).toMatchObject({ silver: 200, gold: 200 });
+  expect(await walletOf(page)).toMatchObject({ silver, gold });
 
   await red.getByRole("button", { name: texts.shop.equipLabel("Vermelho") }).click();
   await expect(red).toHaveAttribute("data-equipped", "true");
@@ -569,7 +597,7 @@ test("carteira: saldos e extrato, envio de ouro por @nome com limite diário", a
 
   await page.goto("/carteira");
   await expect(page.getByRole("heading", { name: texts.wallet.title, level: 1 })).toBeVisible();
-  await expect(page.getByTestId("balance-gold")).toContainText("3.000");
+  await expect(page.getByTestId("balance-gold")).toContainText("2.400");
   await expect(page.getByTestId("balance-silver")).toContainText("300");
   await expect(page.getByTestId("wallet-notice")).toBeVisible();
   // Sem a Woovi neste ambiente, a compra de ouro fica indisponível (nada é creditado sem ela).
@@ -586,15 +614,18 @@ test("carteira: saldos e extrato, envio de ouro por @nome com limite diário", a
   // @nome com "@" e maiúsculas chega certo.
   await sendGold(`@${to.toUpperCase()}`, "1500");
   await expect.poll(async () => (await walletOf(receiver.page)).gold).toBe(1500);
-  expect(await walletOf(page)).toMatchObject({ gold: 1500, goldSentToday: 1500 });
+  const left = account("giver").gold! - 1500;
+  expect(await walletOf(page)).toMatchObject({ gold: left, goldSentToday: 1500 });
 
-  // 1.500 + 600 passaria de 2.000 no dia: recusado.
+  // 1.500 + 600 passaria de 2.000 no dia (o saldo cobriria): recusado.
+  expect(left).toBeGreaterThanOrEqual(600);
   await sendGold(to, "600");
   await expect(send.getByRole("alert")).toContainText(texts.wallet.errors.dailyLimit);
-  expect(await walletOf(page)).toMatchObject({ gold: 1500, goldSentToday: 1500 });
+  expect(await walletOf(page)).toMatchObject({ gold: left, goldSentToday: 1500 });
   expect((await walletOf(receiver.page)).gold).toBe(1500);
 
-  // Presente de Plus com 1.500 de ouro (custa 1.990): recusado, e quem receberia continua sem Plus.
+  // Presente de Plus com menos ouro do que ele custa: recusado, e quem receberia continua sem Plus.
+  expect(left).toBeLessThan(PLUS_GIFT_PRICE_GOLD);
   const gift = page.getByTestId("gift-plus");
   await gift.getByLabel(texts.wallet.giftPlus.handleLabel).fill(to);
   await gift.getByRole("button", { name: texts.wallet.giftPlus.submit }).click();
@@ -609,7 +640,9 @@ test("carteira: saldos e extrato, envio de ouro por @nome com limite diário", a
   await expect(entries.filter({ hasText: `@${handleOf("giver")}` })).toHaveCount(1);
 });
 
-test("presente de Plus: debita 1.990 de ouro e dá 30 dias de Plus a outra conta", async ({ browser }) => {
+test(`presente de Plus: debita ${PLUS_GIFT_PRICE_GOLD} de ouro e dá ${PLUS_GIFT_DAYS} dias de Plus a outra conta`, async ({
+  browser,
+}) => {
   const giver = await newPerson(browser, "plusGiver");
   const receiver = await newPerson(browser, "plusReceiver");
   await giver.page.goto("/carteira");
@@ -618,7 +651,10 @@ test("presente de Plus: debita 1.990 de ouro e dá 30 dias de Plus a outra conta
   await gift.getByRole("button", { name: texts.wallet.giftPlus.submit }).click();
   await gift.getByRole("button", { name: texts.wallet.giftPlus.confirm }).click();
   await expect(giver.page.getByText(texts.wallet.giftPlus.done(handleOf("plusReceiver")))).toBeVisible();
-  expect(await walletOf(giver.page)).toMatchObject({ gold: 10, goldSentToday: 0 });
+  expect(await walletOf(giver.page)).toMatchObject({
+    gold: account("plusGiver").gold! - PLUS_GIFT_PRICE_GOLD,
+    goldSentToday: 0,
+  });
 
   const user = (await me(receiver.page)).user as unknown as {
     plan: { plus: boolean; cycle: string | null; renews: boolean };

@@ -239,7 +239,8 @@ test("link de sala inexistente diz que a sala acabou e tem prévia para mensagei
 });
 
 test(`a sala aceita ${ROOM_MAX_PEOPLE} pessoas e recusa a seguinte`, async ({ browser }) => {
-  test.setTimeout(150_000);
+  // Cerca de 25 s por pessoa que entra.
+  test.setTimeout(25_000 * (ROOM_MAX_PEOPLE + 1));
   const owner = await newPerson(browser);
   const link = await createRoom(owner.page);
   await join(owner.page, "Pessoa 1");

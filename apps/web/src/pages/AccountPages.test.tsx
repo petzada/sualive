@@ -675,12 +675,12 @@ describe("plan", () => {
 
   it("takes the annual price from the configuration, with nothing written by hand", () => {
     renderApp({ path: "/plus" });
-    expect(PLUS_ANNUAL_PRICE_CENTS).toBe(15990);
-    expect(within(screen.getByTestId("cycle-annual")).getByText("R$ 159,90")).toBeTruthy();
+    expect(PLUS_ANNUAL_PRICE_CENTS).toBe(7990);
+    expect(within(screen.getByTestId("cycle-annual")).getByText("R$ 79,90")).toBeTruthy();
     // No amount lives in the copy: every "R$" on the page comes from the two prices of the config.
     const amounts = document.body.textContent?.replace(/\s/g, " ").match(/R\$ [\d.,]+\d/g);
     expect(amounts).toEqual([money(PLUS_MONTHLY_PRICE_CENTS), money(PLUS_ANNUAL_PRICE_CENTS)]);
-    expect(JSON.stringify(texts)).not.toMatch(/R\$|159,90|19,90/);
+    expect(JSON.stringify(texts)).not.toMatch(/R\$|79,90|9,90/);
   });
 
   it("describes each plan as a bulleted list, with exactly its three items", () => {

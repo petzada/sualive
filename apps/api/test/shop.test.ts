@@ -42,12 +42,12 @@ describe("GET /api/shop", () => {
       id: "color_red",
       kind: "name_color",
       name: "Vermelho",
-      price: 100,
+      price: 70,
       data: { light: ["#b3261e"], dark: ["#ff8a80"] },
       owned: false,
       equipped: false,
     });
-    expect(items.at(-1)).toMatchObject({ id: "pack_gamer", kind: "reaction_pack", price: 400 });
+    expect(items.at(-1)).toMatchObject({ id: "pack_gamer", kind: "reaction_pack", price: 280 });
     expect(find(items, "pack_party").data).toEqual({ reactions: ["🔥", "💯", "🙌", "🥳", "✨", "🚀"] });
 
     await giveBalance(user.userId, "silver", 1000);
@@ -106,7 +106,7 @@ describe("POST /api/shop/items/:id/buy", () => {
     expect(response.status).toBe(200);
     const body = shopPurchaseResponseSchema.parse(await response.json());
     expect(body.wallet).toEqual({
-      silver: 150,
+      silver: 180,
       gold: 0,
       goldSentToday: 0,
       goldGiftDailyLimit: GOLD_GIFT_DAILY_LIMIT,
@@ -115,7 +115,7 @@ describe("POST /api/shop/items/:id/buy", () => {
     expect(await ledgerRows(user.userId, "shop_purchase")).toEqual([
       {
         currency: "silver",
-        amount: -100,
+        amount: -70,
         reason: "shop_purchase",
         reference: `shop:${user.userId}:color_green`,
         item_id: "color_green",
@@ -123,7 +123,7 @@ describe("POST /api/shop/items/:id/buy", () => {
       },
     ]);
     expect(await ownedItems(user.userId)).toEqual([{ item_id: "color_green", equipped: 0 }]);
-    expect(await expectConsistent(user.userId)).toEqual({ silver: 150, gold: 0 });
+    expect(await expectConsistent(user.userId)).toEqual({ silver: 180, gold: 0 });
   });
 
   it("compra com ouro pelo mesmo preço", async () => {
@@ -133,11 +133,11 @@ describe("POST /api/shop/items/:id/buy", () => {
     const response = await buy(user.cookie, "frame_gold", { currency: "gold" });
     expect(response.status).toBe(200);
     const body = shopPurchaseResponseSchema.parse(await response.json());
-    expect(body.wallet).toMatchObject({ silver: 50, gold: 400 });
+    expect(body.wallet).toMatchObject({ silver: 50, gold: 600 });
     expect(await ledgerRows(user.userId, "shop_purchase")).toEqual([
-      expect.objectContaining({ currency: "gold", amount: -600, item_id: "frame_gold" }),
+      expect.objectContaining({ currency: "gold", amount: -400, item_id: "frame_gold" }),
     ]);
-    expect(await expectConsistent(user.userId)).toEqual({ silver: 50, gold: 400 });
+    expect(await expectConsistent(user.userId)).toEqual({ silver: 50, gold: 600 });
   });
 
   it("o preço é o do catálogo, mesmo se o corpo tentar outro", async () => {
@@ -145,19 +145,19 @@ describe("POST /api/shop/items/:id/buy", () => {
     await giveBalance(user.userId, "silver", 500);
     const response = await buy(user.cookie, "gradient_ocean", { currency: "silver", price: 1, amount: 1 });
     expect(response.status).toBe(200);
-    expect(shopPurchaseResponseSchema.parse(await response.json()).wallet.silver).toBe(200);
+    expect(shopPurchaseResponseSchema.parse(await response.json()).wallet.silver).toBe(300);
   });
 
   it("saldo insuficiente não entrega o item nem mexe no saldo", async () => {
     const user = await createTestUser();
-    await giveBalance(user.userId, "silver", 99);
+    await giveBalance(user.userId, "silver", 69);
     await giveBalance(user.userId, "gold", 1000);
     const response = await buy(user.cookie, "color_red", { currency: "silver" });
     expect(response.status).toBe(409);
     expect(await errorOf(response)).toBe("insufficient_funds");
     expect(await ownedItems(user.userId)).toEqual([]);
     expect(await ledgerRows(user.userId, "shop_purchase")).toEqual([]);
-    expect(await expectConsistent(user.userId)).toEqual({ silver: 99, gold: 1000 });
+    expect(await expectConsistent(user.userId)).toEqual({ silver: 69, gold: 1000 });
   });
 
   it("comprar duas vezes em sequência entrega e debita uma vez só", async () => {
@@ -171,7 +171,7 @@ describe("POST /api/shop/items/:id/buy", () => {
     await giveBalance(user.userId, "gold", 1000);
     expect(await errorOf(await buy(user.cookie, "pack_party", { currency: "gold" }))).toBe("already_owned");
     expect(await ledgerRows(user.userId, "shop_purchase")).toHaveLength(1);
-    expect(await expectConsistent(user.userId)).toEqual({ silver: 600, gold: 1000 });
+    expect(await expectConsistent(user.userId)).toEqual({ silver: 720, gold: 1000 });
   });
 
   it("dois pedidos simultâneos entregam e debitam uma vez só", async () => {
@@ -191,7 +191,7 @@ describe("POST /api/shop/items/:id/buy", () => {
     expect(await ownedItems(user.userId)).toEqual([{ item_id: "frame_flame", equipped: 0 }]);
     expect(await ledgerRows(user.userId, "shop_purchase")).toHaveLength(1);
     const balance = await expectConsistent(user.userId);
-    expect(balance.silver + balance.gold).toBe(2000 - 600);
+    expect(balance.silver + balance.gold).toBe(2000 - 400);
   });
 
   it("item inexistente e corpo inválido", async () => {

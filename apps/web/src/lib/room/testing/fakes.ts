@@ -7,7 +7,7 @@ import type {
   MediaSessionOptions,
   VideoKind,
 } from "@sualive/media";
-import { REACTIONS, ROOM_MAX_PEOPLE, WATCHED_VIDEOS_PER_PERSON } from "@sualive/config";
+import { REACTIONS, ROOM_MAX_PEOPLE, VIDEOS_PER_PERSON, WATCHED_VIDEOS_PER_PERSON } from "@sualive/config";
 import type { ClientMessage, MeUser, Participant, ServerMessage } from "@sualive/protocol";
 import { vi, type Mock } from "vitest";
 import type { AccountSource, RoomDeps, SocketHandlers, SocketLike, StorageLike } from "../deps";
@@ -167,11 +167,11 @@ export class FakeServer {
   readonly routes = new Map<string, Route>();
 
   constructor() {
-    this.room({ status: "open", participants: 1, capacity: 6, fixed: false });
+    this.room({ status: "open", participants: 1, capacity: ROOM_MAX_PEOPLE, fixed: false, protected: false });
     this.joinOk("me");
     this.on("GET", `/api/rooms/${CODE}/ice`, () => ({
       status: 200,
-      body: { iceServers: [{ urls: "stun:stun.test" }], ttlSeconds: 60 },
+      body: { iceServers: [{ urls: "stun:stun.test" }], ttlSeconds: 60, relayOnly: false },
     }));
   }
 
@@ -388,7 +388,7 @@ export const welcomeDefaults = {
     maxVideos: null as number | null,
   },
   limits: {
-    videosPerPerson: 1,
+    videosPerPerson: VIDEOS_PER_PERSON,
     reactions: [...REACTIONS] as string[],
     watchedVideos: WATCHED_VIDEOS_PER_PERSON,
     relayVideo: false,

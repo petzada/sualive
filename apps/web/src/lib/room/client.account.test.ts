@@ -2,7 +2,9 @@
 import {
   FREE_VIDEO_QUALITY,
   PLUS_VIDEO_QUALITY,
+  PLUS_VIDEOS_PER_PERSON,
   RELAY_VIDEO_QUALITY,
+  ROOM_MAX_PEOPLE,
   VIDEOS_PER_PERSON,
 } from "@sualive/config";
 import type { Participant, RoomSettings, ServerMessage } from "@sualive/protocol";
@@ -37,7 +39,7 @@ function start(key = CODE): RoomClient {
 function fixedRoutes(fixed = true) {
   h.server.on("GET", `/api/rooms/${FIXED_KEY}`, () => ({
     status: 200,
-    body: { status: "open", participants: 2, capacity: 6, fixed },
+    body: { status: "open", participants: 2, capacity: ROOM_MAX_PEOPLE, fixed, protected: false },
   }));
   h.server.on("POST", `/api/rooms/${FIXED_KEY}/join`, () => ({
     status: 200,
@@ -45,7 +47,7 @@ function fixedRoutes(fixed = true) {
   }));
   h.server.on("GET", `/api/rooms/${FIXED_KEY}/ice`, () => ({
     status: 200,
-    body: { iceServers: [{ urls: "stun:stun.test" }], ttlSeconds: 60 },
+    body: { iceServers: [{ urls: "stun:stun.test" }], ttlSeconds: 60, relayOnly: false },
   }));
 }
 
@@ -62,7 +64,7 @@ async function connect({
   self = participant("me"),
   others = [participant("bob")],
   room = welcomeDefaults.room,
-  videosPerPerson = 1,
+  videosPerPerson = VIDEOS_PER_PERSON,
 }: ConnectOptions = {}) {
   start(key);
   await flush();
@@ -243,8 +245,8 @@ describe("vídeos por pessoa", () => {
     start();
     expect(state().maxOwnVideos).toBe(VIDEOS_PER_PERSON);
     client.dispose();
-    await connect({ videosPerPerson: 2 });
-    expect(state().maxOwnVideos).toBe(2);
+    await connect({ videosPerPerson: PLUS_VIDEOS_PER_PERSON });
+    expect(state().maxOwnVideos).toBe(PLUS_VIDEOS_PER_PERSON);
   });
 
   it("com 2, o segundo vídeo é pedido depois que o primeiro foi publicado", async () => {

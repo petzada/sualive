@@ -215,7 +215,7 @@ describe("entrar logado", () => {
 });
 
 describe("vídeos pelo plano de cada pessoa", () => {
-  it("assinante transmite 2 numa sala criada por alguém sem conta; quem não tem Plus segue com 1", async () => {
+  it(`assinante transmite ${PLUS_VIDEOS_PER_PERSON} numa sala criada por alguém sem conta; quem não tem Plus segue com ${VIDEOS_PER_PERSON}`, async () => {
     const { code, ownerToken } = await createRoom();
     const owner = await join(code, "Dono sem conta");
     const { client: ownerClient, welcome: ownerWelcome } = await connect(code, owner, ownerToken);
@@ -228,17 +228,22 @@ describe("vídeos pelo plano de cada pessoa", () => {
     const { client: freeClient, welcome: freeWelcome } = await connect(code, free);
     expect(freeWelcome.limits.videosPerPerson).toBe(VIDEOS_PER_PERSON);
 
-    plus.send({ type: "video.request", requestId: "p1", kind: "screen" });
-    await plus.next("video.granted");
-    plus.send({ type: "video.request", requestId: "p2", kind: "camera" });
-    await plus.next("video.granted");
-    plus.send({ type: "video.request", requestId: "p3", kind: "camera" });
-    expect(await plus.next("video.denied")).toMatchObject({ requestId: "p3", reason: "person_limit" });
+    const plusVideos: string[] = [];
+    for (let i = 0; i < PLUS_VIDEOS_PER_PERSON; i++) {
+      plus.send({ type: "video.request", requestId: `p${i}`, kind: i % 2 ? "camera" : "screen" });
+      plusVideos.push((await plus.next("video.granted")).video.id);
+    }
+    plus.send({ type: "video.request", requestId: "p-extra", kind: "camera" });
+    expect(await plus.next("video.denied")).toMatchObject({ requestId: "p-extra", reason: "person_limit" });
+    // Libera o teto da sala para os demais.
+    for (const videoId of plusVideos) plus.send({ type: "video.stop", videoId });
 
     for (const client of [ownerClient, freeClient]) {
-      client.send({ type: "video.request", requestId: "f1", kind: "camera" });
-      await client.next("video.granted");
-      client.send({ type: "video.request", requestId: "f2", kind: "screen" });
+      for (let i = 0; i < VIDEOS_PER_PERSON; i++) {
+        client.send({ type: "video.request", requestId: `f${i}`, kind: i % 2 ? "screen" : "camera" });
+        await client.next("video.granted");
+      }
+      client.send({ type: "video.request", requestId: "f-extra", kind: "screen" });
       expect(await client.next("video.denied")).toMatchObject({ reason: "person_limit" });
     }
   });
@@ -281,6 +286,7 @@ describe("sala de link fixo", () => {
       participants: 0,
       capacity: ROOM_MAX_PEOPLE,
       fixed: false,
+      protected: false,
     });
     const refused = await postJson(`/api/rooms/${key}/join`, {
       nickname: "Ana",
@@ -295,6 +301,7 @@ describe("sala de link fixo", () => {
       participants: 0,
       capacity: ROOM_MAX_PEOPLE,
       fixed: true,
+      protected: false,
     });
     // @nome inexistente, sem primeiro acesso ou malformado: `ended`.
     expect((await roomInfo("@ninguem_aqui_x")).status).toBe("ended");
@@ -310,7 +317,14 @@ describe("sala de link fixo", () => {
     // O token de dono de outra sala não dá papel aqui.
     const { ownerToken } = await createRoom();
     const { client: guestClient, welcome } = await connect(key, guest, ownerToken);
-    expect(welcome.room).toEqual({ theme: "ocean", fixed: true, ownerHandle: owner.handle });
+    expect(welcome.room).toEqual({
+      theme: "ocean",
+      fixed: true,
+      ownerHandle: owner.handle,
+      protected: false,
+      capacity: ROOM_MAX_PEOPLE,
+      maxVideos: null,
+    });
     expect(welcome.participants[0]?.isOwner).toBe(false);
 
     const ownerJoin = await joinAs(key, owner);
@@ -336,7 +350,14 @@ describe("sala de link fixo", () => {
     ownerClient.send({ type: "room.setTheme", theme: "sunset" });
     const expected = {
       type: "room.updated",
-      room: { theme: "sunset", fixed: true, ownerHandle: owner.handle },
+      room: {
+        theme: "sunset",
+        fixed: true,
+        ownerHandle: owner.handle,
+        protected: false,
+        capacity: ROOM_MAX_PEOPLE,
+        maxVideos: null,
+      },
     };
     expect(await guestClient.next("room.updated")).toEqual(expected);
     expect(await ownerClient.next("room.updated")).toEqual(expected);
@@ -360,7 +381,14 @@ describe("sala de link fixo", () => {
     const { code, ownerToken } = await createRoom();
     const owner = await joinAs(code, await plusUser());
     const { client, welcome } = await connect(code, owner, ownerToken);
-    expect(welcome.room).toEqual({ theme: "default", fixed: false, ownerHandle: null });
+    expect(welcome.room).toEqual({
+      theme: "default",
+      fixed: false,
+      ownerHandle: null,
+      protected: false,
+      capacity: ROOM_MAX_PEOPLE,
+      maxVideos: null,
+    });
     client.send({ type: "room.setTheme", theme: "ocean" });
     expect(await client.next("error")).toEqual({ type: "error", code: "not_allowed" });
   });
