@@ -4,7 +4,7 @@ import { Navigate } from "react-router";
 import { Badges } from "../components/account/Badges";
 import { PageShell, useAccountGate } from "../components/account/PageShell";
 import { PATHS } from "../components/account/paths";
-import { FixedLink, PlanStatus } from "../components/account/plan";
+import { FixedLink, FixedRoomProtected, PlanStatus } from "../components/account/plan";
 import type { AccountActions } from "../lib/account";
 import { texts } from "../texts";
 
@@ -26,13 +26,14 @@ function PlanContent({ user, actions }: { user: MeUser; actions: AccountActions 
 
       <PlanStatus plan={plan} manage={{ actions, onChange: setCanceledPlan }} />
       {user.handle && <FixedLink handle={user.handle} />}
+      {user.handle && <FixedRoomProtected value={user.fixedRoomProtected} actions={actions} />}
     </>
   );
 }
 
 /**
  * The plan of the own account, and only that: state of the subscription, its badges, the fixed
- * link and the cancellation. Who has no plan in force is taken to the offer (`/plus`).
+ * link (and whether its room is a protected one) and the cancellation. Who has no plan in force is taken to the offer (`/plus`).
  */
 export function PlanPage() {
   const { user, fallback, actions } = useAccountGate();

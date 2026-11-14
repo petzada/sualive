@@ -67,7 +67,7 @@ export function HomePage() {
       </p>
       <p className="text-body-sm text-muted">{texts.home.hint}</p>
 
-      <CreateRoom className="mt-2" afterButton={<HomeLogin />} below={<HomeAccount />} />
+      <CreateRoom className="mt-2" afterButton={<HomeLogin />} below={<HomeAccount />} withProtected />
     </SplitPage>
   );
 }

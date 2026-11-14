@@ -1,6 +1,13 @@
-import { PLUS_VIDEO_QUALITY, PLUS_VIDEOS_PER_PERSON } from "@sualive/config";
+import {
+  FREE_VIDEO_QUALITY,
+  PLUS_GOLD_AMOUNT,
+  PLUS_GOLD_INTERVAL_DAYS,
+  PLUS_VIDEO_QUALITY,
+  PLUS_VIDEOS_PER_PERSON,
+} from "@sualive/config";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { formatAmount, formatProtectedRoomTime } from "../components/format";
 import { makeAccountState, makeUser } from "../test/account";
 import { renderApp } from "../test/room";
 import { texts } from "../texts";
@@ -82,8 +89,10 @@ describe("page after the first access", () => {
     expect(inside.getByRole("heading", { name: texts.welcome.plans.title })).toBeTruthy();
     const items = inside.getAllByRole("listitem");
     expect(items.map((item) => item.textContent)).toEqual([
-      `Vídeo em ${PLUS_VIDEO_QUALITY.height}p a ${PLUS_VIDEO_QUALITY.frameRate} fps`,
+      `Qualidade acima de ${FREE_VIDEO_QUALITY.height}p${FREE_VIDEO_QUALITY.frameRate}, até 4K e ${PLUS_VIDEO_QUALITY.frameRate} fps`,
       `${PLUS_VIDEOS_PER_PERSON} vídeos ao mesmo tempo`,
+      "Vídeo em retransmissão e sala protegida, pagos em ouro",
+      `${formatAmount(PLUS_GOLD_AMOUNT)} de ouro a cada ${PLUS_GOLD_INTERVAL_DAYS} dias: cerca de ${formatProtectedRoomTime(PLUS_GOLD_AMOUNT)} de sala protegida`,
       "Link fixo em /@marina",
       "Tema de sala",
       "Selo ao lado do nome",
