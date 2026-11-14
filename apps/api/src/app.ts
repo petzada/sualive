@@ -2,7 +2,10 @@ import { captureException } from "@sentry/cloudflare";
 import { healthResponseSchema } from "@sualive/protocol";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { ROOM_PATH_PREFIX } from "@sualive/config";
 import type { AppEnv } from "./env";
+import { roomPagePreview } from "./preview";
+import { rooms } from "./rooms";
 
 export const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -20,6 +23,11 @@ app.get("/api/debug/error", (c) => {
   if (c.env.DEBUG_ROUTES !== "1") return c.notFound();
   throw new Error("Erro proposital de /api/debug/error");
 });
+
+app.route("/api/rooms", rooms);
+
+// Página da sala com a prévia do link (Open Graph). Passa pelo Worker por `run_worker_first`.
+app.get(`${ROOM_PATH_PREFIX}*`, (c) => roomPagePreview(c.req.raw, c.env));
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
