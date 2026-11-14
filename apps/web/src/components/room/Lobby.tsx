@@ -13,6 +13,7 @@ import { TurnstileField } from "../TurnstileField";
 import { useTurnstileAction } from "../useTurnstileAction";
 import { Avatar, StreamVideo } from "./media";
 import { NoticeBanner } from "./NoticeBanner";
+import { ProtectedNotice } from "./ProtectedRoom";
 
 /** Convenience only: the last nickname typed in this browser. */
 export const NICKNAME_STORAGE_KEY = "sualive:nickname";
@@ -179,6 +180,8 @@ export function Lobby({ state, actions }: LobbyProps) {
 
         {/* Blocks as far apart as the blocks of the home page; what belongs together stays closer. */}
         <form noValidate onSubmit={submit} className="flex flex-col items-center gap-10">
+          {/* A protected room says so before the person enters; closer to the title than the other blocks. */}
+          {state.protected && <ProtectedNotice state={state} className="-mb-4" />}
           <h1 className="text-center font-display text-heading font-semibold">{texts.lobby.title}</h1>
 
           {/*

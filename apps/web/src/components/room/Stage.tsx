@@ -1,9 +1,14 @@
+import { Button } from "@heroui/react";
+import type { CSSProperties } from "react";
 import type { ParticipantView, ReactionEvent, RoomState, VideoView } from "../../lib/room";
 import { texts } from "../../texts";
 import { Badges } from "../account/Badges";
 import { CosmeticFrame, CosmeticName } from "../cosmetics/Cosmetic";
-import { VoiceBars } from "../icons";
+import { Hint } from "../Hint";
+import { EyeIcon, EyeOffIcon, VoiceBars } from "../icons";
+import { BroadcastStatus } from "./BroadcastStatus";
 import { Avatar, StreamVideo } from "./media";
+import { WatchCards } from "./WatchCards";
 
 /** Stable horizontal position (10% to 85%) for a reaction, derived from its id. */
 function reactionOffset(id: string): number {
@@ -34,23 +39,31 @@ function ReactionsOverlay({ reactions, nameOf }: { reactions: ReactionEvent[]; n
 
 type NameOf = (participantId: string) => string;
 
+/** Over the video, in the corner the label leaves free: bottom right when featured, top right in a thumbnail. */
+const CORNER = { featured: "absolute right-2 bottom-2 z-[1]", thumbnail: "absolute top-1 right-1 z-[1]" };
+const ON_VIDEO = "rounded-button bg-stage/70 text-on-stage";
+
 interface VideoTileProps {
   video: VideoView;
   owner: ParticipantView | undefined;
   featured: boolean;
+  disabled: boolean;
   onFeature: () => void;
+  onUnwatch: () => void;
 }
 
 /**
  * The same element for featured and thumbnail, so switching the highlight never remounts the
  * `<video>` (the sound of a shared screen keeps playing).
  */
-function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
+function VideoTile({ video, owner, featured, disabled, onFeature, onUnwatch }: VideoTileProps) {
   const nickname = owner?.nickname ?? texts.stage.unknownPerson;
   const label = texts.stage.videoLabel(nickname, video.kind, video.isLocal);
   const namePaint = owner?.cosmetics?.name ?? null;
   // The label starts with the nickname: only that part takes the color of the name.
   const painted = namePaint !== null && label.startsWith(nickname);
+  const corner = featured ? CORNER.featured : CORNER.thumbnail;
+  const stopLabel = texts.stage.watch.stopLabel(nickname, video.kind);
 
   return (
     <div
@@ -58,7 +71,7 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
       data-featured={featured || undefined}
       className={
         featured
-          ? "relative col-span-3 row-start-1 aspect-video overflow-hidden rounded-card bg-stage lg:col-span-1 lg:col-start-1 lg:row-end-5 lg:aspect-auto lg:min-h-0"
+          ? "relative col-span-3 row-start-1 aspect-video overflow-hidden rounded-card bg-stage lg:col-span-1 lg:col-start-1 lg:row-end-[-1] lg:aspect-auto lg:min-h-0"
           : "relative aspect-video overflow-hidden rounded-nav bg-stage lg:col-start-2"
       }
     >
@@ -79,13 +92,18 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
       {/*
         The colors of a name are checked against the surfaces of the theme, never against the dark
         stage: a label with a painted name sits on `canvas` instead (DESIGN.md, "Cosméticos da loja").
+        When featured, it leaves the bottom right corner to the control beside it.
       */}
       <span
         data-testid="video-label"
         data-surface={painted ? "canvas" : "stage"}
-        className={`absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-button ${
+        className={`absolute bottom-2 left-2 flex items-center gap-1.5 rounded-button ${
           painted ? "bg-canvas text-ink" : "bg-stage/70 text-on-stage"
-        } ${featured ? "px-3 py-1.5 text-body-sm" : "px-2 py-1 text-compact"}`}
+        } ${
+          featured
+            ? "max-w-[calc(100%-4.5rem)] px-3 py-1.5 text-body-sm sm:max-w-[calc(100%-12rem)]"
+            : "max-w-[calc(100%-1rem)] px-2 py-1 text-compact"
+        }`}
       >
         {owner?.avatarUrl && (
           <CosmeticFrame paint={owner.cosmetics?.frame} className="shrink-0">
@@ -119,13 +137,52 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
           className="absolute inset-0 cursor-pointer rounded-nav -outline-offset-2"
         />
       )}
+
+      {video.isLocal ? (
+        // Who transmits sees how many people receive each video. Only informs: it lets a click through.
+        <span
+          role="img"
+          data-testid="video-viewers"
+          aria-label={texts.stage.broadcast.viewersLabel(video.viewers.length, video.kind)}
+          className={`pointer-events-none inline-flex min-h-8 items-center gap-1.5 px-2.5 text-compact font-medium ${ON_VIDEO} ${corner}`}
+        >
+          <EyeIcon />
+          {video.viewers.length}
+        </span>
+      ) : (
+        // After the button that features the tile, so it stays above it and comes next in the tab order.
+        <Hint text={texts.stage.watch.stop}>
+          <Button
+            isIconOnly={!featured}
+            aria-label={stopLabel}
+            data-testid="unwatch-video"
+            isDisabled={disabled}
+            className={`${ON_VIDEO} ${corner} ${
+              featured ? "min-h-11 gap-1.5 px-3 text-compact font-medium" : "size-9"
+            }`}
+            onPress={onUnwatch}
+          >
+            <EyeOffIcon />
+            {featured && <span className="hidden sm:inline">{texts.stage.watch.stop}</span>}
+          </Button>
+        </Hint>
+      )}
     </div>
   );
 }
 
-function EmptyStage({ participants }: { participants: ParticipantView[] }) {
+interface EmptyStageProps {
+  participants: ParticipantView[];
+  title: string;
+  hint: string;
+  className?: string;
+}
+
+function EmptyStage({ participants, title, hint, className = "" }: EmptyStageProps) {
   return (
-    <div className="flex size-full min-h-48 flex-col items-center justify-center gap-6 rounded-card bg-canvas p-6 text-center">
+    <div
+      className={`min-h-48 w-full flex-auto flex-col items-center justify-center gap-6 rounded-card bg-canvas p-6 text-center ${className}`}
+    >
       <ul className="flex flex-wrap items-start justify-center gap-5">
         {participants.map((participant) => (
           <li key={participant.id} className="flex w-24 flex-col items-center gap-2">
@@ -152,8 +209,8 @@ function EmptyStage({ participants }: { participants: ParticipantView[] }) {
         ))}
       </ul>
       <div className="flex flex-col gap-1">
-        <p className="font-medium">{texts.stage.empty}</p>
-        <p className="text-body-sm text-muted">{texts.stage.emptyHint}</p>
+        <p className="font-medium">{title}</p>
+        <p className="text-body-sm text-muted">{hint}</p>
       </div>
     </div>
   );
@@ -162,37 +219,83 @@ function EmptyStage({ participants }: { participants: ParticipantView[] }) {
 interface StageProps {
   state: RoomState;
   onFeature: (videoId: string) => void;
+  onWatch: (videoId: string) => void;
+  onUnwatch: (videoId: string) => void;
+  /** Reconnecting: nothing can be asked of the server. */
+  disabled?: boolean;
   className?: string;
 }
 
-export function Stage({ state, onFeature, className = "" }: StageProps) {
+/**
+ * Video on demand: the own videos and the watched ones are tiles (one featured, the rest as
+ * thumbnails); every other video of the room is a card in the strip below, which scrolls sideways
+ * so that a full room never pushes the controls out of a phone.
+ */
+export function Stage({
+  state,
+  onFeature,
+  onWatch,
+  onUnwatch,
+  disabled = false,
+  className = "",
+}: StageProps) {
   const { videos, participants } = state;
   const byId = new Map(participants.map((participant) => [participant.id, participant]));
   const nameOf: NameOf = (id) => byId.get(id)?.nickname ?? texts.stage.unknownPerson;
-  const featured = videos.find((video) => video.id === state.featuredVideoId) ?? videos[0] ?? null;
-  const hasThumbnails = videos.length > 1;
+  const tiles = videos.filter((video) => video.watch === "local" || video.watch === "watching");
+  const cards = videos.filter((video) => video.watch !== "local" && video.watch !== "watching");
+  const featured = tiles.find((video) => video.id === state.featuredVideoId) ?? tiles[0] ?? null;
+  const hasThumbnails = tiles.length > 1;
 
   return (
-    <section aria-label={texts.stage.label} className={`relative ${className}`}>
+    <section aria-label={texts.stage.label} className={`relative flex min-w-0 flex-col gap-2 ${className}`}>
       {featured ? (
+        // From `lg`: one row per thumbnail and a last one that takes what is left; the featured video spans all.
         <div
-          className={`grid size-full grid-cols-3 gap-2 lg:grid-rows-[repeat(3,auto)_minmax(0,1fr)] ${
+          style={{ "--stage-rows": Math.max(1, tiles.length - 1) } as CSSProperties}
+          className={`grid min-h-0 w-full flex-auto grid-cols-3 gap-2 overflow-y-auto lg:grid-rows-[repeat(var(--stage-rows),auto)_minmax(0,1fr)] ${
             hasThumbnails ? "lg:grid-cols-[minmax(0,1fr)_11rem]" : "lg:grid-cols-1"
           }`}
         >
-          {videos.map((video) => (
+          {tiles.map((video) => (
             <VideoTile
               key={video.id}
               video={video}
               owner={byId.get(video.ownerId)}
               featured={video === featured}
+              disabled={disabled}
               onFeature={() => onFeature(video.id)}
+              onUnwatch={() => onUnwatch(video.id)}
             />
           ))}
         </div>
+      ) : cards.length > 0 ? (
+        // Videos to pick, none watched: on a phone the cards alone say it, and the height is left to the chat.
+        <EmptyStage
+          participants={participants}
+          title={texts.stage.watch.none}
+          hint={texts.stage.watch.noneHint}
+          className="hidden md:flex"
+        />
       ) : (
-        <EmptyStage participants={participants} />
+        <EmptyStage
+          participants={participants}
+          title={texts.stage.empty}
+          hint={texts.stage.emptyHint}
+          className="flex"
+        />
       )}
+      <BroadcastStatus videos={videos} relayMeter={state.relayMeter} nameOf={nameOf} />
+      <WatchCards
+        videos={cards}
+        ownerOf={(video) => byId.get(video.ownerId)}
+        watchedCount={state.watchedCount}
+        maxWatchedVideos={state.maxWatchedVideos}
+        leading={!featured}
+        disabled={disabled}
+        onWatch={onWatch}
+        onUnwatch={onUnwatch}
+      />
       <ReactionsOverlay reactions={state.reactions} nameOf={nameOf} />
       {/*
         How full the room is, always over whatever the stage shows (video, empty state, reactions):

@@ -18,7 +18,6 @@ import {
   PLUS_VIDEO_QUALITY,
   PLUS_VIDEOS_PER_PERSON,
   ROOM_MAX_PEOPLE,
-  ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
   WELCOME_SILVER,
 } from "@sualive/config";
@@ -762,6 +761,8 @@ export const texts = {
       people: (count: number) => `Pessoas (${count})`,
       unread: "novas mensagens",
     },
+    /** Read after a link that opens in another tab, so the call goes on. */
+    newTab: "(abre em outra aba)",
   },
   roomEnd: {
     ended: {
@@ -769,18 +770,26 @@ export const texts = {
       message: "A sala foi encerrada ou o link nunca existiu. Você pode criar outra em um clique.",
       action: "Criar outra sala",
     },
+    /** The protected room that ended because the gold of its owner ran out (`endReason: "no_gold"`). */
+    endedNoGold: {
+      title: "A sala protegida encerrou",
+      message:
+        "A sala protegida encerrou porque o saldo do dono acabou. Ela não continua como sala direta, para não expor o IP de ninguém.",
+    },
     full: {
       title: "Sala cheia",
-      message: `Esta sala já tem ${ROOM_MAX_PEOPLE} pessoas, o máximo da sala direta. Tente de novo quando alguém sair.`,
+      /** `capacity`: how many people this room holds, as the server said. */
+      message: (capacity: number, isProtected: boolean) =>
+        `Esta sala já tem ${capacity} pessoas, o máximo da sala ${isProtected ? "protegida" : "direta"}. Tente de novo quando alguém sair.`,
       action: "Tentar de novo",
     },
     banned: {
       title: "Você foi banido desta sala",
-      message: "O dono da sala bloqueou a sua entrada até a sala acabar.",
+      message: "O dono ou um moderador da sala bloqueou a sua entrada até a sala acabar.",
     },
     kicked: {
       title: "Você foi removido da sala",
-      message: "O dono da sala removeu você. Se quiser, pode tentar entrar de novo.",
+      message: "O dono ou um moderador da sala removeu você. Se quiser, pode tentar entrar de novo.",
       action: "Entrar de novo",
     },
     replaced: {
@@ -807,10 +816,70 @@ export const texts = {
     thumbnails: "Outros vídeos",
     unknownPerson: "Participante",
     speaking: "falando",
+    /** Video on demand: the cards of the videos the person is not watching, and the way out of one. */
+    watch: {
+      listLabel: "Vídeos para assistir",
+      count: (watched: number, max: number) => `Você assiste ${watched} de ${max} vídeos`,
+      limit: (max: number) =>
+        `Você já assiste ${max} vídeos, o máximo ao mesmo tempo. Pare de assistir um deles para abrir outro.`,
+      kind: { screen: "Tela", camera: "Câmera" },
+      action: "Assistir",
+      actionLabel: (nickname: string, kind: "screen" | "camera") =>
+        `Assistir ${kind === "screen" ? "a tela" : "a câmera"} de ${nickname}`,
+      requesting: "Abrindo o vídeo…",
+      /** On the stage of who watches nothing, while there are videos to pick. */
+      none: "Você não assiste nenhum vídeo",
+      noneHint: "Escolha um dos vídeos da sala para assistir.",
+      blocked: {
+        relay_no_plus:
+          "Sem vídeo: a conexão entre vocês passa pela retransmissão, e para enviar vídeo por ela quem transmite precisa do Plus. A voz continua.",
+        relay_no_gold:
+          "Sem vídeo: a conexão entre vocês passa pela retransmissão, e quem transmite está sem ouro para pagar por ela. A voz continua.",
+      },
+      stop: "Parar de assistir",
+      stopLabel: (nickname: string, kind: "screen" | "camera") =>
+        `Parar de assistir ${kind === "screen" ? "a tela" : "a câmera"} de ${nickname}`,
+    },
+    /** For who transmits: who watches each own video and what the relay costs or blocks. */
+    broadcast: {
+      label: "Sobre o que você transmite",
+      viewers: (count: number) =>
+        count === 0 ? "Ninguém assiste" : count === 1 ? "1 pessoa assiste" : `${count} pessoas assistem`,
+      viewersLabel: (count: number, kind: "screen" | "camera") =>
+        `${count === 0 ? "Ninguém assiste" : count === 1 ? "1 pessoa assiste" : `${count} pessoas assistem`} ${
+          kind === "screen" ? "a sua tela" : "a sua câmera"
+        }`,
+      /** `names` arrives joined ("Ana e Bia"); `count` is how many people it names. */
+      blocked: {
+        relay_no_plus: (names: string, count: number, kind: "screen" | "camera") =>
+          `${names} ${count === 1 ? "não recebe" : "não recebem"} ${
+            kind === "screen" ? "a sua tela" : "a sua câmera"
+          }: a conexão passa pela retransmissão, e o vídeo por ela é um recurso do Plus. A voz continua.`,
+        relay_no_gold: (names: string, count: number, kind: "screen" | "camera") =>
+          `${names} ${count === 1 ? "não recebe" : "não recebem"} ${
+            kind === "screen" ? "a sua tela" : "a sua câmera"
+          }: a conexão passa pela retransmissão, que é paga em ouro, e o seu ouro acabou. A voz continua.`,
+      },
+      plusLink: "Conheça o Plus",
+      walletLink: "Abrir a carteira",
+      /** `perPair` and `total` arrive already formatted ("45"). A pair = one own video to one person. */
+      relayPaying: (pairs: number, perPair: string, total: string) =>
+        pairs === 1
+          ? `Retransmissão paga: 1 par de vídeo (um vídeo seu para uma pessoa que o recebe por retransmissão), a ${perPair} de ouro por hora.`
+          : `Retransmissão paga: ${pairs} pares de vídeo (cada vídeo seu para cada pessoa que o recebe por retransmissão), a ${perPair} de ouro por hora por par: ${total} de ouro por hora no total.`,
+      relayNoGold:
+        "Seu ouro acabou: o seu vídeo parou para quem o recebia por retransmissão. A voz continua.",
+    },
   },
   people: {
     label: "Pessoas na sala",
     owner: "dono",
+    moderator: "moderador",
+    promote: "Tornar moderador",
+    demote: "Tirar de moderador",
+    /** "Ana", "Ana e Bia", "Ana, Bia e Caio". */
+    names: (names: readonly string[]) =>
+      names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}`,
     micMuted: "microfone mudo",
     micOn: "microfone ligado",
     handRaised: "mão levantada",
@@ -856,6 +925,28 @@ export const texts = {
       lost: "Não deu para confirmar o envio. Confira o extrato da sua carteira antes de tentar de novo.",
     },
   },
+  /** The protected room: what it is and how long the gold of its owner still covers. */
+  protectedRoom: {
+    badge: "Sala protegida",
+    /** Name of the badge as a button: it opens the explanation. */
+    about: "Sala protegida: o que significa",
+    explanation: (capacity: number, maxVideos: number) =>
+      `A mídia passa pela retransmissão, e os participantes não veem o IP uns dos outros. Até ${capacity} pessoas e ${maxVideos} vídeos ao mesmo tempo.`,
+    /** A stretch of time, rounded: "menos de 1 min", "cerca de 42 min", "cerca de 1 h 20 min". */
+    duration: (hours: number, minutes: number) =>
+      hours === 0 && minutes === 0
+        ? "menos de 1 min"
+        : `cerca de ${[hours > 0 ? `${hours} h` : "", minutes > 0 ? `${minutes} min` : ""].filter(Boolean).join(" ")}`,
+    /** Followed by the duration: "O saldo do dono cobre cerca de 42 min". */
+    remainingLead: "O saldo do dono cobre",
+    warning: (duration: string) =>
+      `O saldo do dono está acabando: cobre ${duration} de sala protegida. Sem recarga, a sala encerra para todos.`,
+    grace: "O saldo do dono acabou. Sem recarga, a sala protegida encerra para todos em",
+    graceTimerLabel: "Tempo até a sala encerrar",
+    ownerWallet: "Recarregar na carteira",
+    sendToOwner: "Enviar ouro ao dono",
+    giftHint: "Quem tem conta pode enviar ouro ao dono pela lista de pessoas.",
+  },
   controls: {
     label: "Controles da sala",
     micOn: "Ligar microfone",
@@ -898,10 +989,14 @@ export const texts = {
   },
   notices: {
     dismiss: "Dispensar aviso",
-    videoRoomLimit: `A sala já tem ${ROOM_MAX_VIDEOS} vídeos ao mesmo tempo, o máximo. Espere alguém parar para transmitir.`,
+    /** Only the protected room has a ceiling of videos; `max` is the one the server sent. */
+    videoRoomLimit: (max: number) =>
+      `A sala protegida já tem ${max} vídeos ao mesmo tempo, o máximo. Espere alguém parar para transmitir.`,
+    watchLimit: (max: number) =>
+      `Você já assiste ${max} vídeos, o máximo ao mesmo tempo. Pare de assistir um deles para abrir outro.`,
     videoPersonLimit: `Você já transmite ${VIDEOS_PER_PERSON} vídeo, o máximo por pessoa. Pare o vídeo atual antes de iniciar outro.`,
     chatRateLimited: "Você enviou mensagens rápido demais. Espere alguns segundos.",
-    mutedByOwner: "O dono da sala silenciou o seu microfone.",
+    mutedByOwner: "O dono ou um moderador da sala silenciou o seu microfone.",
     mediaPermissionDenied: {
       microphone: "O navegador não liberou o microfone. Autorize o acesso nas permissões do site.",
       camera: "O navegador não liberou a câmera. Autorize o acesso nas permissões do site.",
@@ -909,6 +1004,8 @@ export const texts = {
     },
     turnstileFailed: "A verificação contra robôs não passou. Refaça a verificação e tente de novo.",
     rateLimited: "Muitas tentativas em pouco tempo. Espere um minuto e tente de novo.",
+    /** Inside the room: reactions, raising the hand and the microphone switched too fast. */
+    roomRateLimited: "Você está fazendo isso rápido demais. Espere alguns segundos e tente de novo.",
     videoPersonLimitPlus: `Você já transmite ${PLUS_VIDEOS_PER_PERSON} vídeos, o máximo por pessoa. Pare um deles antes de iniciar outro.`,
     linkCopied: "Link da sala copiado.",
   },
