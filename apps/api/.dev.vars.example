@@ -8,6 +8,14 @@ TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 # Assina o cookie de sessão de quem não tem conta. Valor de exemplo, claramente falso.
 SESSION_SECRET=exemplo-falso-nao-use-em-producao-0000000000000000
 
+# Login com Google e Discord (OAuth). Sem o par de um provedor, aquele login fica desligado e o botão
+# não aparece. Para testar de verdade, crie credenciais de teste com a URI de retorno
+# http://localhost:8787/api/auth/<google|discord>/callback. Valores abaixo são claramente falsos.
+# GOOGLE_CLIENT_ID=exemplo-falso.apps.googleusercontent.com
+# GOOGLE_CLIENT_SECRET=exemplo-falso-google
+# DISCORD_CLIENT_ID=000000000000000000
+# DISCORD_CLIENT_SECRET=exemplo-falso-discord
+
 # Sem TURN_KEY_ID e TURN_KEY_API_TOKEN, GET /api/rooms/:code/ice devolve só o STUN público.
 # TURN_KEY_ID=
 # TURN_KEY_API_TOKEN=
