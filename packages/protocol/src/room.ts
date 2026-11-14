@@ -1,6 +1,7 @@
-import { CHAT_MAX_LENGTH, REACTIONS, ROOM_THEMES } from "@sualive/config";
+import { CHAT_MAX_LENGTH, ROOM_THEMES } from "@sualive/config";
 import { z } from "zod";
 import { nicknameSchema, participantIdSchema } from "./http";
+import { cosmeticsSchema, giftAmountSchema, reactionListSchema, reactionValueSchema } from "./wallet";
 
 /**
  * Mensagens do WebSocket da sala (`GET /api/rooms/:code/ws`), em JSON, uma por quadro.
@@ -31,6 +32,10 @@ export const participantSchema = z.object({
   avatarUrl: z.string().url().nullable(),
   /** Selos ao lado do nome: "plus" e "early_supporter". */
   badges: z.array(z.enum(["plus", "early_supporter"])),
+  /** Cosméticos equipados (entrega 3), lidos da conta ao conectar. Nulo para quem não tem conta. */
+  cosmetics: cosmeticsSchema.nullable(),
+  /** Tem conta: pode receber ouro pelo botão da sala. */
+  canReceiveGold: z.boolean(),
 });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -44,7 +49,8 @@ export const chatMessageSchema = z.object({
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
-export const reactionSchema = z.enum(REACTIONS);
+/** As básicas (`REACTIONS`) ou as de um pacote equipado; o servidor confere a lista da pessoa. */
+export const reactionSchema = reactionValueSchema;
 
 /** O que vale para a sala inteira. */
 export const roomSettingsSchema = z.object({
@@ -58,7 +64,11 @@ export const roomSettingsSchema = z.object({
 export type RoomSettings = z.infer<typeof roomSettingsSchema>;
 
 /** Limites que o servidor aplica a ESTA pessoa (dependem do plano dela, não do dono). */
-export const selfLimitsSchema = z.object({ videosPerPerson: z.number().int().min(1) });
+export const selfLimitsSchema = z.object({
+  videosPerPerson: z.number().int().min(1),
+  /** Reações que esta pessoa pode enviar: as básicas mais as dos pacotes equipados. */
+  reactions: reactionListSchema,
+});
 export type SelfLimits = z.infer<typeof selfLimitsSchema>;
 
 // ---------- Sinalização WebRTC (repassada pelo servidor sem interpretar) ----------
@@ -119,6 +129,14 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   }),
   // Só o dono Plus, na sala de link fixo dele. Vale na hora para todos e fica gravado no perfil.
   z.object({ type: z.literal("room.setTheme"), theme: z.enum(ROOM_THEMES) }),
+  // Envia ouro a outra pessoa da sala. Só entre contas; o servidor responde `gift.result` a quem
+  // enviou e, se deu certo, avisa a sala inteira com `gift`.
+  z.object({
+    type: z.literal("gift.send"),
+    requestId: z.string().min(1).max(64),
+    to: participantIdSchema,
+    amount: giftAmountSchema,
+  }),
   z.object({ type: z.literal("ping") }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -131,6 +149,15 @@ export const roomErrorCodeSchema = z.enum([
   "not_allowed", // ação de dono feita por quem não é dono
   "not_found", // alvo ou vídeo inexistente
 ]);
+
+export const giftFailureSchema = z.enum([
+  "insufficient_funds",
+  "daily_limit",
+  "not_allowed", // quem envia ou quem recebe não tem conta, ou é a própria pessoa
+  "not_found", // quem recebe não está mais na sala
+  "error",
+]);
+export type GiftFailure = z.infer<typeof giftFailureSchema>;
 
 export const videoDeniedReasonSchema = z.enum([
   "room_limit", // a sala já tem o máximo de vídeos
@@ -168,6 +195,22 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
     reason: videoDeniedReasonSchema,
   }),
   z.object({ type: z.literal("signal"), from: participantIdSchema, data: signalDataSchema }),
+  // Resposta ao `gift.send`, só para quem enviou.
+  z.object({
+    type: z.literal("gift.result"),
+    requestId: z.string().min(1).max(64),
+    ok: z.boolean(),
+    reason: giftFailureSchema.optional(),
+  }),
+  // Aviso visível na sala: alguém enviou ouro a alguém. Apelidos do momento do envio.
+  z.object({
+    type: z.literal("gift"),
+    from: participantIdSchema,
+    fromNickname: nicknameSchema,
+    to: participantIdSchema,
+    toNickname: nicknameSchema,
+    amount: giftAmountSchema,
+  }),
   // O dono silenciou você: o cliente desliga o microfone.
   z.object({ type: z.literal("force.muted") }),
   // Enviada antes de fechar a conexão de quem foi removido ou banido.

@@ -2,7 +2,7 @@
  * Contrato entre a lógica do cliente da sala (`src/lib`) e as telas. As telas só conhecem
  * `useRoom`, `createRoom` e estes tipos: nada de WebSocket, fetch ou WebRTC em componente.
  */
-import type { Reaction, RoomTheme } from "@sualive/config";
+import type { RoomTheme } from "@sualive/config";
 import type { DevicePreview, MediaCapabilities, VideoKind } from "@sualive/media";
 import type { Badge, ChatMessage } from "@sualive/protocol";
 
@@ -63,7 +63,8 @@ export interface ReactionEvent {
   /** Único por reação, para animar e descartar. */
   id: string;
   from: string;
-  reaction: Reaction;
+  /** Uma das básicas ou de um pacote equipado por quem enviou. */
+  reaction: string;
 }
 
 export interface RoomState {
@@ -120,7 +121,7 @@ export interface RoomActions {
   /** Só na fase `replaced`: volta a usar esta aba (a outra é que passa a ser derrubada). */
   useThisTab(): void;
   sendChat(text: string): void;
-  react(reaction: Reaction): void;
+  react(reaction: string): void;
   setHandRaised(raised: boolean): void;
   setMicMuted(muted: boolean): Promise<void>;
   /** Pede ao servidor e, se autorizado, captura e transmite. */

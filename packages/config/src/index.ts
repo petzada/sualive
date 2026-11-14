@@ -75,10 +75,10 @@ export const API_RATE_LIMIT_WINDOW_SECONDS = 60;
 export const MINIMUM_AGE = 18;
 /**
  * Versão dos Termos de Uso e das Políticas de Privacidade. Começa pela data (AAAA-MM-DD); uma
- * segunda mudança no mesmo dia ganha um sufixo (".2"). Quem tem conta e ainda não viu esta versão
+ * outra mudança no mesmo dia ganha um sufixo (".2", ".3"). Quem tem conta e ainda não viu esta versão
  * recebe a faixa de aviso (vale o uso continuado).
  */
-export const TERMS_VERSION = "2026-11-14.2";
+export const TERMS_VERSION = "2026-11-14.3";
 /** Data da versão atual dos termos (AAAA-MM-DD), para mostrar. */
 export const TERMS_DATE = TERMS_VERSION.slice(0, 10);
 
@@ -146,3 +146,47 @@ export type RoomTheme = (typeof ROOM_THEMES)[number];
 
 /** Prefixo da rota da sala de link fixo no front: `/@<nome>`. */
 export const FIXED_ROOM_PATH_PREFIX = "/@";
+
+// ---------- Carteira, loja e presentes (entrega 3) ----------
+
+/** As duas moedas da conta. Prata se ganha de graça e só compra cosméticos; ouro se compra. */
+export const CURRENCIES = ["silver", "gold"] as const;
+export type Currency = (typeof CURRENCIES)[number];
+
+/** Câmbio: quanto ouro vale R$ 1. */
+export const GOLD_PER_BRL = 100;
+
+/** Ouro do Plus pago: PLUS_GOLD_AMOUNT a cada PLUS_GOLD_INTERVAL_DAYS. */
+export const PLUS_GOLD_AMOUNT = 1000;
+export const PLUS_GOLD_INTERVAL_DAYS = 30;
+/** Créditos de ouro que cada pagamento rende: o mensal paga um mês; o anual, doze. */
+export const PLUS_GOLD_CREDITS_MONTHLY = 1;
+export const PLUS_GOLD_CREDITS_ANNUAL = 12;
+
+/** Pacotes de ouro por Pix único. */
+export const GOLD_PACKS = [
+  { id: "gold_990", priceCents: 990, gold: 990 },
+  { id: "gold_2190", priceCents: 1990, gold: 2190 },
+  { id: "gold_5990", priceCents: 4990, gold: 5990 },
+] as const;
+export type GoldPackId = (typeof GOLD_PACKS)[number]["id"];
+
+/** Prata de boas-vindas, uma vez por conta. */
+export const WELCOME_SILVER = 300;
+
+/** Ouro que uma conta pode enviar por dia (dia de calendário em WALLET_TIME_ZONE). */
+export const GOLD_GIFT_DAILY_LIMIT = 2000;
+export const WALLET_TIME_ZONE = "America/Sao_Paulo";
+
+/** Presentear Plus a outra conta: preço em ouro e dias concedidos. */
+export const PLUS_GIFT_PRICE_GOLD = 1990;
+export const PLUS_GIFT_DAYS = 30;
+
+/** Tipos de item da loja. */
+export const SHOP_ITEM_KINDS = ["name_color", "name_gradient", "avatar_frame", "reaction_pack"] as const;
+export type ShopItemKind = (typeof SHOP_ITEM_KINDS)[number];
+
+/** Linhas do extrato por página. */
+export const WALLET_LEDGER_PAGE_SIZE = 30;
+/** Reações disponíveis para uma pessoa: as básicas mais as dos pacotes equipados (teto). */
+export const REACTIONS_MAX_PER_PERSON = 48;

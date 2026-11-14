@@ -16,7 +16,6 @@ import {
   ROOM_MAX_PEOPLE,
   VIDEOS_PER_PERSON,
   ROOM_PATH_PREFIX,
-  type Reaction,
   type RoomTheme,
 } from "@sualive/config";
 import type { DevicePreview, MediaSession, PeerConnectionState, SignalData, VideoKind } from "@sualive/media";
@@ -756,7 +755,7 @@ export class RoomClient {
     this.rebuild();
   }
 
-  private addReaction(from: string, reaction: Reaction): void {
+  private addReaction(from: string, reaction: string): void {
     const event = { id: this.deps.randomId(), from, reaction };
     const timer = setTimeout(() => {
       this.reactionTimers.delete(timer);
@@ -884,7 +883,7 @@ export class RoomClient {
     return !this.disposed && this.welcomed && this.state.phase === "connected";
   }
 
-  private react(reaction: Reaction): void {
+  private react(reaction: string): void {
     this.send({ type: "reaction.send", reaction });
   }
 

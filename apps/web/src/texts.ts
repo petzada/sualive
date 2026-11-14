@@ -411,7 +411,7 @@ export const texts = {
       pastDue: `O último pagamento não passou. Estamos tentando de novo (até ${PLUS_RETRY_ATTEMPTS} tentativas em ${PLUS_RETRY_WINDOW_DAYS} dias) e os seus benefícios continuam enquanto isso.`,
       canceled: (date: string) => `Assinatura cancelada. Os benefícios valem até ${date}.`,
       ended: `Seu Plus acabou. O link fixo fica reservado para você por ${FIXED_LINK_RESERVE_DAYS} dias.`,
-      cycle: { monthly: "mensal", annual: "anual" },
+      cycle: { monthly: "mensal", annual: "anual", gift: "de presente" },
       resubscribeLater: "Você poderá assinar de novo quando o período atual acabar.",
     },
     annualExpiry: (days: number, date: string) =>
@@ -464,6 +464,7 @@ export const texts = {
       state: "Situação",
       states: { active: "Ativo", past_due: "Em atraso", canceled: "Cancelado", ended: "Encerrado" },
       cycle: "Ciclo",
+      giftCycle: "Presente",
       renewsOn: "Renova em",
       validUntil: "Vale até",
     },

@@ -22,6 +22,12 @@ export const ERROR_STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   plus_required: 403,
   billing_unavailable: 503,
   already_subscribed: 409,
+  insufficient_funds: 409,
+  daily_limit: 409,
+  recipient_not_found: 404,
+  self_gift: 400,
+  already_owned: 409,
+  not_owned: 409,
 };
 
 /** Resposta de erro da API: `{ error }` com o status do mapa. */

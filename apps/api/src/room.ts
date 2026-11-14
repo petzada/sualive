@@ -2,6 +2,7 @@ import {
   CHAT_HISTORY_SIZE,
   CHAT_RATE_MAX,
   CHAT_RATE_WINDOW_MS,
+  REACTIONS,
   ROOM_EMPTY_TTL_MS,
   ROOM_MAX_PEOPLE,
   ROOM_MAX_VIDEOS,
@@ -465,7 +466,8 @@ export class RoomBase extends DurableObject<AppEnv> {
     this.send(ws, {
       type: "welcome",
       room: this.settings(),
-      limits: { videosPerPerson: connection.videosPerPerson },
+      // Entrega 3 (loja): somar aqui as reações dos pacotes equipados.
+      limits: { videosPerPerson: connection.videosPerPerson, reactions: [...REACTIONS] },
       self: connection.participantId,
       participants: this.readySockets().map((s) => toParticipant(attachmentOf(s))),
       chat: [...history.values()].slice(-CHAT_HISTORY_SIZE),
@@ -688,6 +690,9 @@ function toParticipant(connection: Connection): Participant {
     handRaised: connection.handRaised,
     videos: connection.videos,
     joinedAt: connection.joinedAt,
+    // Entrega 3 (loja): cosméticos equipados da conta, lidos ao conectar.
+    cosmetics: null,
+    canReceiveGold: connection.userId !== null,
   };
 }
 

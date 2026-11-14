@@ -43,7 +43,16 @@ describe("sala", () => {
     expect(clientMessageSchema.safeParse({ type: "chat.send", text: "oi" }).success).toBe(true);
     expect(clientMessageSchema.safeParse({ type: "chat.send", text: "   " }).success).toBe(false);
     expect(clientMessageSchema.safeParse({ type: "chat.send", text: "a".repeat(2001) }).success).toBe(false);
-    expect(clientMessageSchema.safeParse({ type: "reaction.send", reaction: "💩" }).success).toBe(false);
+    // Qual reação a pessoa pode enviar é decisão do servidor (pacotes equipados); o esquema só limita o tamanho.
+    expect(clientMessageSchema.safeParse({ type: "reaction.send", reaction: "" }).success).toBe(false);
+    expect(clientMessageSchema.safeParse({ type: "reaction.send", reaction: "x".repeat(17) }).success).toBe(
+      false,
+    );
+    const gift = { type: "gift.send", requestId: "g1", to: "p2" };
+    expect(clientMessageSchema.safeParse({ ...gift, amount: 100 }).success).toBe(true);
+    for (const amount of [0, -1, 1.5, 2001]) {
+      expect(clientMessageSchema.safeParse({ ...gift, amount }).success).toBe(false);
+    }
     expect(clientMessageSchema.safeParse({ type: "unknown" }).success).toBe(false);
     expect(serverMessageSchema.safeParse({ type: "video.denied", requestId: "r", reason: "x" }).success).toBe(
       false,
