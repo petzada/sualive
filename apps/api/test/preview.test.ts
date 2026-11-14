@@ -1,4 +1,9 @@
+import { FIXED_ROOM_PATH_PREFIX } from "@sualive/config";
+import { env as workerEnv } from "cloudflare:workers";
+import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
+import type { AppEnv } from "../src/env";
+import { roomPagePreview } from "../src/preview";
 import { serverTexts } from "../src/texts";
 import { fetchWithEnv } from "./helpers";
 
@@ -49,6 +54,24 @@ describe("prévia do link da sala", () => {
           ASSETS: fakeAssets([]),
         });
         return (await response.text()).replace(path, "");
+      }),
+    );
+    expect(pages[0]).toBe(pages[1]);
+  });
+
+  it("link fixo (/@nome): mesma prévia genérica, sem revelar se a conta existe", async () => {
+    // A rota `/@*` é montada no app.ts na integração; aqui o mesmo handler, num app com a mesma rota.
+    const app = new Hono<{ Bindings: AppEnv }>();
+    app.get(`${FIXED_ROOM_PATH_PREFIX}*`, (c) => roomPagePreview(c.req.raw, c.env));
+    const env = { ...(workerEnv as unknown as AppEnv), ASSETS: fakeAssets([]) };
+    const pages = await Promise.all(
+      ["/@ana_existe", "/@ninguem"].map(async (path) => {
+        const response = await app.fetch(new Request(`https://sualive.test${path}`), env);
+        expect(response.status).toBe(200);
+        const html = await response.text();
+        expect(metaContent(html, "og:url")).toBe(`https://sualive.test${path}`);
+        expect(metaContent(html, "og:title")).toBe(serverTexts.linkPreview.title);
+        return html.replace(path, "");
       }),
     );
     expect(pages[0]).toBe(pages[1]);
