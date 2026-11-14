@@ -465,7 +465,8 @@ export class RoomClient {
    * fechamento `unauthorized` leva ao lobby.
    */
   private async useThisTab(): Promise<void> {
-    if (this.disposed || this.state.phase !== "replaced") return;
+    const phase: RoomPhase = this.state.phase;
+    if (this.disposed || phase !== "replaced") return;
     const request = ++this.joinRequest;
     this.update({ phase: "joining", notice: null });
     const account = await this.syncAccount();
