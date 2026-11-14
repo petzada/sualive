@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { ROOM_PATH_PREFIX } from "@sualive/config";
 import { handles, me } from "./account/routes";
 import { auth } from "./auth/routes";
+import { plus, webhooks } from "./billing/routes";
 import type { AppEnv } from "./env";
 import { roomPagePreview } from "./preview";
 import { rooms } from "./rooms";
@@ -30,6 +31,8 @@ app.route("/api/rooms", rooms);
 app.route("/api/auth", auth);
 app.route("/api/me", me);
 app.route("/api/handles", handles);
+app.route("/api/plus", plus);
+app.route("/api/webhooks", webhooks);
 
 // Página da sala com a prévia do link (Open Graph). Passa pelo Worker por `run_worker_first`.
 app.get(`${ROOM_PATH_PREFIX}*`, (c) => roomPagePreview(c.req.raw, c.env));
