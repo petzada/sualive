@@ -60,7 +60,7 @@ Vitest sempre com `--run`; nunca em modo watch. Um job pesado por vez (não rode
 
 ## O que nunca fazer
 
-- Copiar ou consultar código do Go Live.
+- Copiar ou consultar código do Go Live ou da Salinha.
 - Rodar banco local, Docker ou qualquer servidor de banco. Desenvolvimento usa o simulador do Wrangler
   (`wrangler dev`); o que precisa de banco real roda só no CI.
 - Fazer deploy a partir da máquina de desenvolvimento.

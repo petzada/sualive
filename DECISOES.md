@@ -1,8 +1,13 @@
 # Especificação de implementação
 
-Versão final de 2026-11-14. Este documento é a fonte de verdade do **que** construir. A aparência
-(cores, tipografia, espaçamentos, componentes) é definida em `DESIGN.md`. As credenciais de cada
-entrega estão listadas em `SEGREDOS.md`.
+Versão de 2026-11-14, revisada depois da entrega 3 com as decisões de
+`analise-concorrentes-reestrutura.md`. Este documento é a fonte de verdade do **que** construir. A
+aparência (cores, tipografia, espaçamentos, componentes) é definida em `DESIGN.md`. As credenciais de
+cada entrega estão listadas em `SEGREDOS.md`. O que vem depois do MVP está em `POS-MVP-v5.md`.
+
+A revisão mudou os níveis, o preço do Plus, a entrega 4 e a ordem do pós-MVP. As entregas 0 a 3 estão
+em produção e o texto delas descreve o que foi entregue; onde a entrega 4 muda um limite delas, vale a
+entrega 4.
 
 ## Como usar
 
@@ -21,9 +26,10 @@ entrega estão listadas em `SEGREDOS.md`.
 ## Contexto do produto
 
 Uma sala de chamada com compartilhamento de tela que abre por um link, sem cadastro e sem anúncio.
-O público é quem faz stream e chama gente para assistir ou participar. O produto de referência é o Go
-Live (golive.nemtudo.me); **nenhum código dele pode ser usado ou consultado**, a licença proíbe uso
-comercial.
+O público é o grupo de amigos que joga, assiste e conversa junto; a sala grande, para quem tem plateia,
+é um produto pago que vem depois. A promessa da página inicial é "um link, sem conta, sem anúncio". Os
+concorrentes são o Go Live (golive.nemtudo.me) e a Salinha (salinha.live); **nenhum código deles pode
+ser usado ou consultado**.
 
 Idioma da interface: português do Brasil. Pagamento: Pix, pela Woovi. Conta exige 18 anos.
 
@@ -31,40 +37,49 @@ Idioma da interface: português do Brasil. Pagamento: Pix, pela Woovi. Conta exi
 
 | Termo | Significado |
 |---|---|
-| Sala direta | Sala de até 6 pessoas em que áudio e vídeo trafegam direto entre os navegadores (WebRTC em malha). É o tipo padrão. |
-| Sala no servidor | Sala de até 50 pessoas em que áudio e vídeo passam por um servidor de mídia. Só o dono Plus abre, pagando ouro por minuto. Tem três usos: sala grande, sala pública e modo protegido. |
-| Modo protegido | Sala no servidor de até 6 pessoas, usada para esconder o IP dos participantes. Todos falam e transmitem, como na sala direta. |
-| Sala grande | Sala no servidor por link, de 7 a 50 pessoas, com palco e plateia. |
-| Sala pública | Sala no servidor listada na vitrine, com palco e plateia. |
-| Palco | Participantes que falam e transmitem numa sala grande ou pública. O dono decide quem sobe. |
-| Plateia | Participantes que assistem, usam chat e reações e levantam a mão. |
+| Sala direta | Sala de até 12 pessoas em que áudio e vídeo trafegam direto entre os navegadores (WebRTC em malha). É o tipo padrão. A voz vai para todos; cada vídeo só vai para quem escolhe assistir. |
+| Retransmissão | Caminho usado quando dois navegadores não conseguem se ligar direto: a mídia passa pelo TURN da Cloudflare, que cobra por GB. |
+| Sala protegida | Sala direta de até 6 pessoas em que **toda** a mídia passa pela retransmissão, para esconder o IP dos participantes. Só o dono Plus abre, pagando ouro por minuto. |
+| Sala grande | Sala de 7 a 50 pessoas, por link, com palco e plateia, em que a mídia passa por um servidor de mídia (SFU). Fica para depois do MVP. |
 | Dono | Quem criou a sala. Sem conta, é reconhecido por um token guardado no navegador. |
+| Moderador | Participante promovido pelo dono para silenciar, remover e banir. |
 | Prata | Moeda ganha de graça. Só compra cosméticos. |
-| Ouro | Moeda comprada ou recebida com o Plus. 100 de ouro = R$ 1. |
-| Plus | O único plano pago: R$ 19,90 por mês ou R$ 159,90 por ano. |
+| Ouro | Moeda comprada ou recebida com o Plus. 100 de ouro = R$ 1 de face; depois da taxa da Woovi rendem de R$ 0,82 a R$ 0,91. |
+| Franquia | O ouro mensal do Plus, mostrado ao assinante em horas de sala protegida. |
+| Plus | O único plano pago: R$ 9,90 por mês ou R$ 79,90 por ano. |
 
 ## Níveis
+
+Valem a partir da entrega 4. Até ela, valem os limites das entregas 1 e 2.
 
 | | Sem conta | Conta gratuita | Plus |
 |---|---|---|---|
 | Criar e entrar em sala direta por link | sim, com apelido | sim | sim |
-| Qualidade do que **a própria pessoa** transmite em sala direta | 720p30 | 720p30 | 1080p60 |
-| Vídeos simultâneos da própria pessoa (tela ou webcam) | 1 | 1 | 2 |
+| Pessoas na sala direta | 12 | 12 | 12 |
+| Qualidade do que **a própria pessoa** transmite | até 1080p60 | até 1080p60 | até 2160p (4K) e 120 fps **[padrão]** |
+| Vídeos simultâneos da própria pessoa (tela ou webcam) | 2 | 2 | 4 |
+| Vídeos que a pessoa assiste ao mesmo tempo | 4 | 4 | 4 |
+| Vídeo próprio em conexão retransmitida | não: só voz e chat | não: só voz e chat | sim, pagando ouro |
+| Abrir sala protegida | não | não | sim, pagando ouro |
 | Perfil, @nome, carteira | não | sim | sim, com selo |
-| Enviar imagem no chat (a partir da entrega 4) | não | sim | sim |
-| Sala pública | assiste e ouve | plateia com chat; palco se o dono chamar | cria |
-| Abrir sala no servidor | não | não | sim, pagando ouro |
 | Link fixo e tema de sala | não | não | sim |
-| Ouro mensal | — | — | 1.000 |
+| Ouro mensal (franquia) | — | — | 500 |
 
-Regras que valem em todas as entregas:
+Regras que valem a partir da entrega 4:
 
-- Sala direta: até 6 pessoas, todos falam e transmitem. Qualquer sala: no máximo 4 vídeos ao mesmo tempo.
-- Em sala direta, qualidade e número de vídeos seguem **o plano de cada pessoa**, não o do dono.
-- Em sala no servidor, a qualidade é a que o dono escolheu e paga; vale para todos no palco.
-- Conexão que precisa de retransmissão (TURN) na sala direta é limitada a 720p para todos, inclusive Plus.
+- Sala direta: até 12 pessoas, todos falam e transmitem. Não há teto de vídeos por sala; cada pessoa
+  assiste no máximo 4 vídeos ao mesmo tempo, e quem transmite só envia o vídeo a quem o assiste.
+- Qualidade e número de vídeos seguem **o plano de cada pessoa**, não o do dono.
+- Voz passa pela retransmissão para qualquer pessoa, sem custo para ela.
+- Vídeo só passa pela retransmissão quando quem transmite é Plus e tem ouro **[padrão]**; fica limitado
+  a 720p e 1,5 Mbps, e cada minuto é debitado do ouro de quem transmite. Sem isso, aquele par fica com
+  voz e chat e os dois lados veem o aviso.
+- Sala protegida: até 6 pessoas e no máximo 2 vídeos ao mesmo tempo na sala, a 720p.
 - Entra-se em qualquer sala com o microfone mudo.
 - Sala de dono sem Plus acaba 5 minutos **[padrão]** depois que a última pessoa sai. O chat é apagado junto.
+- **Regra de preço:** tudo que gasta banda nossa (retransmissão de vídeo, sala protegida e, depois, sala
+  grande) custa em ouro o **pior caso medido em homologação vezes 2**, contando 100 de ouro como R$ 0,82.
+  Nenhum preço desse tipo é fixado sem a medição.
 
 ## Regras globais de implementação
 
@@ -77,14 +92,14 @@ Regras que valem em todas as entregas:
 | Interface | HeroUI 3 sobre Tailwind 4, com os tokens de `DESIGN.md` (tema claro) |
 | API | Hono em Cloudflare Workers (plano Paid); o mesmo Worker serve os arquivos do front |
 | Tempo real | Um Durable Object por sala, com WebSocket e hibernação |
-| Mídia, sala direta | WebRTC em malha, com STUN e TURN da Cloudflare |
-| Mídia, sala no servidor | Cloudflare Realtime SFU (entrega 4) |
+| Mídia, sala direta e sala protegida | WebRTC em malha, com STUN e TURN da Cloudflare |
+| Mídia, sala grande | Cloudflare Realtime SFU (depois do MVP) |
 | Banco | Cloudflare D1, com Drizzle |
-| Arquivos | Cloudflare R2 (entrega 4) |
+| Arquivos | Cloudflare R2 (depois do MVP, com os grupos) |
 | Login | OAuth do Google e do Discord com Arctic; sessão própria em cookie `HttpOnly`, guardada no D1 **[padrão]** |
 | Pagamento | Woovi: Pix Automático e Pix único |
 | Anti-robô | Cloudflare Turnstile e limite de requisições por IP |
-| Classificador | Workers AI (entrega 4) |
+| Classificador | Workers AI (depois do MVP, com os grupos) |
 | Erros e métricas | Registros do Workers, Sentry (front e Worker), Cloudflare Web Analytics |
 | Testes | Vitest; Playwright só para um teste de fumaça com dispositivos de mídia falsos |
 | Ambientes | Produção e homologação; homologação usa o ambiente de teste da Woovi |
@@ -104,10 +119,11 @@ Regras que valem em todas as entregas:
 - `packages/protocol` define, com esquemas validados, todas as mensagens trocadas pelo WebSocket da sala.
   Front e API importam dali. Nenhuma mensagem é aceita sem validação.
 - `packages/media` é a única parte do front que conhece WebRTC. Ele expõe uma interface única para os
-  dois caminhos de mídia; a interface do produto não sabe qual está em uso.
-- **O servidor decide, o cliente obedece.** Limites de pessoas, de vídeos, papéis, plano e saldo são
-  verificados no Durable Object ou no Worker. A exceção conhecida é a qualidade na sala direta, que só o
-  navegador de quem transmite pode aplicar.
+  caminhos de mídia (direto, retransmitido e, depois, servidor); a interface do produto não sabe qual
+  está em uso.
+- **O servidor decide, o cliente obedece.** Limites de pessoas, de vídeos, quem assiste o quê, papéis,
+  plano e saldo são verificados no Durable Object ou no Worker. A exceção conhecida é a qualidade na
+  sala direta, que só o navegador de quem transmite pode aplicar.
 - Scripts com os mesmos nomes em todos os pacotes: `typecheck`, `lint`, `test`, `test:related`,
   `test:ci`, `e2e`, `build`.
 - Migrations do D1 só adicionam (coluna com default ou nula, tabela, índice). Remover, renomear ou mudar
@@ -116,15 +132,16 @@ Regras que valem em todas as entregas:
 
 ### O que nunca fazer, em nenhuma entrega
 
-- Copiar ou consultar código do Go Live.
+- Copiar ou consultar código do Go Live ou da Salinha.
 - Rodar banco local, Docker ou qualquer servidor de banco. Desenvolvimento usa o simulador do Wrangler.
+- Gastar banda nossa com vídeo sem o débito correspondente em ouro.
 - Fazer deploy a partir da máquina de desenvolvimento.
 - Colocar segredo no front, em arquivo versionado ou em variável `VITE_*`.
 - Confiar em valor enviado pelo navegador para plano, saldo, papel, preço ou identidade.
 - Creditar plano ou ouro por qualquer caminho que não seja a confirmação recebida da Woovi.
 - Deixar saldo de moeda negativo ou alterar saldo sem registrar a linha correspondente no livro-razão.
-- Guardar gravação de áudio ou vídeo, ou o conteúdo do chat depois que a sala acaba (exceto a cópia
-  anexada a uma denúncia).
+- Guardar gravação de áudio ou vídeo, ou o conteúdo do chat da sala depois que ela acaba. O chat de
+  grupo, que será guardado, só existe na etapa de grupos, depois do MVP.
 - Adicionar anúncios, rastreadores de terceiros além dos listados, ou recurso que não esteja no escopo.
 
 ---
@@ -386,100 +403,148 @@ com saldo sempre correto.
 
 ---
 
-## Entrega 4 — Sala no servidor: protegida, grande e pública
+## Entrega 4 — Sala de 12, novos limites e sala protegida
+
+Substitui a entrega 4 original (sala no servidor com SFU, palco, plateia, vitrine, moderação e
+imagens), que saiu do MVP. O motivo e as contas estão em `analise-concorrentes-reestrutura.md`.
 
 ### Objetivo
 
-O dono Plus abre salas que passam pelo servidor de mídia, pagando ouro por minuto: para esconder o IP,
-para reunir até 50 pessoas ou para aparecer na vitrine. Entra junto a moderação que a sala pública exige.
+Fechar o MVP com o desenho que disputa com os concorrentes: sala direta de até 12 pessoas com vídeo sob
+demanda, 1080p60 de graça e Plus mais barato, sem que nenhum vídeo passe pela nossa banda sem estar pago
+em ouro. Entram junto o moderador, os limites de frequência e o registro de acesso.
 
 ### Escopo da tarefa
 
-**Abrir**
+**Sala direta de 12**
 
-- Só dono com Plus ativo. Ao abrir, ele escolhe o tipo (protegida, grande ou pública), o máximo de
-  pessoas e a qualidade (720p30, 1080p30 ou 1080p60), e vê o preço por hora antes de confirmar.
-- Protegida: até 6 pessoas, todos falam e transmitem, como na sala direta.
-- Grande (por link) e pública (na vitrine): até 50 pessoas, com palco e plateia.
+- O limite da sala direta sobe de 6 para 12 pessoas. A 13ª é recusada com mensagem clara.
+- Voz em malha entre todos, como hoje.
+- Vídeo sob demanda: quem transmite anuncia o vídeo à sala, e ele aparece para os outros como um cartão
+  com o nome de quem transmite e o botão "Assistir". Nenhum vídeo começa sozinho **[padrão]**.
+- Assistir e parar de assistir são mensagens de `packages/protocol`. O Durable Object guarda quem assiste
+  o quê, recusa o 5º vídeo assistido pela mesma pessoa e avisa quem transmite, que só então abre ou fecha
+  o envio para aquele participante.
+- Sai o teto de 4 vídeos por sala. Vídeos por pessoa: 2; Plus, 4.
 
-**Palco e plateia**
+**Qualidade**
 
-- O dono começa no palco. Quem está no palco fala e transmite; o teto de 4 vídeos continua.
-- A plateia assiste, ouve, usa chat e reações e levanta a mão. O dono chama para o palco e tira dele.
-- O palco não tem limite próprio além do tamanho da sala.
-- Em sala pública: quem não tem conta só assiste e ouve; quem tem conta usa chat e reações e pode ser
-  chamado ao palco.
+- Sem Plus: até 1080p a 60 fps, até 5 Mbps.
+- Plus: até 2160p e 120 fps, até 16 Mbps **[padrão]**.
+- Continua aplicada pelo navegador de quem transmite, com a adaptação nativa à rede.
 
-**Mídia**
+**Retransmissão (TURN)**
 
-- Cloudflare Realtime SFU. O Durable Object da sala é o único que fala com a API do SFU; as credenciais
-  ficam no servidor.
-- Cada vídeo é publicado em duas camadas. O vídeo em destaque é entregue na qualidade da sala; as
-  miniaturas, na camada baixa.
-- A troca entre os dois caminhos de mídia acontece só ao abrir a sala, nunca com a sala em andamento.
+- Voz passa pela retransmissão para qualquer pessoa.
+- Vídeo num par retransmitido só é enviado quando quem transmite é Plus e tem ouro **[padrão]**. Fica
+  limitado a 720p e 1,5 Mbps; o som da tela, a 64 kbps.
+- A cada minuto, o Durable Object debita de quem transmite o preço de cada par de vídeo retransmitido que
+  está sendo assistido. Cada débito vai para o livro-razão. Sem ouro, o vídeo para naquele par e a voz
+  continua.
+- Quem não vê ou não é visto por causa disso recebe um aviso claro, dos dois lados, com o caminho: o
+  Plus de quem transmite.
+- Credenciais de retransmissão com identificador por sessão, para que o uso de cada uma possa ser
+  conferido (risco 10).
 
-**Cobrança em ouro**
+**Sala protegida**
 
-- A cada minuto o servidor conta as pessoas presentes, acha a faixa (até 6, até 20 ou até 50) e debita
-  do dono o valor da tabela de preços. Cada débito vai para o livro-razão.
+- Só o dono com Plus ativo e ouro abre. Escolhe ao criar; a sala não muda de tipo em andamento. Na sala
+  de link fixo, o dono liga ou desliga com a sala vazia **[padrão]**.
+- Até 6 pessoas, no máximo 2 vídeos ao mesmo tempo na sala, 720p a 1,5 Mbps.
+- Toda a mídia passa pela retransmissão. O Durable Object descarta, na sinalização, qualquer candidato de
+  conexão que não seja de retransmissão: nenhum participante recebe o IP de outro.
+- Preço fixo por hora, debitado do dono por minuto, que cobre a voz e o vídeo de todos na sala. Antes de
+  confirmar, o dono vê o preço e quantas horas o saldo dele cobre.
 - Aviso ao dono com 10 e com 2 minutos de saldo. Ao zerar, 3 minutos de tolerância; sem recarga, a sala
-  encerra para todos. O saldo nunca fica negativo.
-- Qualquer participante com conta pode enviar ouro ao dono por um botão na sala, para mantê-la aberta.
-  É o mesmo envio de ouro da entrega 3, com o mesmo limite diário **[padrão]**.
+  encerra para todos (não vira sala direta, para não expor IP). O saldo nunca fica negativo.
+- Qualquer participante com conta pode enviar ouro ao dono por um botão na sala. É o envio de ouro da
+  entrega 3, com o mesmo limite diário.
 
-**Sala pública e moderação**
+**Franquia em horas**
 
-- Vitrine com as salas públicas abertas: título, dono, número de pessoas, ordenadas por audiência.
-- Botão de denúncia em toda sala pública. A denúncia guarda motivo, sala, denunciado e cópia das
-  últimas mensagens do chat.
-- Painel interno, só para contas com papel de administrador: fila de denúncias, encerrar sala, suspender
-  e banir conta.
-- Em sala pública: lista de palavras bloqueadas e classificador automático de texto (Workers AI) nas
-  mensagens do chat. Confira no catálogo atual do Workers AI qual modelo usar; não presuma.
+- A carteira e a sala mostram o ouro também como tempo: "cerca de X h de sala protegida". A sala mostra o
+  tempo que resta, não o ouro caindo.
 
-**Imagens**
+**Plus**
 
-- Envio de foto própria de avatar e imagens no chat, só para quem tem conta, guardadas no R2.
-- Toda imagem passa pelo classificador antes de aparecer; reprovada não é publicada.
-- Em sala pública, imagens no chat ficam desligadas por padrão; o dono pode ligar.
+- Preço novo: R$ 9,90 por mês e R$ 79,90 por ano. Ouro: 500 a cada 30 dias; o anual rende 12 créditos.
+- Assinatura feita no preço antigo continua com o valor e os 1.000 de ouro antigos até acabar ou ser
+  cancelada **[padrão]**.
+- Benefícios: qualidade acima de 1080p60, 4 vídeos, vídeo em retransmissão, sala protegida, link fixo,
+  tema de sala e selo.
+- Presentear 30 dias de Plus passa a custar 990 de ouro **[padrão]**. O preço dos cosméticos não muda.
+- Página do plano e textos atualizados.
+
+**Medição de custo, antes de fixar os preços**
+
+- Em homologação, medir os GB que a Cloudflare cobra por: um par de vídeo retransmitido numa ponta e nas
+  duas; uma sala protegida de 6 pessoas com 2 vídeos assistidos por todos.
+- Preço final em ouro por hora = custo medido do pior caso × 2 ÷ R$ 0,0082. O dono aprova os valores
+  finais; até lá valem os provisórios de "Parâmetros".
+
+**Moderador, limites de frequência e registro de acesso**
+
+- Como em `POS-MVP-v5.md`, "Acréscimos à entrega 4". O moderador vale na sala direta e na protegida. Sem
+  painel de moderação, o registro de acesso é consultado direto no D1.
+
+**Termos de Uso e Políticas de Privacidade**
+
+- Revisar os dois com o que muda (retransmissão, sala protegida, registro de acesso que passa a existir,
+  preço do Plus) e mudar `TERMS_VERSION`.
 
 ### O que não fazer
 
-- Não mudar a sala direta: ela continua gratuita, com até 6 pessoas e sem servidor de mídia.
-- Não incluir horas gratuitas, franquia ou cortesia de sala no servidor. Todo minuto é pago em ouro.
-- Não aceitar prata como pagamento de sala.
-- Não deixar conta gratuita ou sem conta abrir sala no servidor.
-- Não criar destaque pago na vitrine, categorias, busca, seguidores ou notificação de sala aberta.
-- Não gravar, transcrever, traduzir nem gerar clipe.
-- Não migrar uma sala em andamento entre o caminho direto e o servidor.
-- Não criar doação em dinheiro.
+- Não usar o servidor de mídia (SFU). Não criar palco, plateia, sala grande, sala pública nem vitrine.
+- Não criar denúncia, painel de moderação, lista de palavras nem classificador. Não enviar imagem no chat
+  nem foto própria de avatar. Tudo isso vai com os grupos, depois do MVP.
+- Não enviar vídeo pela retransmissão sem o débito em ouro. Não incluir horas gratuitas, cortesia nem
+  período de teste. Não aceitar prata como pagamento.
+- Não mudar uma sala em andamento entre direta e protegida.
+- Não escrever controle de qualidade por espectador nem escolha manual de codec.
+- Não criar amigos, grupos, mensagens diretas, indicação nem assistir junto.
+- Não fixar preço de retransmissão sem a medição.
 
 ### Entrega esperada
 
-- Uma sala grande com 50 navegadores, 4 vídeos no palco e chat ativo funciona por 30 minutos.
-- O ouro debitado bate com os minutos e as faixas de presença registrados, minuto a minuto.
-- Com saldo insuficiente, a sala avisa, espera a tolerância e encerra; com recarga, continua.
-- Numa sala protegida, nenhum participante recebe o IP de outro.
-- Denúncia aparece no painel com a cópia do chat; encerrar sala e banir conta têm efeito imediato.
-- Imagem reprovada pelo classificador não aparece para ninguém.
-- Testes automatizados cobrem a cobrança por faixa, os avisos, a tolerância, o encerramento e as
-  permissões de palco e plateia.
+- Doze navegadores ficam na mesma sala com voz por 30 minutos; o 13º é recusado.
+- Um vídeo só é enviado a quem clicou em assistir; o 5º vídeo assistido é recusado; quem para de assistir
+  deixa de receber.
+- Sem Plus, um par retransmitido tem voz e não tem vídeo, e os dois lados veem o aviso.
+- Com Plus e ouro, o par retransmitido tem vídeo a 720p, e o ouro debitado bate com os minutos e os pares.
+- Numa sala protegida, nenhum participante recebe candidato de conexão que não seja de retransmissão; o
+  3º vídeo é recusado; o débito bate minuto a minuto; com saldo insuficiente, a sala avisa, espera a
+  tolerância e encerra; com recarga, continua.
+- Assinatura nova custa R$ 9,90 e credita 500 de ouro; a antiga segue como estava.
+- Moderador, limites de frequência e registro de acesso passam nos aceites de `POS-MVP-v5.md`.
+- O relatório da medição de custo traz os GB por cenário e os preços propostos.
+- Testes automatizados cobrem: limite de 12, quem assiste o quê, limite de 4 assistidos, decisão de vídeo
+  por par retransmitido, débito por par, filtro de candidatos, cobrança, avisos, tolerância e
+  encerramento da sala protegida.
+- Teste de fumaça no CI continua passando com o vídeo sob demanda.
 
 ---
 
 ## Depois do MVP — não implementar agora
 
-| Etapa | Conteúdo |
-|---|---|
-| Fase 2 | Presença diária, missões, indicação e conquistas (pagam prata); destaque de sala na vitrine (ouro); raridade na loja |
-| Social | Amigos e convite direto; depois grupos com salas fixas; depois mensagens diretas |
-| Doação em Pix | Só dono Plus recebe. Mínimo de R$ 5. Quem doa paga o valor, mais 10% para a plataforma, mais a taxa do Pix. O Plus tem 1 saque gratuito por mês; os demais pagam 10%. Exige parecer jurídico antes |
-| Desktop | Electron: áudio do sistema sem eco, atalhos globais e sobreposição, atualização automática e loja |
-| Android | Capacitor sobre o web: compartilhar a tela do celular, chamada em segundo plano, notificações |
+O detalhe de cada etapa está em `POS-MVP-v5.md`. A ordem foi decidida pelo dono.
 
-Fora do produto: resolução acima de 1080p60, anúncios, afiliados, música no perfil, efeitos na câmera de
-outras pessoas, bots e integrações de terceiros, saque de moedas, mais de um plano pago, outros idiomas
-e outros meios de pagamento.
+| Ordem | Etapa | Conteúdo |
+|---|---|---|
+| 1 | Grupo A e lançamento | Condições para abrir ao público, inclusive a Central de Segurança com canal oficial |
+| 2 | Desktop | Electron: som só do programa, sem eco; atalhos globais, sobreposição e atualização automática |
+| 3 | Assistir junto, bot do Discord e indicação | YouTube e Twitch pelos players oficiais, grátis para todos. Bot que cria a sala e posta o link no canal. Convite que vira uso real rende dias de Plus sem ouro |
+| 4 | Fase 2 | Presença diária, missões e conquistas (pagam prata) |
+| 5 | Grupos | Só começa quando o retorno semanal for atingido. Amigos, grupos com chat guardado, imagens com classificador e mensagens diretas entre amigos. Nascem junto: denúncia e painel, apagar mensagens, filtro e classificador de texto, Termos revistos, foto própria de avatar, cofre do grupo e loja forte (raridade, itens raros só em ouro, coleção mensal) |
+| 6 | Android | Capacitor sobre o web: tela do celular, chamada em segundo plano, notificações |
+| 7 | Sala grande | SFU para 7 a 50 pessoas, por link, com palco e plateia. Paga com o ouro do dono ou do cofre do grupo, pela regra de preço |
+
+Sem data: sala pública e vitrine; doação em Pix (exige parecer jurídico); jogar no PC do amigo (reavaliar
+quando o Desktop existir).
+
+Fora do produto: anúncios, afiliados, instalar como app (PWA), música no perfil, efeitos na câmera de
+outras pessoas, integrações de terceiros (exceto os players oficiais do YouTube e da Twitch e o bot do
+Discord, cada um registrado quando a etapa começar), saque de moedas, mais de um plano pago, outros
+idiomas e outros meios de pagamento.
 
 ---
 
@@ -487,44 +552,51 @@ e outros meios de pagamento.
 
 | Parâmetro | Valor |
 |---|---|
-| Pessoas na sala direta | 6 |
-| Pessoas na sala no servidor | até 50 |
-| Vídeos simultâneos por sala | 4 |
-| Vídeos por pessoa | 1; Plus 2 |
-| Qualidade gratuita | 720p, 30 fps, até 1,5 Mbps |
-| Qualidade Plus em sala direta | 1080p, 60 fps, até 5 Mbps |
-| Qualidade em conexão retransmitida | 720p, até 1,5 Mbps |
+| Pessoas na sala direta | 12 (6 até a entrega 4) |
+| Pessoas na sala protegida | 6 |
+| Vídeos por pessoa | 2; Plus 4 |
+| Vídeos assistidos ao mesmo tempo por pessoa | 4 |
+| Vídeos simultâneos na sala protegida | 2 |
+| Qualidade sem Plus | até 1080p, 60 fps, 5 Mbps |
+| Qualidade Plus | até 2160p, 120 fps, 16 Mbps **[padrão]** |
+| Vídeo em conexão retransmitida | 720p, até 1,5 Mbps; só de quem é Plus e tem ouro |
+| Som da tela em conexão retransmitida | até 64 kbps |
 | Sala vazia expira em | 5 minutos |
-| Plus mensal / anual | R$ 19,90 / R$ 159,90 |
-| Ouro mensal do Plus | 1.000 a cada 30 dias; 12 créditos por pagamento anual |
-| Câmbio | 100 de ouro = R$ 1 |
+| Plus mensal / anual | R$ 9,90 / R$ 79,90 |
+| Ouro mensal do Plus | 500 a cada 30 dias; 12 créditos por pagamento anual |
+| Câmbio de face | 100 de ouro = R$ 1 |
+| Rendimento do ouro usado nos preços | 100 de ouro = R$ 0,82 |
+| Regra de preço do que gasta banda | pior caso medido × 2 |
+| Vídeo retransmitido, por par assistido | 45 de ouro por hora **[provisório, a medir]** |
+| Sala protegida | 500 de ouro por hora **[provisório, a medir]** |
 | Taxa da Woovi | R$ 0,85 fixos por transação, inclusive no Pix Automático |
+| Custo da banda (Cloudflare) | US$ 0,05 por GB de saída; 1.000 GB grátis por mês, somando TURN e SFU |
 | Dólar adotado nos cálculos de custo | R$ 5,50 |
 | Pacotes de ouro | R$ 9,90 → 990; R$ 19,90 → 2.190; R$ 49,90 → 5.990 |
 | Prata de boas-vindas | 300 |
 | Limite de envio de ouro | 2.000 por dia de calendário (Brasília) por conta |
-| Presentear 30 dias de Plus | 1.990 de ouro |
+| Presentear 30 dias de Plus | 990 de ouro **[padrão]** |
 | Selo de apoiador inicial | 100 primeiros pagantes |
-| Avisos de saldo na sala no servidor | 10 e 2 minutos; tolerância de 3 minutos |
+| Avisos de saldo na sala protegida | 10 e 2 minutos; tolerância de 3 minutos |
+| Registro de acesso | 6 meses |
 
-Preço da sala no servidor, em ouro por hora, cobrado por minuto pela faixa da presença real:
-
-| Pessoas presentes | 720p30 | 1080p30 | 1080p60 |
-|---|---|---|---|
-| até 6 | 150 | 250 | 500 |
-| até 20 | 500 | 850 | 1.700 |
-| até 50 | 1.300 | 2.200 | 4.300 |
+A tabela de preço da sala no servidor da versão anterior (150 a 4.300 de ouro por hora) foi retirada:
+ficava abaixo do custo do pior caso. A da sala grande será feita pela regra de preço quando a etapa chegar.
 
 ## Riscos conhecidos
 
 | # | Risco | Como o plano trata |
 |---|---|---|
-| 1 | Dois caminhos de mídia é o trabalho mais caro | A sala direta sai primeiro e o servidor por último; `packages/media` isola os dois |
-| 2 | 1080p60 na sala direta depende do computador e do upload do assinante | Adaptação nativa do navegador; o app desktop alivia depois |
-| 3 | Conta gratuita e sem conta são quase iguais | Medir a conversão; o primeiro ajuste é reduzir a sala sem conta para 4 pessoas |
-| 4 | Ouro sem validade e sem teto é dívida de banda acumulada | Acompanhar o total de ouro em circulação |
-| 5 | Palco com até 50 pessoas falando pode pesar no navegador e na moderação | Decidido: medir na entrega 4 e só então definir limite de microfones abertos |
-| 6 | Limites de qualidade na sala direta são aplicados pelo navegador e podem ser burlados | Aceito: não custa banda nossa, exceto na retransmissão |
-| 7 | Modelo do Workers AI para classificar texto e imagem ainda não escolhido | Decidido: conferir o catálogo e medir na entrega 4 |
-| 8 | Preços em ouro usam R$ 5,50 por dólar (valor adotado) | Preços ficam em configuração; rever se o câmbio se afastar muito |
-| 9 | Sala pública exige resposta rápida a denúncia | Painel e rotina de moderação fazem parte da entrega 4 |
+| 1 | Dois caminhos de mídia é o trabalho mais caro | O SFU saiu do MVP; a sala protegida usa a mesma malha, só com retransmissão |
+| 2 | Qualidade alta na sala direta depende do computador e do upload de quem transmite | Adaptação nativa do navegador; vídeo sob demanda reduz o envio; o app desktop alivia depois |
+| 3 | Conta gratuita e sem conta são quase iguais, agora com 12 pessoas e 1080p60 | Medir a conversão; a conta ganha valor com a Fase 2 e os grupos |
+| 4 | Ouro sem validade e sem teto é dívida de banda acumulada | Acompanhar o total em circulação; a regra de preço garante margem sobre cada ouro gasto |
+| 5 | Malha com 12 pessoas nunca foi testada | Aceite da entrega 4; se não segurar, o limite baixa em configuração |
+| 6 | Limites de qualidade são aplicados pelo navegador e podem ser burlados | Aceito: não custa banda nossa fora da retransmissão |
+| 7 | Sem vídeo em retransmissão para quem não paga: parte dos pares fica só com voz | Aceito pelo dono; aviso claro dos dois lados; medir quantos pares caem nisso |
+| 8 | Preços em ouro usam R$ 5,50 por dólar e larguras de banda estimadas | Preços em configuração; nada é fixado sem a medição da entrega 4 |
+| 9 | A franquia de 500 de ouro compra cerca de 1 hora de sala protegida | Aceito pelo dono; mostrar o tempo com clareza antes da compra |
+| 10 | Um cliente adulterado pode mandar vídeo pela retransmissão dizendo que a conexão é direta | Credenciais com identificador por sessão e conferência do uso de cada uma contra o esperado para voz. Confirmar na documentação da Cloudflare se o uso por credencial pode ser lido; se não puder, o risco fica aberto e vai ao dono |
+| 11 | A Cloudflare pode cobrar a saída duas vezes quando as duas pontas usam retransmissão | A medição da entrega 4 responde; a regra × 2 dá folga |
+| 12 | Sala de 12 e 1080p60 sem denúncia na sala direta | Aceito pelo dono; revisar a cada 3 meses; o registro de acesso responde a autoridade |
+| 13 | Chat de grupo guardado, imagens e mensagens diretas com idade só por autodeclaração | Etapa de grupos. A análise recomenda parecer jurídico e verificação de idade antes dela; decisão do dono em aberto |

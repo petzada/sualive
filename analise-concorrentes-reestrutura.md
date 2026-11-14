@@ -316,7 +316,8 @@ que seria ~R$ 30 mil por mês nesse tamanho, deixou de existir com a decisão M3
 
 ## 6. O que muda nos documentos, na revisão depois da entrega 3
 
-Nada abaixo foi aplicado. É a lista de trabalho da revisão única (C8).
+Lista de trabalho da revisão única (C8). **Aplicada em 2026-11-14** na branch `docs/revisao-reestrutura`,
+no `DECISOES.md` e no `POS-MVP-v5.md`, à espera da aprovação do dono.
 
 ### `DECISOES.md`
 
@@ -335,21 +336,23 @@ Nada abaixo foi aplicado. É a lista de trabalho da revisão única (C8).
 | Depois do MVP | Fase 2, Social, Doação, Desktop, Android | Ordem do R1; Social vira "grupos com chat guardado, imagens e mensagens diretas"; cofre do grupo; raros só em ouro; coleção mensal; indicação paga em dias de Plus |
 | Riscos | 3 (conta gratuita e sem conta quase iguais) | Continua, mais forte: agora o sem conta tem 12 pessoas e 1080p60 |
 
-### `POS-MVP.md`
+### `POS-MVP-v4.md` (o plano vigente), que vira `POS-MVP-v5.md`
 
-| Item | Muda para |
+A análise foi escrita lendo a versão 3. A versão 4 já tinha cortado o PWA e o lançador do Discord e já
+punha o Desktop em primeiro no Grupo C: nesses pontos as decisões R1, R2 e R4 confirmam o plano vigente.
+
+| Item da versão 4 | Muda para |
 |---|---|
-| D17 (Desktop sobe se o feedback pedir) | Desktop com data marcada, primeiro depois do lançamento |
-| D21 (assistir junto: YouTube e Twitch) | Mantido; grátis para todos; sobe na ordem |
-| D29 (manter 720p30 e medir) | Revogado: 1080p60 grátis no lançamento |
-| A7 (qualidades de quem transmite) | Lista refeita com os novos tetos |
-| B15 (limite de pessoas pelo dono, 2 a 6) | 2 a 12 |
-| B16 e D23 (PWA) | Saem |
-| B12 e R7 (celular como câmera) | Rever: a malha agora vai a 12 pessoas |
+| D13 (qualidades de quem transmite) | Lista refeita com os novos tetos |
+| D30 (assistir junto) | Mantido; grátis para todos |
+| D31 (Grupo C: Desktop, assistir junto, Android) | Desktop; assistir junto, bot e indicação; Fase 2; grupos; Android; sala grande |
+| D32 (manter 720p30 e medir) | Revogado: 1080p60 grátis na entrega 4 |
+| D34 (descrição e categoria da sala pública na Fase 2) | Sem data, junto da vitrine |
+| D26 a D28 (moderador, limites de frequência, registro de acesso) | Continuam na entrega 4, agora a nova |
 | "Fora": bot do Discord | Entra, depois do Desktop |
-| D30 (ligar para amigo depois da notificação do PWA) | Rever: sem PWA, depende do Android e do Desktop |
-| Grupo A | Ganha registro de acesso por 6 meses e Central de Segurança com canal oficial |
-| Métricas dos 3 primeiros meses | Ganha o retorno semanal (P5) |
+| Social (amigos, grupos, mensagens diretas, em sequência) | Uma etapa só, liberada pelo retorno semanal |
+| Grupo A | Ganha a Central de Segurança com canal oficial |
+| Decisões novas | D35 a D47 da versão 5 |
 
 ### O que precisa de teste novo
 
@@ -367,8 +370,8 @@ Nada abaixo foi aplicado. É a lista de trabalho da revisão única (C8).
 | X2 | C2: sem denúncia na sala direta | A sala cresce para 12 pessoas em 1080p60 sem canal de denúncia. Só o registro de acesso responde a uma autoridade | Denúncia e painel no lançamento |
 | X3 | M3: sem vídeo em relay no grátis | Cerca de 15% dos pares **(hipótese)** ficam só com voz. Vira a objeção "não vejo a tela", que os concorrentes não têm | Relay grátis em 480p com teto de gasto |
 | X4 | M1 e M2: R$ 9,90 com regra × 2 | A franquia compra ~1 hora de sala protegida e minutos de sala grande. O Go Live inclui servidor no plano fixo | Regra × 1,5 |
-| X5 | R1 e R2: Desktop antes de validar | Instalador, atualização e assinatura de código para manter antes de saber se o produto retém | Tentar a web (Chrome 141) e medir |
-| X6 | R4: sem PWA | No iPhone não há aviso de "abriram a sala" sem app instalado; o Android nativo só chega depois dos grupos | PWA com notificação web |
+| X5 | R1 e R2: Desktop antes de validar (já era o plano da versão 4) | Instalador, atualização e assinatura de código para manter antes de saber se o produto retém | Tentar a web (Chrome 141) e medir |
+| X6 | R4: sem PWA (já cortado na versão 4) | No iPhone não há aviso de "abriram a sala" sem app instalado; o Android nativo só chega depois dos grupos | PWA com notificação web |
 | X7 | M11: coleção mensal | Produção de arte todo mês por um dev solo | Trimestral |
 | X8 | G1: qualidade acima de 1080p60 como produto | É aplicada pelo navegador de quem transmite (risco 6 do `DECISOES.md`) e a Salinha dá de graça | Aceito como está; não é o pilar do Plus |
 | X9 | S3: malha com 12 | Não testada; depende do vídeo sob demanda funcionar bem | Testar antes de anunciar |

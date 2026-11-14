@@ -1,31 +1,29 @@
 # Próximas etapas depois do MVP
 
-Versão 4 (final), de 2026-11-14. Substitui o `POS-MVP.md` (versão 3). Resultado da revisão adversarial feita
-pela sessão que implementou as entregas 0 a 2, contra o código da `main` (`3af2508`, mais a branch
-`fix/ajustes-telas-e-termos`, que fechou os Termos de Uso e as Políticas de Privacidade) e contra a
-documentação atual dos navegadores e das plataformas. Complementa o `DECISOES.md`; **não o altera**: o que ele
-precisa receber está em "Alterações a aplicar no `DECISOES.md`".
+Versão 5, de 2026-11-14. Substitui o `POS-MVP-v4.md`. Aplica as decisões de
+`analise-concorrentes-reestrutura.md` (análise do Go Live e da Salinha, fechada com o dono do produto por
+enquete, depois da entrega 3). O `DECISOES.md` foi revisado junto e traz a entrega 4 nova. O que mudou em
+relação à versão 4 está no fim.
 
-Todas as decisões foram fechadas com o dono do produto, pergunta a pergunta, em duas rodadas no mesmo dia.
-**Não resta nenhum item [padrão].**
+Itens marcados **[padrão]** ainda não foram confirmados pelo dono.
 
 ## Situação
 
-- Em produção: entregas 0, 1 e 2. As entregas 3 (carteira, loja, presentes) e 4 (sala no servidor, sala
-  pública, moderação, imagens) ainda não existem. A versão 3 supunha o MVP pronto.
+- Em produção: entregas 0 a 3. A entrega 4 foi trocada: sai a sala no servidor (SFU, palco, plateia,
+  vitrine, moderação, imagens) e entra a sala de 12 com vídeo sob demanda, os novos limites e a sala protegida.
 - O dono não faz teste manual por entrega: a evidência é automatizada (testes e fumaça) e o uso em produção.
 - Webhooks da Woovi, chaves do Discord e o domínio `sualive.com.br` ficam para depois do MVP.
 
 ## Ordem de trabalho
 
-1. **Antes da entrega 3:** P1 e P2.
-2. **Entrega 3**, como no `DECISOES.md`.
-3. **Entrega 4**, como no `DECISOES.md`, com os acréscimos daqui.
+1. **Antes da entrega 3:** P1 e P2. Feito.
+2. **Entrega 3.** Feita.
+3. **Entrega 4**, como no `DECISOES.md` revisado, com os acréscimos daqui.
 4. **Grupo A:** condição para abrir ao público.
 5. **Lançamento público.**
 6. **Grupo B**, na ordem dada.
-7. **Grupo C**, na ordem dada.
-8. **Etapas do `DECISOES.md`** (Social, Fase 2, Doação), com os acréscimos daqui.
+7. **Grupo C**, na ordem dada: Desktop; assistir junto, bot do Discord e indicação; Fase 2; grupos; Android;
+   sala grande.
 
 Para o agente que implementar:
 
@@ -54,14 +52,14 @@ Para o agente que implementar:
 | D10 | O dono não digita a senha: na sala comum o navegador envia o token do dono já na entrada; na sala fixa vale a conta |
 | D11 | Link fixo sem senha até o Grupo A: risco aceito |
 | D12 | Anti-robô: **só o corte das repetições**. Quem acabou de criar a sala entra sem segunda verificação; quem já foi admitido volta sem verificar. A marca de 12 horas só entra se o feedback mostrar captcha demais |
-| D13 | Qualidade menor por quem transmite: Automática, 720p30, 480p30, 360p30 e "fluidez 15 fps"; Plus também 1080p30 e 1080p60 |
+| D13 | Qualidade menor por quem transmite: Automática, 1080p60, 1080p30, 720p30, 480p30, 360p30 e "fluidez 15 fps"; Plus também 1440p e 2160p, a 60 e a 120 fps **[padrão]** |
 | D14 | Ganho automático do microfone ligado, com opção de desligar |
 | D15 | Tela cheia com chat; no iPhone, modo "vídeo grande" |
 | D16 | Console: botão "Transmitir console" na web, no Grupo B, depois do seletor de aparelhos, com som em mono; o desktop melhora para estéreo |
 | D17 | Celular como câmera: o celular conecta **só ao computador da própria pessoa**, que repassa o vídeo à sala como um vídeo dela. Só câmera |
 | D18 | Saída de áudio (fone ou caixa): seletor só no computador |
 | D19 | Chat: links `http` e `https` clicáveis para quem pode escrever, sem prévia |
-| D20 | Sons de aviso: entrada e início de transmissão só em salas de até 6 pessoas |
+| D20 | Sons de aviso: entrada e início de transmissão só enquanto a sala tem até 6 pessoas |
 | D21 | Feedback: **só para quem tem conta**, vinculado à conta. A pergunta aparece ao sair das **três primeiras chamadas**; se a pessoa recusar uma vez, nunca mais aparece |
 | D22 | Guardar o **e-mail** de quem entra com Google ou Discord, para contato e avisos de cobrança |
 | D23 | Termos mudaram: vale o **uso continuado**, com uma **faixa de aviso** para quem tem conta (regra em P1) |
@@ -70,12 +68,25 @@ Para o agente que implementar:
 | D26 | Moderador: entra **dentro da entrega 4** e já vale na sala direta. Age só sobre participantes comuns; só o dono promove e rebaixa. Na sala de link fixo, moderadores **permanentes**: só contas, no máximo 10 |
 | D27 | Limites de frequência por pessoa (chat, reações, mão, microfone): entram na entrega 4 |
 | D28 | Registro de acesso (IP, data e hora) guardado por 6 meses, como as Políticas de Privacidade já dizem: entra na entrega 4 |
-| D29 | Moderação da sala direta (denúncia e painel): manter como está e revisar a cada 3 meses |
-| D30 | Assistir junto: YouTube sincronizado, com playlist; Twitch ao vivo aberta para todos, sem sincronia. Sem arquivo local, sem música |
-| D31 | Grupo C: **Desktop, assistir junto, Android** |
-| D32 | Qualidade grátis: manter 720p30 e medir nos 3 primeiros meses depois do lançamento |
-| D33 | Ligar para amigo: etapa Social, depois do Android. Sem app instalável (cortado), a notificação web não alcança o iPhone: reavaliar quando a etapa chegar |
-| D34 | Descrição e categoria da sala pública: Fase 2 |
+| D29 | Moderação da sala direta (denúncia e painel): manter como está e revisar a cada 3 meses. Denúncia e painel nascem com os grupos |
+| D30 | Assistir junto: YouTube sincronizado, com playlist; Twitch ao vivo aberta para todos, sem sincronia. Sem arquivo local, sem música. **Grátis para todos** |
+| D31 | Grupo C, nesta ordem: **Desktop; assistir junto, bot do Discord e indicação; Fase 2; grupos; Android; sala grande** |
+| D32 | Qualidade grátis: **1080p60**, já na entrega 4. Revoga "manter 720p30 e medir" |
+| D33 | Ligar para amigo: etapa de grupos e Android. Sem app instalável, a notificação web não alcança o iPhone: reavaliar quando a etapa chegar |
+| D34 | Sala pública e vitrine: sem data. Descrição e categoria ficam com elas |
+| D35 | Promessa da página inicial: "um link, sem conta, sem anúncio". Segurança não é usada como argumento de comunicação |
+| D36 | Bot do Discord: cria a sala e posta o link no canal. Não é a atividade (lançador), que continua cortada |
+| D37 | Indicação: convite que vira uso real rende dias de Plus **sem ouro** (qualidade, 4 vídeos, link fixo, tema e selo). Uso real: conta nova que entra em sala em 2 dias diferentes **[padrão]**. Sem período de teste |
+| D38 | Grupos só começam com o **retorno semanal** atingido: contas que voltam a abrir sala com as mesmas pessoas em semanas seguidas. O número é definido com 4 semanas de dados reais |
+| D39 | Grupos: chat **guardado no servidor, sem prazo**; imagens no R2, cada uma pelo classificador, sem outros arquivos; mensagens diretas só entre amigos, na mesma etapa |
+| D40 | Nascem com os grupos: denúncia e painel interno; apagar mensagens (autor e dono) e exclusão de conta; lista de palavras e classificador de texto; Termos de Uso e Políticas de Privacidade revistos antes |
+| D41 | Idade: 18 anos por autodeclaração, sem verificação. Parecer jurídico não é condição de lançamento |
+| D42 | Cofre do grupo: qualquer membro deposita ouro; o cofre paga a sala grande e extras do grupo |
+| D43 | Loja: Fase 2 (presença, missões, conquistas) cedo, para retenção; loja forte com os grupos: raridade, itens raros e de temporada **só em ouro**, coleção **mensal** |
+| D44 | Sala grande (SFU): só de 7 a 50 pessoas, por link, com palco e plateia; depois dos grupos; mostrada em horas, com recarga; preço pela regra do pior caso medido × 2 |
+| D45 | Jogar no PC do amigo: fora; reavaliar quando o Desktop existir |
+| D46 | Quem não tem conta continua criando e entrando em sala |
+| D47 | Condições de lançamento novas: registro de acesso por 6 meses (D28) e Central de Segurança com canal oficial |
 
 **Cortados nesta revisão:** atividade do Discord (lançador), instalar como app (PWA), limite de pessoas pelo
 dono, compartilhar tela no celular sem som, menções no chat, desfoque de fundo, passar o dono, ocultar o
@@ -110,17 +121,19 @@ indicador de volume, marca anti-robô de 12 horas, estéreo e 128 kbps na web.
 
 ## Acréscimos à entrega 4
 
-- **Moderador (D26).** O dono promove e rebaixa. O moderador silencia, remove, bane e tira do palco; não
-  chama ao palco, não promove e não encerra a sala; não age sobre o dono nem sobre outros moderadores. Papel
+- **Moderador (D26).** O dono promove e rebaixa. O moderador silencia, remove e bane; não promove e não
+  encerra a sala; não age sobre o dono nem sobre outros moderadores. Papel
   no protocolo e no Durable Object, verificado pelo servidor.
-  - Sala comum e sala no servidor: o papel vale até a sala acabar e sobrevive a reconexão.
+  - Sala comum e sala protegida: o papel vale até a sala acabar e sobrevive a reconexão. Quando a sala
+    grande existir, o moderador também tira do palco e não chama a ele.
   - Sala de link fixo: moderadores permanentes guardados junto à conta do dono, no D1; só contas; no máximo 10.
     Convidado promovido vale até a sala esvaziar.
 - **Limites de frequência (D27).** Por pessoa, não por conexão: chat, reações, levantar a mão e
   ligar/desligar o microfone. Valores em `packages/config`.
 - **Registro de acesso (D28).** Tabela no D1 com conta ou sessão, IP, data e hora de cada login e entrada em
-  sala; rotina diária apaga o que passou de 6 meses. O painel de moderação consulta. Até a entrega 4 as
-  Políticas de Privacidade prometem algo que ainda não existe: risco aceito pelo dono.
+  sala; rotina diária apaga o que passou de 6 meses. Sem painel de moderação até os grupos, a consulta é
+  direto no D1. Até a entrega 4 as Políticas de Privacidade prometem algo que ainda não existe: risco aceito
+  pelo dono. Passa a ser condição para abrir ao público (D47).
 
 ---
 
@@ -190,6 +203,13 @@ Ordem de implementação.
   o mesmo botão ativa o modo "vídeo grande".
 - **Aceite:** ler e enviar mensagem em tela cheia no computador e no Android, e no modo vídeo grande no iPhone.
 
+### 9. Central de Segurança e canal oficial (D47)
+
+- **Regra:** página pública com as regras de uso, o que o dono e o moderador podem fazer, como pedir a
+  exclusão de dados e o contato oficial, inclusive para autoridades. Depende do domínio e do e-mail de contato.
+- **Não é** argumento de comunicação (D35): fica no rodapé, nos Termos de Uso e nas Políticas de Privacidade.
+- **Aceite:** a página existe, está ligada no rodapé e nos dois textos, e o e-mail de contato recebe mensagem.
+
 ---
 
 ## Grupo B: depois do lançamento
@@ -205,8 +225,8 @@ Ordem de implementação.
 | 7 | B17 | Feedback ao sair | Ver abaixo | P–M |
 | 8 | B6 | Microfone, câmera e saída | Seletor na prévia e na sala. Saída (`setSinkId`) só no computador | M |
 | 9 | B11 | Transmitir console | Ver abaixo | M |
-| 10 | B1 | Organização do vídeo | Grade que se ajusta com 2 a 4 vídeos; focar numa tela sem tela cheia | P–M |
-| 11 | B8 | Sons de aviso | Mensagem (aba fora de foco), entrada e início de transmissão, cada um ligável; entrada e transmissão só em salas de até 6 | P–M |
+| 10 | B1 | Organização do vídeo | Grade que se ajusta com 2 a 4 vídeos assistidos e cartões dos vídeos disponíveis; focar numa tela sem tela cheia | P–M |
+| 11 | B8 | Sons de aviso | Mensagem (aba fora de foco), entrada e início de transmissão, cada um ligável; entrada e transmissão só enquanto a sala tem até 6 pessoas | P–M |
 | 12 | B12 | Celular como câmera | Ver abaixo | M |
 
 ### B17. Feedback ao sair da sala
@@ -237,11 +257,11 @@ Ordem de implementação.
   ligado à sala e à pessoa. Rota própria, que consome o token e dispensa o anti-robô no celular.
 - O celular abre uma conexão, só com o computador da própria pessoa, e envia só a câmera (sem microfone).
 - O computador repassa esse vídeo à sala como um vídeo da pessoa. Valem os limites que já existem: vídeos por
-  pessoa e 4 por sala. A sala não ganha conexões novas, e o celular não ocupa vaga.
+  pessoa e, na sala protegida, 2 por sala. A sala não ganha conexões novas, e o celular não ocupa vaga.
 - O computador recodifica o vídeo; o celular envia uma vez, na qualidade do plano. 1 celular por pessoa.
 - Sair da sala no computador desconecta o celular.
 - **Aceite:** o vídeo do celular aparece como da pessoa; QR usado ou vencido não entra; o segundo celular da
-  mesma pessoa é recusado; com 4 vídeos na sala, o do celular é recusado como qualquer outro.
+  mesma pessoa é recusado; acima do limite de vídeos da pessoa, o do celular é recusado como qualquer outro.
 
 ---
 
@@ -250,34 +270,64 @@ Ordem de implementação.
 1. **Desktop (Electron).** O único caminho para enviar só o som de um programa, sem eco, inclusive para quem
    usa Firefox ou Safari. Leva junto: som da tela e do console em estéreo a 128 kbps (no app a versão do
    navegador embutido é nossa, então editar a negociação deixa de ser risco), sobreposição, atalhos globais e
-   atualização automática.
-2. **Assistir junto (D30).** Só os players oficiais, sem sobreposição nossa sobre o player. Sem Crunchyroll nem
-   serviço com DRM. Antes de começar: registrar no `DECISOES.md` a exceção "players oficiais incorporados".
-3. **Android (Capacitor).** Transmitir a tela do celular e manter a chamada em segundo plano.
+   atualização automática. Com data marcada: é o primeiro item depois do lançamento. Quando existir,
+   reavaliar "jogar no PC do amigo" (D45).
+2. **Assistir junto, bot do Discord e indicação.**
+   - **Assistir junto (D30).** Só os players oficiais, sem sobreposição nossa sobre o player. Sem Crunchyroll
+     nem serviço com DRM. Grátis para todos, inclusive sem conta.
+   - **Bot do Discord (D36).** Um comando cria a sala e posta o link no canal. Um Durable Object mantém a
+     conexão com o Discord. Risco: o Discord já removeu ferramentas de tela não autorizadas; o bot só posta
+     um link, mas a publicação pode ser recusada.
+   - **Indicação (D37).** Link de convite por conta. O Plus de indicação não credita ouro e não libera vídeo
+     em retransmissão nem sala protegida. Limite contra abuso em `packages/config`.
+3. **Fase 2.** Presença diária, missões e conquistas, pagando prata. Serve à retenção e alimenta a medida do
+   retorno semanal (D38).
+4. **Grupos**, só com o retorno semanal atingido (D38).
+   - Amigos e convite direto; grupos com chat guardado; imagens com classificador; mensagens diretas entre
+     amigos (D39).
+   - Nascem junto: denúncia e painel interno, apagar mensagens, exclusão de conta que apaga ou anonimiza as
+     mensagens, lista de palavras e classificador de texto, foto própria de avatar (D40).
+   - Antes de começar: Termos de Uso e Políticas de Privacidade passam a dizer que o chat de grupo é
+     guardado e como pedir exclusão; no `DECISOES.md`, a regra "não guardar o chat" ganha a exceção.
+   - Cofre do grupo (D42) e loja forte (D43).
+   - A análise recomenda parecer jurídico e verificação de idade antes desta etapa. O dono decidiu não
+     exigir (D41); a recomendação fica registrada no risco R14.
+5. **Android (Capacitor).** Transmitir a tela do celular, manter a chamada em segundo plano e notificar.
+6. **Sala grande (D44).** Cloudflare Realtime SFU para 7 a 50 pessoas, com palco e plateia. Antes de começar:
+   medir o custo e refazer a tabela de preço pela regra do `DECISOES.md`.
 
-## Acréscimos às etapas que já estavam no `DECISOES.md`
+Sem data: sala pública e vitrine (D34); doação em Pix.
+
+## Acréscimos às etapas
 
 | Etapa | Acréscimo |
 |---|---|
-| Social | Lista de amigos e "app para sair do Discord" reforçam a etapa |
-| Social | Cargos e permissões configuráveis; o moderador da entrega 4 vira um dos cargos |
-| Social | Ligar para amigo, depois do Android (D33) |
-| Social ou depois | Menções no chat, se o uso da sala de 50 pessoas pedir |
-| Fase 2 | Descrição curta e categoria de lista fixa na sala pública, junto do destaque na vitrine |
+| Grupos | Cargos e permissões configuráveis; o moderador da entrega 4 vira um dos cargos |
+| Grupos | Ligar para amigo, com o Android (D33) |
+| Grupos ou depois | Menções no chat, se o uso pedir |
+| Sala pública, se voltar | Descrição curta e categoria de lista fixa, junto do destaque na vitrine |
+
+## Métrica que libera os grupos
+
+| Métrica | Fonte | Decide |
+|---|---|---|
+| Retorno semanal: contas que abrem sala com as mesmas pessoas em semanas seguidas | Registro de acesso e D1 | Início da etapa de grupos (D38) |
+| Pares que ficam sem vídeo por falta de retransmissão paga | Durable Object | Rever a regra do vídeo em retransmissão |
 
 ---
 
 ## Alterações a aplicar no `DECISOES.md`
 
-Aprovadas pelo dono; cada uma entra quando o item correspondente for implementado.
+Aplicadas na revisão de 2026-11-14: e-mail da conta, uso continuado com faixa de aviso, @nome da conta,
+entrega 4 nova, níveis, preço do Plus, parâmetros, ordem do pós-MVP e as exceções a "integrações de terceiros".
+
+Ainda a aplicar, quando a etapa começar:
 
 | Onde | De | Para |
 |---|---|---|
-| Entrega 2, conta | Não guardamos e-mail | Guardamos o e-mail do Google ou do Discord (D22) |
-| Entrega 2, primeiro acesso | Aceite único no primeiro acesso | Idem; mudanças posteriores valem pelo uso continuado, com faixa de aviso (D23) |
-| Entrega 2, Plus | "O link fixo fica reservado por 30 dias" | O @nome é da conta até ela trocar ou ser excluída (D24) |
-| Entrega 4, escopo | Dono chama para o palco e tira dele | Acrescentar moderador, limites de frequência e registro de acesso (D26 a D28) |
-| Fora do produto | "Bots e integrações de terceiros" | Exceção para os players oficiais do YouTube e da Twitch, registrada quando a etapa começar |
+| Nunca fazer | Não guardar o chat depois que a sala acaba | Exceção para o chat de grupo (D39) |
+| Fora do produto | Integrações de terceiros | Registrar os players oficiais (D30) e o bot do Discord (D36) no início de cada etapa |
+| Parâmetros | Preços provisórios de retransmissão e sala protegida | Valores finais, depois da medição da entrega 4 |
 
 Sem alteração: a regra do celular sem botão de compartilhar tela; "não escrever escolha manual de codec" (o
 SDP não é editado na web).
@@ -346,6 +396,13 @@ Esforço: P = até 1 dia de um agente; M = alguns dias; G = uma entrega.
 | R11 | As Políticas de Privacidade prometem registro de acesso antes de ele existir | Aceito até a entrega 4 (D28) |
 | R12 | Feedback só de quem tem conta e só três vezes: amostra pequena e enviesada | Aceito (D21); cruzar com o Sentry |
 | R13 | A cobrança do Plus está ligada em produção sem webhooks cadastrados | Decisão do dono; cadastro fica para depois do MVP |
+| R14 | Grupos com chat guardado sem prazo, imagens e mensagens diretas, com idade só por autodeclaração e sem parecer jurídico. É o terreno que tirou a tela do Discord | Aceito pelo dono (D41). A análise recomenda parecer e verificação de idade antes da etapa de grupos |
+| R15 | Sem vídeo em retransmissão para quem não paga: parte dos pares fica só com voz, queixa que os concorrentes não têm | Aceito; aviso dos dois lados; medir (métrica acima) |
+| R16 | Desktop antes de o produto provar retenção: instalador, atualização e assinatura de código para manter | Aceito; é a maior queixa do público do concorrente |
+| R17 | Sem app instalável, o iPhone não recebe aviso de sala aberta até existir outra saída | Aceito (D33) |
+| R18 | Coleção mensal na loja exige arte todo mês de um dev solo | Aceito (D43); começa só com os grupos |
+| R19 | O bot do Discord depende de uma plataforma que já removeu ferramentas de tela | O bot só posta um link; os grupos próprios são o plano B |
+| R20 | Se o Discord religar a tela, a procura cai | Assistir junto grátis, entrada sem conta e o Desktop são o que sobra de diferente |
 
 ## Fora, com o motivo
 
@@ -355,9 +412,11 @@ Esforço: P = até 1 dia de um agente; M = alguns dias; G = uma entrega.
 | Plugins e temas da comunidade | Integrações de terceiros e moderação; o Plus mantém 6 temas |
 | Crunchyroll e serviços com DRM | O DRM impede captura e retransmissão legítimas |
 | Atividade do Discord, completa ou como lançador | WebRTC não é suportado em atividades; como lançador, colar o link no chat faz o mesmo |
-| Bot do Discord | Escopo e exceção à regra de integrações |
 | Música ambiente, música sincronizada, arquivo local | Escopo e licença de música |
-| 2K a 120 fps grátis | Acima de 1080p60 está fora do produto |
+| 2K a 120 fps grátis | Grátis vai até 1080p60; acima disso é do Plus |
+| Jogar no PC do amigo e PC pelo celular | Exige programa nativo que controla o PC de outra pessoa; reavaliar com o Desktop (D45) |
+| Vídeo em retransmissão para quem não paga | É o único custo de banda sem receita; voz continua grátis |
+| Sala pública e vitrine | Sem data (D34): vitrine vazia não atrai e é onde está a maior carga de moderação |
 | Sala por nome livre | Gerou as invasões no concorrente |
 | Mapa de salas com localização | Expõe a localização de quem cria a sala |
 | Ferramentas na sala | Fora do problema central |
@@ -385,7 +444,7 @@ Esforço: P = até 1 dia de um agente; M = alguns dias; G = uma entrega.
 | Conta para reservar o nome, login com Google | Entrega 2 (Discord depois do MVP, por falta das chaves) |
 
 Não existe mais o aviso de IP ao criar e ao entrar (removido pelo dono). O IP é citado nos Termos de Uso e
-nas Políticas de Privacidade; o modo protegido é da entrega 4.
+nas Políticas de Privacidade; a sala protegida é da entrega 4.
 
 ## Parâmetros
 
@@ -395,13 +454,31 @@ nas Políticas de Privacidade; o modo protegido é da entrega 4.
 | Teto do áudio da tela em conexão retransmitida | 64 kbps |
 | Tamanho da senha | 4 a 64 caracteres |
 | Erros de senha | 3 sem espera; depois 30 s dobrando a cada erro, teto de 15 min; zera após 15 min sem erro |
-| Qualidades de quem transmite | Automática, 720p30, 480p30, 360p30, fluidez 15 fps; Plus também 1080p30 e 1080p60 |
+| Qualidades de quem transmite | Automática, 1080p60, 1080p30, 720p30, 480p30, 360p30, fluidez 15 fps; Plus também 1440p e 2160p, a 60 e a 120 fps **[padrão]** |
+| Indicação: uso real | Conta nova que entra em sala em 2 dias diferentes **[padrão]** |
+| Retorno semanal | Número definido com 4 semanas de dados reais |
 | Moderadores permanentes da sala de link fixo | Só contas, no máximo 10 |
 | Registro de acesso | 6 meses |
 | QR do celular como câmera | 5 minutos, uso único; 1 celular por pessoa |
 | Feedback | Só contas; após 2 minutos na sala; nas 3 primeiras chamadas; uma recusa encerra; texto até 500 caracteres |
 | Revisão da moderação na sala direta | A cada 3 meses |
 | Período de medição | 3 meses depois do lançamento |
+
+## O que mudou em relação à versão 4
+
+| Item | Versão 4 | Versão 5 |
+|---|---|---|
+| Base | Entregas 0 a 2 em produção | Entregas 0 a 3 em produção; concorrentes Go Live e Salinha analisados |
+| Entrega 4 | Sala no servidor (SFU), pública, moderação e imagens | Sala de 12 com vídeo sob demanda, novos limites, sala protegida por retransmissão, Plus a R$ 9,90 |
+| Qualidade grátis (D32) | 720p30, medir por 3 meses | 1080p60 |
+| Assistir junto (D30) | Sem definição de preço | Grátis para todos |
+| Grupo C (D31) | Desktop, assistir junto, Android | Desktop; assistir junto, bot e indicação; Fase 2; grupos; Android; sala grande |
+| Bot do Discord | Fora | Entra, com o assistir junto (D36) |
+| Sala pública e vitrine | Entrega 4 | Sem data (D34) |
+| Denúncia, painel, classificador, imagens | Entrega 4 | Com os grupos (D40) |
+| Social | Amigos, depois grupos, depois mensagens diretas | Uma etapa só, com chat guardado, imagens e mensagens diretas, liberada pelo retorno semanal (D38, D39) |
+| Grupo A | 8 itens | Mais a Central de Segurança com canal oficial (D47) |
+| Itens [padrão] | Nenhum | Os marcados neste documento |
 
 ## O que mudou em relação à versão 3
 
