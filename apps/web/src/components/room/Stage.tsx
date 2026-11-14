@@ -1,6 +1,7 @@
 import type { ParticipantView, ReactionEvent, RoomState, VideoView } from "../../lib/room";
 import { texts } from "../../texts";
 import { Badges } from "../account/Badges";
+import { CosmeticFrame, CosmeticName } from "../cosmetics/Cosmetic";
 import { VoiceBars } from "../icons";
 import { Avatar, StreamVideo } from "./media";
 
@@ -47,6 +48,9 @@ interface VideoTileProps {
 function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
   const nickname = owner?.nickname ?? texts.stage.unknownPerson;
   const label = texts.stage.videoLabel(nickname, video.kind, video.isLocal);
+  const namePaint = owner?.cosmetics?.name ?? null;
+  // The label starts with the nickname: only that part takes the color of the name.
+  const painted = namePaint !== null && label.startsWith(nickname);
 
   return (
     <div
@@ -72,18 +76,39 @@ function VideoTile({ video, owner, featured, onFeature }: VideoTileProps) {
         </p>
       )}
 
+      {/*
+        The colors of a name are checked against the surfaces of the theme, never against the dark
+        stage: a label with a painted name sits on `canvas` instead (DESIGN.md, "Cosméticos da loja").
+      */}
       <span
-        className={`absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-button bg-stage/70 text-on-stage ${
-          featured ? "px-3 py-1.5 text-body-sm" : "px-2 py-1 text-compact"
-        }`}
+        data-testid="video-label"
+        data-surface={painted ? "canvas" : "stage"}
+        className={`absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-button ${
+          painted ? "bg-canvas text-ink" : "bg-stage/70 text-on-stage"
+        } ${featured ? "px-3 py-1.5 text-body-sm" : "px-2 py-1 text-compact"}`}
       >
-        {owner?.avatarUrl && <Avatar nickname={nickname} avatarUrl={owner.avatarUrl} size="xs" />}
-        {owner?.speaking && <VoiceBars />}
-        <span className="truncate">{label}</span>
-        {featured && owner?.handle && (
-          <span className="shrink-0 text-on-stage/80">{texts.handle.display(owner.handle)}</span>
+        {owner?.avatarUrl && (
+          <CosmeticFrame paint={owner.cosmetics?.frame} className="shrink-0">
+            <Avatar nickname={nickname} avatarUrl={owner.avatarUrl} size="xs" />
+          </CosmeticFrame>
         )}
-        {owner && <Badges badges={owner.badges} tone="inherit" />}
+        {owner?.speaking && <VoiceBars />}
+        <span className="truncate">
+          {painted ? (
+            <>
+              <CosmeticName paint={namePaint}>{nickname}</CosmeticName>
+              {label.slice(nickname.length)}
+            </>
+          ) : (
+            label
+          )}
+        </span>
+        {featured && owner?.handle && (
+          <span className={`shrink-0 ${painted ? "text-muted" : "text-on-stage/80"}`}>
+            {texts.handle.display(owner.handle)}
+          </span>
+        )}
+        {owner && <Badges badges={owner.badges} tone={painted ? "color" : "inherit"} />}
       </span>
 
       {!featured && (
@@ -104,14 +129,18 @@ function EmptyStage({ participants }: { participants: ParticipantView[] }) {
       <ul className="flex flex-wrap items-start justify-center gap-5">
         {participants.map((participant) => (
           <li key={participant.id} className="flex w-24 flex-col items-center gap-2">
-            <Avatar
-              nickname={participant.nickname}
-              avatarUrl={participant.avatarUrl}
-              speaking={participant.speaking}
-              size="lg"
-            />
+            <CosmeticFrame paint={participant.cosmetics?.frame}>
+              <Avatar
+                nickname={participant.nickname}
+                avatarUrl={participant.avatarUrl}
+                speaking={participant.speaking}
+                size="lg"
+              />
+            </CosmeticFrame>
             <span className="flex w-full items-center justify-center gap-1 text-body-sm">
-              <span className="truncate">{participant.nickname}</span>
+              <CosmeticName paint={participant.cosmetics?.name} className="truncate">
+                {participant.nickname}
+              </CosmeticName>
               <Badges badges={participant.badges} />
             </span>
             {participant.handle && (
