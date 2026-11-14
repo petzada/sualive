@@ -66,10 +66,11 @@ describe("App", () => {
       screen.getByText(texts.home.hint),
     );
     order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
-    // The card closes the page, with its title and description beside the link.
+    // The card closes the page, with only its title beside the link.
     expect(main.lastElementChild?.contains(order.at(-1)!)).toBe(true);
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(texts.home.manifesto.title);
-    expect(screen.getByText(texts.home.manifesto.description)).toBeTruthy();
+    expect(texts.home.manifesto.action).toBe("Saiba mais");
+    expect(screen.queryByText("Conheça a plataforma")).toBeNull();
     expect(main.textContent).not.toContain(String(ROOM_MAX_PEOPLE));
     expect(main.textContent).not.toContain("IP");
   });

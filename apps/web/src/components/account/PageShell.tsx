@@ -54,7 +54,7 @@ export function useHasPreviousPage(): boolean {
 }
 
 /**
- * The browser's "back", inside the app: only the arrow, outlined, at the top left. Absent when
+ * The browser's "back", inside the app: only the arrow, no outline, right above the title. Absent when
  * there is no earlier page of the app in this tab (see `useHasPreviousPage`).
  */
 export function BackButton() {
@@ -66,7 +66,7 @@ export function BackButton() {
       type="button"
       aria-label={texts.common.back}
       onClick={() => void navigate(-1)}
-      className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-button border border-outline text-ink"
+      className="-ml-3 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-button text-ink hover:bg-mist"
     >
       <BackIcon />
     </button>
@@ -103,8 +103,8 @@ interface PageShellProps {
   width?: keyof typeof WIDTHS;
   /**
    * What goes above the content. `site`: name of the product at the left and the account at the
-   * right. `back`: no name and no account, only the back button at the top left (when there is a
-   * page to go back to); the way home is then in the footer.
+   * right. `back`: no name and no account, only the back arrow right above the title of the page
+   * (when there is a page to go back to); the way home is then in the footer.
    */
   top?: "site" | "back";
   children: ReactNode;
@@ -114,7 +114,7 @@ interface PageShellProps {
 export function PageShell({ width = "regular", top = "site", children }: PageShellProps) {
   return (
     <div className="flex min-h-dvh flex-col">
-      {top === "site" ? (
+      {top === "site" && (
         <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 py-1.5">
           <Link
             to={PATHS.home}
@@ -125,13 +125,18 @@ export function PageShell({ width = "regular", top = "site", children }: PageShe
           </Link>
           <AccountAccess />
         </header>
-      ) : (
-        // Always as tall as the button, so the titles do not move when it comes or goes.
-        <div className="flex min-h-14 shrink-0 items-center px-5 py-1.5" data-testid="page-top">
-          <BackButton />
-        </div>
       )}
-      <main className={`mx-auto flex w-full flex-1 flex-col gap-10 px-5 pt-8 pb-16 ${WIDTHS[width]}`}>
+      <main
+        className={`mx-auto flex w-full flex-1 flex-col gap-10 px-5 pb-16 ${top === "back" ? "pt-6" : "pt-8"} ${WIDTHS[width]}`}
+      >
+        {top === "back" && (
+          // In the column of the content, so the arrow lines up with the title right under it (the
+          // negative margin takes back most of the gap). Always as tall as the button, so the
+          // titles do not move when it comes or goes.
+          <div className="-mb-8 flex min-h-11 shrink-0 items-center" data-testid="page-top">
+            <BackButton />
+          </div>
+        )}
         {children}
       </main>
       <SiteFooter home={top === "back"} />

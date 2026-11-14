@@ -25,6 +25,7 @@ import {
   isValidCpf,
   maskCpf,
 } from "../components/format";
+import { Brand } from "../components/Brand";
 import { CheckIcon, Spinner } from "../components/icons";
 import type { AccountActions, AccountErrorReason, AccountState, PaymentStatus } from "../lib/account";
 import { texts } from "../texts";
@@ -375,7 +376,9 @@ function PlusContent({ user, state, actions }: PlusContentProps) {
     <>
       <header className="flex flex-col gap-3">
         <h1 className="font-display text-heading font-semibold">{texts.plus.title}</h1>
-        <p className="max-w-xl">{texts.plus.lead}</p>
+        <p className="max-w-xl">
+          <Brand>{texts.plus.lead}</Brand>
+        </p>
       </header>
 
       {/* The own plan is managed on its page; here only the way there, or what became of an old one. */}
@@ -422,7 +425,7 @@ function PlusContent({ user, state, actions }: PlusContentProps) {
           )}
           {/* Always there, with billing on or off. */}
           <p data-testid="payments-note" className={NOTE}>
-            {texts.plus.paymentsNote}
+            <Brand>{texts.plus.paymentsNote}</Brand>
           </p>
         </>
       )}

@@ -76,12 +76,7 @@ export function ManifestoCard() {
       {/* Darkens the foot of the photo so the text stays readable over it. */}
       <div className="absolute inset-0 bg-linear-to-t from-stage/80 via-stage/25 via-45% to-transparent to-70%" />
       <div className="relative flex items-end justify-between gap-4 p-6">
-        <div>
-          <h2 className="font-display text-kicker leading-tight font-semibold">
-            {texts.home.manifesto.title}
-          </h2>
-          <p className="mt-1 text-body-sm text-on-stage/80">{texts.home.manifesto.description}</p>
-        </div>
+        <h2 className="font-display text-kicker leading-tight font-semibold">{texts.home.manifesto.title}</h2>
         <Link
           to={MANIFESTO_PATH}
           className="inline-flex min-h-11 shrink-0 items-center rounded-button bg-on-stage px-5 text-body-sm font-medium whitespace-nowrap text-stage outline-offset-2"

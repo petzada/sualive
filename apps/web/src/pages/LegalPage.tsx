@@ -1,4 +1,5 @@
 import { TERMS_VERSION } from "@sualive/config";
+import { Brand } from "../components/Brand";
 import { PageShell } from "../components/account/PageShell";
 import { texts } from "../texts";
 
@@ -27,7 +28,9 @@ export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
             <h2 className="font-display text-kicker leading-tight font-semibold">{section.title}</h2>
             {section.blocks.map((block) =>
               typeof block === "string" ? (
-                <p key={block}>{block}</p>
+                <p key={block}>
+                  <Brand>{block}</Brand>
+                </p>
               ) : (
                 // Not law yet: the operator still has to fill this in. Kept loud on purpose.
                 <p

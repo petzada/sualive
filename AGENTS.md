@@ -71,6 +71,19 @@ Vitest sempre com `--run`; nunca em modo watch. Um job pesado por vez (não rode
   denúncia).
 - Adicionar anúncios, rastreadores além dos listados, ou recurso fora do escopo.
 
+## Termos de Uso e Políticas de Privacidade
+
+Os dois textos ficam em `apps/web/src/texts.ts` (`TERMS_SECTIONS` e `PRIVACY_SECTIONS`) e descrevem o que
+o produto faz hoje. Sempre com esses nomes, com as maiúsculas, onde forem citados.
+
+- Toda entrega que mudar algo descrito neles (dado coletado ou guardado, operador novo, pagamento,
+  moderação, sala pública, denúncia, moeda, envio de arquivo) revisa os dois textos no mesmo PR e muda
+  `TERMS_VERSION` em `packages/config`.
+- Prometido no texto e ainda não implementado: guarda do registro de acesso (IP, data e hora) por 6 meses
+  e a caixa de entrada de `contato@sualive.com.br` (depende do domínio, fim do MVP).
+- O nome do produto aparece sempre em negrito nos textos: use o componente `Brand`
+  (`apps/web/src/components/Brand.tsx`) ao renderizar um texto que cita o `APP_NAME`.
+
 ## Migrations do D1
 
 Ficam em `apps/api/migrations` e são aplicadas pelo CI antes do deploy do código, em homologação e depois
