@@ -382,13 +382,13 @@ punha o Desktop em primeiro no Grupo C: nesses pontos as decisões R1, R2 e R4 c
 | # | Ponto | Sugestão |
 |---|---|---|
 | O1 | Número do gatilho de retorno semanal (P5) | Definir depois de 4 semanas de dados reais |
-| O2 | Teto de qualidade do Plus | 4K e 120 fps **[padrão]** |
-| O3 | Quem libera o vídeo em relay | Quem transmite ser Plus **[padrão]**; alternativa: o dono da sala |
+| O2 | Teto de qualidade do Plus | **Fechado:** 4K, 240 fps, 32 Mbps (não custa banda nossa) |
+| O3 | Quem libera o vídeo em relay | **Fechado:** quem transmite ser Plus, e paga ele |
 | O4 | Como cobrar o relay comum do Plus | Por par que assiste, por minuto; ou a taxa fixa da sala protegida |
-| O5 | Bitrate do relay | 1,5 Mbps (hoje) ou 1 Mbps, que rende 50% mais horas |
-| O6 | Preço dos cosméticos e do presente de Plus depois da queda do Plus | Rever junto da tabela de ouro |
-| O7 | Anual | R$ 79,90 **[padrão]** |
-| O8 | Regra de "uso real" da indicação | Conta nova que entra em sala em 2 dias diferentes **[padrão]** |
+| O5 | Bitrate do relay | **Fechado:** 720p a 1,5 Mbps |
+| O6 | Preço dos cosméticos e do presente de Plus depois da queda do Plus | **Fechado:** presente a 990 de ouro; cosméticos cerca de 30% mais baratos |
+| O7 | Anual | **Fechado:** R$ 79,90 |
+| O8 | Regra de "uso real" da indicação | **Fechado:** conta nova que entra em sala em 2 dias diferentes |
 | O9 | Método de registro de acesso e prazo de descarte | Definir no Grupo A, com os Termos de Uso |
 | O10 | Preço da Cloudflare e cobrança do relay nas duas pontas | Reconferir a documentação e medir |
 

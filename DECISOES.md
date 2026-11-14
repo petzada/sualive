@@ -56,7 +56,7 @@ Valem a partir da entrega 4. Até ela, valem os limites das entregas 1 e 2.
 |---|---|---|---|
 | Criar e entrar em sala direta por link | sim, com apelido | sim | sim |
 | Pessoas na sala direta | 12 | 12 | 12 |
-| Qualidade do que **a própria pessoa** transmite | até 1080p60 | até 1080p60 | até 2160p (4K) e 120 fps **[padrão]** |
+| Qualidade do que **a própria pessoa** transmite | até 1080p60 | até 1080p60 | até 2160p (4K) e 240 fps |
 | Vídeos simultâneos da própria pessoa (tela ou webcam) | 2 | 2 | 4 |
 | Vídeos que a pessoa assiste ao mesmo tempo | 4 | 4 | 4 |
 | Vídeo próprio em conexão retransmitida | não: só voz e chat | não: só voz e chat | sim, pagando ouro |
@@ -71,7 +71,7 @@ Regras que valem a partir da entrega 4:
   assiste no máximo 4 vídeos ao mesmo tempo, e quem transmite só envia o vídeo a quem o assiste.
 - Qualidade e número de vídeos seguem **o plano de cada pessoa**, não o do dono.
 - Voz passa pela retransmissão para qualquer pessoa, sem custo para ela.
-- Vídeo só passa pela retransmissão quando quem transmite é Plus e tem ouro **[padrão]**; fica limitado
+- Vídeo só passa pela retransmissão quando quem transmite é Plus e tem ouro; fica limitado
   a 720p e 1,5 Mbps, e cada minuto é debitado do ouro de quem transmite. Sem isso, aquele par fica com
   voz e chat e os dois lados veem o aviso.
 - Sala protegida: até 6 pessoas e no máximo 2 vídeos ao mesmo tempo na sala, a 720p.
@@ -421,7 +421,9 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 - O limite da sala direta sobe de 6 para 12 pessoas. A 13ª é recusada com mensagem clara.
 - Voz em malha entre todos, como hoje.
 - Vídeo sob demanda: quem transmite anuncia o vídeo à sala, e ele aparece para os outros como um cartão
-  com o nome de quem transmite e o botão "Assistir". Nenhum vídeo começa sozinho **[padrão]**.
+  com o nome de quem transmite e o botão "Assistir".
+- Enquanto a sala tem até 6 pessoas, o vídeo novo abre sozinho para todos, até o limite de 4 assistidos
+  de cada um. Com 7 ou mais, só abre para quem clica em "Assistir"; o que já estava aberto continua.
 - Assistir e parar de assistir são mensagens de `packages/protocol`. O Durable Object guarda quem assiste
   o quê, recusa o 5º vídeo assistido pela mesma pessoa e avisa quem transmite, que só então abre ou fecha
   o envio para aquele participante.
@@ -430,13 +432,14 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 **Qualidade**
 
 - Sem Plus: até 1080p a 60 fps, até 5 Mbps.
-- Plus: até 2160p e 120 fps, até 16 Mbps **[padrão]**.
+- Plus: até 2160p e 240 fps, até 32 Mbps. Não custa banda nossa: em conexão retransmitida vale o teto
+  de 720p.
 - Continua aplicada pelo navegador de quem transmite, com a adaptação nativa à rede.
 
 **Retransmissão (TURN)**
 
 - Voz passa pela retransmissão para qualquer pessoa.
-- Vídeo num par retransmitido só é enviado quando quem transmite é Plus e tem ouro **[padrão]**. Fica
+- Vídeo num par retransmitido só é enviado quando quem transmite é Plus e tem ouro. Fica
   limitado a 720p e 1,5 Mbps; o som da tela, a 64 kbps.
 - A cada minuto, o Durable Object debita de quem transmite o preço de cada par de vídeo retransmitido que
   está sendo assistido. Cada débito vai para o livro-razão. Sem ouro, o vídeo para naquele par e a voz
@@ -449,7 +452,7 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 **Sala protegida**
 
 - Só o dono com Plus ativo e ouro abre. Escolhe ao criar; a sala não muda de tipo em andamento. Na sala
-  de link fixo, o dono liga ou desliga com a sala vazia **[padrão]**.
+  de link fixo, o dono liga ou desliga com a sala vazia.
 - Até 6 pessoas, no máximo 2 vídeos ao mesmo tempo na sala, 720p a 1,5 Mbps.
 - Toda a mídia passa pela retransmissão. O Durable Object descarta, na sinalização, qualquer candidato de
   conexão que não seja de retransmissão: nenhum participante recebe o IP de outro.
@@ -468,11 +471,12 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 **Plus**
 
 - Preço novo: R$ 9,90 por mês e R$ 79,90 por ano. Ouro: 500 a cada 30 dias; o anual rende 12 créditos.
-- Assinatura feita no preço antigo continua com o valor e os 1.000 de ouro antigos até acabar ou ser
-  cancelada **[padrão]**.
+- Não há assinante real no preço antigo: passa a existir só o preço novo, sem regra de transição.
 - Benefícios: qualidade acima de 1080p60, 4 vídeos, vídeo em retransmissão, sala protegida, link fixo,
   tema de sala e selo.
-- Presentear 30 dias de Plus passa a custar 990 de ouro **[padrão]**. O preço dos cosméticos não muda.
+- Presentear 30 dias de Plus passa a custar 990 de ouro.
+- Cosméticos baixam cerca de 30%: cores a 70, degradês a 200, molduras de 200 a 400 e pacotes de reações
+  a 280, em prata ou em ouro. Quem já comprou não recebe diferença.
 - Página do plano e textos atualizados.
 
 **Medição de custo, antes de fixar os preços**
@@ -496,7 +500,7 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 
 - Não usar o servidor de mídia (SFU). Não criar palco, plateia, sala grande, sala pública nem vitrine.
 - Não criar denúncia, painel de moderação, lista de palavras nem classificador. Não enviar imagem no chat
-  nem foto própria de avatar. Tudo isso vai com os grupos, depois do MVP.
+  nem foto própria de avatar. Tudo isso vai com os grupos, depois do MVP, por decisão do dono.
 - Não enviar vídeo pela retransmissão sem o débito em ouro. Não incluir horas gratuitas, cortesia nem
   período de teste. Não aceitar prata como pagamento.
 - Não mudar uma sala em andamento entre direta e protegida.
@@ -514,7 +518,7 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 - Numa sala protegida, nenhum participante recebe candidato de conexão que não seja de retransmissão; o
   3º vídeo é recusado; o débito bate minuto a minuto; com saldo insuficiente, a sala avisa, espera a
   tolerância e encerra; com recarga, continua.
-- Assinatura nova custa R$ 9,90 e credita 500 de ouro; a antiga segue como estava.
+- A assinatura custa R$ 9,90 e credita 500 de ouro; o presente de Plus custa 990 e a loja mostra os preços novos.
 - Moderador, limites de frequência e registro de acesso passam nos aceites de `POS-MVP-v5.md`.
 - O relatório da medição de custo traz os GB por cenário e os preços propostos.
 - Testes automatizados cobrem: limite de 12, quem assiste o quê, limite de 4 assistidos, decisão de vídeo
@@ -558,7 +562,7 @@ idiomas e outros meios de pagamento.
 | Vídeos assistidos ao mesmo tempo por pessoa | 4 |
 | Vídeos simultâneos na sala protegida | 2 |
 | Qualidade sem Plus | até 1080p, 60 fps, 5 Mbps |
-| Qualidade Plus | até 2160p, 120 fps, 16 Mbps **[padrão]** |
+| Qualidade Plus | até 2160p, 240 fps, 32 Mbps |
 | Vídeo em conexão retransmitida | 720p, até 1,5 Mbps; só de quem é Plus e tem ouro |
 | Som da tela em conexão retransmitida | até 64 kbps |
 | Sala vazia expira em | 5 minutos |
@@ -575,7 +579,8 @@ idiomas e outros meios de pagamento.
 | Pacotes de ouro | R$ 9,90 → 990; R$ 19,90 → 2.190; R$ 49,90 → 5.990 |
 | Prata de boas-vindas | 300 |
 | Limite de envio de ouro | 2.000 por dia de calendário (Brasília) por conta |
-| Presentear 30 dias de Plus | 990 de ouro **[padrão]** |
+| Presentear 30 dias de Plus | 990 de ouro |
+| Cosméticos | cores 70; degradês 200; molduras 200 a 400; pacotes de reações 280 |
 | Selo de apoiador inicial | 100 primeiros pagantes |
 | Avisos de saldo na sala protegida | 10 e 2 minutos; tolerância de 3 minutos |
 | Registro de acesso | 6 meses |

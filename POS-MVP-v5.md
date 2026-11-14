@@ -5,7 +5,8 @@ Versão 5, de 2026-11-14. Substitui o `POS-MVP-v4.md`. Aplica as decisões de
 enquete, depois da entrega 3). O `DECISOES.md` foi revisado junto e traz a entrega 4 nova. O que mudou em
 relação à versão 4 está no fim.
 
-Itens marcados **[padrão]** ainda não foram confirmados pelo dono.
+Todas as decisões foram fechadas com o dono do produto. Restam provisórios só os preços que dependem da
+medição de custo da entrega 4.
 
 ## Situação
 
@@ -52,7 +53,7 @@ Para o agente que implementar:
 | D10 | O dono não digita a senha: na sala comum o navegador envia o token do dono já na entrada; na sala fixa vale a conta |
 | D11 | Link fixo sem senha até o Grupo A: risco aceito |
 | D12 | Anti-robô: **só o corte das repetições**. Quem acabou de criar a sala entra sem segunda verificação; quem já foi admitido volta sem verificar. A marca de 12 horas só entra se o feedback mostrar captcha demais |
-| D13 | Qualidade menor por quem transmite: Automática, 1080p60, 1080p30, 720p30, 480p30, 360p30 e "fluidez 15 fps"; Plus também 1440p e 2160p, a 60 e a 120 fps **[padrão]** |
+| D13 | Qualidade menor por quem transmite: Automática, 1080p60, 1080p30, 720p30, 480p30, 360p30 e "fluidez 15 fps"; Plus também 1440p e 2160p, até 240 fps |
 | D14 | Ganho automático do microfone ligado, com opção de desligar |
 | D15 | Tela cheia com chat; no iPhone, modo "vídeo grande" |
 | D16 | Console: botão "Transmitir console" na web, no Grupo B, depois do seletor de aparelhos, com som em mono; o desktop melhora para estéreo |
@@ -76,7 +77,7 @@ Para o agente que implementar:
 | D34 | Sala pública e vitrine: sem data. Descrição e categoria ficam com elas |
 | D35 | Promessa da página inicial: "um link, sem conta, sem anúncio". Segurança não é usada como argumento de comunicação |
 | D36 | Bot do Discord: cria a sala e posta o link no canal. Não é a atividade (lançador), que continua cortada |
-| D37 | Indicação: convite que vira uso real rende dias de Plus **sem ouro** (qualidade, 4 vídeos, link fixo, tema e selo). Uso real: conta nova que entra em sala em 2 dias diferentes **[padrão]**. Sem período de teste |
+| D37 | Indicação: convite que vira uso real rende dias de Plus **sem ouro** (qualidade, 4 vídeos, link fixo, tema e selo). Uso real: conta nova que entra em sala em 2 dias diferentes. Sem período de teste |
 | D38 | Grupos só começam com o **retorno semanal** atingido: contas que voltam a abrir sala com as mesmas pessoas em semanas seguidas. O número é definido com 4 semanas de dados reais |
 | D39 | Grupos: chat **guardado no servidor, sem prazo**; imagens no R2, cada uma pelo classificador, sem outros arquivos; mensagens diretas só entre amigos, na mesma etapa |
 | D40 | Nascem com os grupos: denúncia e painel interno; apagar mensagens (autor e dono) e exclusão de conta; lista de palavras e classificador de texto; Termos de Uso e Políticas de Privacidade revistos antes |
@@ -454,8 +455,8 @@ nas Políticas de Privacidade; a sala protegida é da entrega 4.
 | Teto do áudio da tela em conexão retransmitida | 64 kbps |
 | Tamanho da senha | 4 a 64 caracteres |
 | Erros de senha | 3 sem espera; depois 30 s dobrando a cada erro, teto de 15 min; zera após 15 min sem erro |
-| Qualidades de quem transmite | Automática, 1080p60, 1080p30, 720p30, 480p30, 360p30, fluidez 15 fps; Plus também 1440p e 2160p, a 60 e a 120 fps **[padrão]** |
-| Indicação: uso real | Conta nova que entra em sala em 2 dias diferentes **[padrão]** |
+| Qualidades de quem transmite | Automática, 1080p60, 1080p30, 720p30, 480p30, 360p30, fluidez 15 fps; Plus também 1440p e 2160p, até 240 fps |
+| Indicação: uso real | Conta nova que entra em sala em 2 dias diferentes |
 | Retorno semanal | Número definido com 4 semanas de dados reais |
 | Moderadores permanentes da sala de link fixo | Só contas, no máximo 10 |
 | Registro de acesso | 6 meses |
@@ -478,7 +479,7 @@ nas Políticas de Privacidade; a sala protegida é da entrega 4.
 | Denúncia, painel, classificador, imagens | Entrega 4 | Com os grupos (D40) |
 | Social | Amigos, depois grupos, depois mensagens diretas | Uma etapa só, com chat guardado, imagens e mensagens diretas, liberada pelo retorno semanal (D38, D39) |
 | Grupo A | 8 itens | Mais a Central de Segurança com canal oficial (D47) |
-| Itens [padrão] | Nenhum | Os marcados neste documento |
+| Itens [padrão] | Nenhum | Nenhum; preços de retransmissão provisórios até a medição |
 
 ## O que mudou em relação à versão 3
 
