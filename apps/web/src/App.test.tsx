@@ -2,15 +2,20 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { AccountClientProvider } from "./components/account/AccountClient";
 import { ROOM_MAX_PEOPLE } from "@sualive/config";
 import type { CreateRoom } from "./lib/room";
+import { makeAccountClient } from "./test/account";
 import { installTurnstileStub, renderApp, TEST_TOKEN } from "./test/room";
 import { texts } from "./texts";
 
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <App />
+      {/* The real room client is fine here (nothing opens a room); the account is a visitor. */}
+      <AccountClientProvider client={makeAccountClient()}>
+        <App />
+      </AccountClientProvider>
     </MemoryRouter>,
   );
 }
