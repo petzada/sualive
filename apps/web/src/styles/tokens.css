@@ -29,6 +29,17 @@
   --color-stage: #1d1d1f;
   --color-on-stage: #ffffff;
 
+  /*
+   * Marcas dos provedores de login: só nos botões "Entrar com…" de /entrar. São as cores oficiais
+   * de cada provedor e por isso não mudam com o tema.
+   */
+  --color-brand-google-blue: #4285f4; /* as quatro cores do "G" */
+  --color-brand-google-green: #34a853;
+  --color-brand-google-yellow: #fbbc05;
+  --color-brand-google-red: #ea4335;
+  --color-brand-discord: #5865f2; /* fundo do botão do Discord */
+  --color-on-brand-discord: #ffffff; /* texto e logotipo sobre brand-discord */
+
   /* Tipografia */
   --font-sans: "Inter Variable", "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter Variable", "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif;

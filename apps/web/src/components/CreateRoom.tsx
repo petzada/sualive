@@ -13,11 +13,9 @@ import { useTurnstileAction } from "./useTurnstileAction";
 type CreateFailure = Extract<CreateRoomResult, { ok: false }>["reason"];
 
 interface CreateRoomProps {
-  /** Short line under the button. */
-  hint?: string;
-  /** Extra classes for the button, e.g. spacing. */
+  /** Extra classes for the block of the button, e.g. spacing. */
   className?: string;
-  /** Rendered right under the button, before the hint (the account line of the home page). */
+  /** Rendered close under the button, in the same block (the account line of the home page). */
   afterButton?: ReactNode;
 }
 
@@ -25,7 +23,7 @@ interface CreateRoomProps {
  * The "create room" button: passes the Turnstile check, creates the room and goes to its link.
  * Renders its pieces side by side with the caller's own, so the parent decides the spacing.
  */
-export function CreateRoom({ hint, className = "", afterButton }: CreateRoomProps) {
+export function CreateRoom({ className = "", afterButton }: CreateRoomProps) {
   const { createRoom } = useRoomClient();
   const navigate = useNavigate();
   const [failure, setFailure] = useState<CreateFailure | null>(null);
@@ -48,24 +46,26 @@ export function CreateRoom({ hint, className = "", afterButton }: CreateRoomProp
 
   return (
     <>
-      <Button
-        variant="primary"
-        className={`min-h-12 rounded-button px-7 text-body font-medium ${className}`}
-        isDisabled={busy}
-        onPress={() => {
-          setFailure(null);
-          turnstile.trigger();
-        }}
-      >
-        {busy && <Spinner />}
-        {turnstile.status === "running"
-          ? texts.home.creating
-          : turnstile.status === "waiting"
-            ? texts.turnstile.checking
-            : texts.home.create}
-      </Button>
-      {afterButton}
-      {hint && <p className="text-body-sm text-muted">{hint}</p>}
+      {/* No gap inside: what comes after the button stays close to it. */}
+      <div className={`flex flex-col items-center ${className}`}>
+        <Button
+          variant="primary"
+          className="min-h-12 rounded-button px-7 text-body font-medium"
+          isDisabled={busy}
+          onPress={() => {
+            setFailure(null);
+            turnstile.trigger();
+          }}
+        >
+          {busy && <Spinner />}
+          {turnstile.status === "running"
+            ? texts.home.creating
+            : turnstile.status === "waiting"
+              ? texts.turnstile.checking
+              : texts.home.create}
+        </Button>
+        {afterButton}
+      </div>
 
       {failure && (
         <p role="alert" className="max-w-md text-body-sm font-medium text-notice">

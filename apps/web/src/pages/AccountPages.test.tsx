@@ -1,18 +1,25 @@
 import {
+  HANDLE_CHANGE_INTERVAL_DAYS,
   MINIMUM_AGE,
   PLUS_ANNUAL_EXPIRY_NOTICE_DAYS,
   PLUS_ANNUAL_PRICE_CENTS,
   PLUS_MONTHLY_PRICE_CENTS,
   TERMS_VERSION,
 } from "@sualive/config";
-import type { Plan } from "@sualive/protocol";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import type { MeUser, Plan } from "@sualive/protocol";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+import { AccountClientProvider } from "../components/account/AccountClient";
+import type { AccountClient } from "../components/account/AccountClient";
+import { PATHS } from "../components/account/paths";
 import { planStatusText } from "../components/account/plan";
 import { formatCents, formatDate, isValidCpf, maskCpf } from "../components/format";
 import {
   DAY_MS,
   makeAccountActions,
+  makeAccountClient,
   makeAccountState,
   makeActivePlan,
   makeCheckout,
@@ -21,6 +28,7 @@ import {
 } from "../test/account";
 import { renderApp } from "../test/room";
 import { texts } from "../texts";
+import { OnboardingPage } from "./OnboardingPage";
 
 const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
 const logged = (user = makeUser()) => makeAccountState({ user });
@@ -30,32 +38,131 @@ const VALID_CPF = "529.982.247-25";
 const money = (cents: number) => formatCents(cents).replace(/\s/g, " ");
 
 describe("login", () => {
-  it("shows only the available providers, as full-page links that carry returnTo", () => {
+  const providerButton = (provider: "google" | "discord") =>
+    screen.getByRole("link", { name: new RegExp(`^${texts.login.providers[provider]}`) });
+  const isBefore = (first: Element, second: Element) =>
+    Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("always shows the two buttons; only an available provider is a link, and it carries returnTo", () => {
     const { accountActions } = renderApp({
       path: "/entrar?returnTo=%2Fs%2Fabcdefghjk",
       account: makeAccountState({ providers: ["google"] }),
     });
 
     expect(heading()).toBe(texts.login.title);
-    const google = screen.getByRole("link", { name: texts.login.providers.google });
+    const google = providerButton("google");
+    expect(google.textContent).toBe(texts.login.providers.google);
     expect(google.getAttribute("href")).toBe("/api/auth/google/start?returnTo=%2Fs%2Fabcdefghjk");
+    expect(google.hasAttribute("aria-disabled")).toBe(false);
     expect(accountActions.loginUrl).toHaveBeenCalledWith("google", "/s/abcdefghjk");
-    expect(screen.queryByRole("link", { name: texts.login.providers.discord })).toBeNull();
+    expect(accountActions.loginUrl).toHaveBeenCalledTimes(1);
+
+    // The one that is not configured is there, switched off: no address, and it says "soon".
+    const discord = providerButton("discord");
+    expect(discord.textContent).toBe(`${texts.login.providers.discord}${texts.login.soon}`);
+    expect(discord.getAttribute("aria-disabled")).toBe("true");
+    expect(discord.hasAttribute("href")).toBe(false);
+    expect(discord.tagName).not.toBe("A");
+    expect(screen.getAllByText(texts.login.soon)).toHaveLength(1);
     // No password and no sign-up by e-mail: there is nothing to type on this page.
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(document.querySelector("input")).toBeNull();
   });
 
-  it("offers both providers when both are configured", () => {
+  it("offers both providers as links when both are configured", () => {
     renderApp({ path: "/entrar" });
-    expect(screen.getByRole("link", { name: texts.login.providers.google })).toBeTruthy();
-    expect(screen.getByRole("link", { name: texts.login.providers.discord })).toBeTruthy();
+    expect(providerButton("google").getAttribute("href")).toBe("/api/auth/google/start");
+    expect(providerButton("discord").getAttribute("href")).toBe("/api/auth/discord/start");
+    expect(screen.queryByText(texts.login.soon)).toBeNull();
   });
 
-  it("says so when no provider is available", () => {
-    renderApp({ path: "/entrar", account: makeAccountState({ providers: [] }) });
-    expect(screen.getByText(texts.login.noProviders)).toBeTruthy();
-    expect(screen.queryByRole("link", { name: texts.login.providers.google })).toBeNull();
+  it("switches both buttons off when no provider is available", () => {
+    const { accountActions } = renderApp({ path: "/entrar", account: makeAccountState({ providers: [] }) });
+    for (const provider of ["google", "discord"] as const) {
+      expect(providerButton(provider).getAttribute("aria-disabled")).toBe("true");
+      expect(providerButton(provider).hasAttribute("href")).toBe(false);
+    }
+    expect(screen.getAllByText(texts.login.soon)).toHaveLength(2);
+    expect(accountActions.loginUrl).not.toHaveBeenCalled();
+  });
+
+  it("dresses each button in the colors of its provider, both with the same width", () => {
+    renderApp({ path: "/entrar" });
+    const [google, discord] = [providerButton("google"), providerButton("discord")];
+
+    for (const name of ["bg-canvas", "border-hairline", "text-ink"]) {
+      expect(google.className.split(" ")).toContain(name);
+    }
+    // The official "G": its four colors, from the tokens of the theme.
+    const fills = [...google.querySelectorAll("svg path")].map((path) => path.getAttribute("fill"));
+    expect(fills.sort()).toEqual(
+      ["blue", "green", "red", "yellow"].map((color) => `var(--color-brand-google-${color})`),
+    );
+    for (const name of ["bg-brand-discord", "text-on-brand-discord"]) {
+      expect(discord.className.split(" ")).toContain(name);
+    }
+    expect(discord.querySelector("svg path")?.getAttribute("fill")).toBe("currentColor");
+    for (const button of [google, discord]) {
+      expect(button.className.split(" ")).toContain("w-full");
+      expect(button.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    }
+    expect(google.closest("ul")).toBe(discord.closest("ul"));
+  });
+
+  it("is only the two columns: title, sub-headline, Google, Discord and the legal links; faces at the right", () => {
+    renderApp({ path: "/entrar" });
+    const main = screen.getByRole("main");
+
+    const order = [
+      screen.getByRole("heading", { level: 1, name: texts.login.title }),
+      screen.getByText(texts.login.intro),
+      providerButton("google"),
+      providerButton("discord"),
+      screen.getByRole("link", { name: texts.nav.terms }),
+      screen.getByRole("link", { name: texts.nav.privacy }),
+    ];
+    order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
+    expect(texts.login.intro).toBe("Acesse sua conta.");
+    expect(main.textContent).not.toContain("você não precisa de conta");
+    // Nothing at the top: no name of the product and no way into the account.
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.nav.home })).toBeNull();
+    expect(document.body.textContent).not.toContain(texts.home.title);
+    expect(main.parentElement?.lastElementChild).toBe(main);
+
+    // The right column: three slices of the big card of the home page, one face in each.
+    const column = order[0]!.parentElement!;
+    const faces = column.nextElementSibling!;
+    expect(faces.getAttribute("aria-hidden")).toBe("true");
+    expect(faces.textContent).toBe("");
+    expect(faces.querySelector("a, button, [tabindex]")).toBeNull();
+    for (const name of ["aspect-[4/5]", "max-w-md", "grid-rows-3"]) {
+      expect(faces.className.split(" ")).toContain(name);
+    }
+    const photos = [...faces.querySelectorAll("img")];
+    expect(photos.map((photo) => photo.getAttribute("src"))).toEqual(
+      [1, 2, 3].map((index) => `/images/manifesto-${index}.jpg`),
+    );
+    for (const photo of photos) {
+      expect(photo.getAttribute("alt")).toBe("");
+      expect(photo.className.split(" ")).toContain("object-cover");
+      expect(photo.parentElement?.className.split(" ")).toContain("rounded-card");
+    }
+  });
+
+  it("shares the two columns with the home page", () => {
+    const login = renderApp({ path: "/entrar" });
+    const grid = () => screen.getByRole("heading", { level: 1 }).parentElement!.parentElement!;
+    const [loginGrid, loginColumn] = [grid().className, grid().firstElementChild!.className];
+    const loginMain = screen.getByRole("main").className;
+    login.unmount();
+
+    renderApp({ path: "/" });
+    expect(grid().className).toBe(loginGrid);
+    expect(grid().firstElementChild!.className).toBe(loginColumn);
+    expect(screen.getByRole("main").className).toBe(loginMain);
+    expect(loginGrid.split(" ")).toContain("md:grid-cols-2");
   });
 
   it("explains a failed login", () => {
@@ -82,6 +189,173 @@ describe("first access", () => {
   const handleInput = () => screen.getByLabelText<HTMLInputElement>(texts.handle.label);
   const consent = () => screen.getByRole<HTMLInputElement>("checkbox");
   const submit = () => fireEvent.click(screen.getByRole("button", { name: texts.onboarding.submit }));
+  const isBefore = (first: Element, second: Element) =>
+    Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const describedBy = () => (handleInput().getAttribute("aria-describedby") ?? "").split(" ");
+
+  /** Where the app is; stands in for every page that is not the first access. */
+  function Location() {
+    const location = useLocation();
+    return <p data-testid="location">{location.pathname + location.search}</p>;
+  }
+
+  /** The first access alone in a router, to see where it sends the person afterwards. */
+  function renderOnboarding(path: string, client: AccountClient) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <AccountClientProvider client={client}>
+          <Routes>
+            <Route path={PATHS.onboarding} element={<OnboardingPage />} />
+            <Route path="*" element={<Location />} />
+          </Routes>
+        </AccountClientProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  /** As the real account does: it turns "onboarded" before the form gets its answer. */
+  function LiveAccount({ path, user }: { path: string; user: MeUser }) {
+    const [state, setState] = useState(() => makeAccountState({ user }));
+    const [actions] = useState(() => {
+      const mocks = makeAccountActions();
+      mocks.completeOnboarding.mockImplementation(({ handle }) => {
+        setState(makeAccountState({ user: makeUser({ handle }) }));
+        return Promise.resolve({ ok: true, value: undefined });
+      });
+      return mocks;
+    });
+    return (
+      <MemoryRouter initialEntries={[path]}>
+        <AccountClientProvider client={{ useAccount: () => ({ state, actions }) }}>
+          <Routes>
+            <Route path={PATHS.onboarding} element={<OnboardingPage />} />
+            <Route path="*" element={<Location />} />
+          </Routes>
+        </AccountClientProvider>
+      </MemoryRouter>
+    );
+  }
+
+  async function finish() {
+    fireEvent.change(handleInput(), { target: { value: "marina" } });
+    fireEvent.click(consent());
+    await screen.findByText(texts.handle.available);
+    submit();
+    return (await screen.findByTestId("location")).textContent;
+  }
+
+  it("is an onboarding screen: no name, no Plus and no account at the top, the legal links at the foot", () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+
+    expect(heading()).toBe("Só falta mais um passo");
+    expect(screen.getByText("Escolha seu @nome e aceite os termos.")).toBeTruthy();
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.nav.home })).toBeNull();
+    expect(screen.queryByRole("link", { name: texts.nav.plus })).toBeNull();
+    expect(document.body.textContent).not.toContain(texts.home.title);
+    // Centered in the window, both ways.
+    const main = screen.getByRole("main");
+    for (const name of ["mx-auto", "flex-1", "justify-center"])
+      expect(main.className.split(" ")).toContain(name);
+    // The legal links close the page, centered, outside the form.
+    const footer = screen.getByRole("contentinfo");
+    expect(main.nextElementSibling).toBe(footer);
+    expect(footer.className.split(" ")).toContain("justify-center");
+    expect(within(footer).getByRole("link", { name: texts.nav.terms }).getAttribute("href")).toBe("/termos");
+    expect(within(footer).getByRole("link", { name: texts.nav.privacy }).getAttribute("href")).toBe(
+      "/privacidade",
+    );
+  });
+
+  it("orders the form: the @handle, the single consent and then the button", () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+
+    const order = [
+      screen.getByRole("heading", { level: 1 }),
+      screen.getByText(texts.onboarding.intro),
+      handleInput(),
+      screen.getByText(texts.onboarding.handleHint),
+      consent(),
+      screen.getByRole("button", { name: texts.onboarding.submit }),
+    ];
+    order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
+  });
+
+  it("explains the handle under the field, and keeps the rule for when it is broken", () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+
+    expect(texts.onboarding.handleHint).toBe(
+      `Esse nome é a sua identificação oficial. Pode ser trocado a cada ${HANDLE_CHANGE_INTERVAL_DAYS} dias.`,
+    );
+    const hint = screen.getByText(texts.onboarding.handleHint);
+    expect(describedBy()).toContain(hint.id);
+    // Nothing about the size or the characters until what was typed breaks the rule.
+    expect(document.body.textContent).not.toContain(texts.handle.rule);
+    expect(screen.queryByText(texts.handle.invalid)).toBeNull();
+    expect(handleInput().hasAttribute("aria-invalid")).toBe(false);
+
+    fireEvent.change(handleInput(), { target: { value: "ab" } });
+    const error = screen.getByText(texts.handle.invalid);
+    expect(error.getAttribute("role")).toBe("alert");
+    expect(handleInput().getAttribute("aria-invalid")).toBe("true");
+    expect(describedBy()).toContain(error.id);
+    // Under the field, before the hint; not on the line of the label.
+    expect(isBefore(handleInput(), error)).toBe(true);
+    expect(isBefore(error, hint)).toBe(true);
+    expect(document.querySelector("[data-status]")?.textContent).toBe("");
+
+    fireEvent.change(handleInput(), { target: { value: "abc" } });
+    expect(screen.queryByText(texts.handle.invalid)).toBeNull();
+    expect(handleInput().hasAttribute("aria-invalid")).toBe(false);
+  });
+
+  it("shows the availability on the line of the label, at the right", async () => {
+    renderApp({ path: "/boas-vindas", account: newcomer() });
+    const label = document.querySelector(`label[for="${handleInput().id}"]`)!;
+    const status = document.querySelector("[data-status]")!;
+
+    expect(label.textContent).toBe(texts.handle.label);
+    expect(label.parentElement).toBe(status.parentElement);
+    expect(label.nextElementSibling).toBe(status);
+    expect(label.parentElement?.className.split(" ")).toContain("justify-between");
+    expect(status.className.split(" ")).toContain("text-right");
+    expect(isBefore(status, handleInput())).toBe(true);
+    expect(describedBy()).toContain(status.id);
+
+    fireEvent.change(handleInput(), { target: { value: "marina_2" } });
+    expect(status.textContent).toBe(texts.handle.checking);
+    await waitFor(() => expect(status.textContent).toBe(texts.handle.available));
+  });
+
+  it("goes to the welcome after finishing, not to the profile", async () => {
+    const actions = makeAccountActions();
+    renderOnboarding("/boas-vindas", makeAccountClient(newcomer(), actions));
+
+    expect(await finish()).toBe(PATHS.welcome);
+    expect(PATHS.welcome).toBe("/bem-vindo");
+  });
+
+  it("goes back to where the person came from, when there was a returnTo", async () => {
+    renderOnboarding("/boas-vindas?returnTo=%2Fs%2Fabcdefghjk", makeAccountClient(newcomer()));
+
+    expect(await finish()).toBe("/s/abcdefghjk");
+  });
+
+  it("still goes to the welcome when the account turns onboarded before the answer arrives", async () => {
+    const user = makeUser({ onboarded: false, handle: null });
+    const first = render(<LiveAccount path="/boas-vindas" user={user} />);
+    expect(await finish()).toBe(PATHS.welcome);
+    first.unmount();
+
+    render(<LiveAccount path="/boas-vindas?returnTo=%2Fplus" user={user} />);
+    expect(await finish()).toBe("/plus");
+  });
+
+  it("sends who finished long ago and opens it again to the profile", () => {
+    renderOnboarding("/boas-vindas", makeAccountClient(logged()));
+    expect(screen.getByTestId("location").textContent).toBe(PATHS.profile);
+  });
 
   it("has one checkbox for age, terms and privacy, with links to the two pages", () => {
     renderApp({ path: "/boas-vindas", account: newcomer() });
@@ -137,6 +411,7 @@ describe("first access", () => {
     fireEvent.change(handleInput(), { target: { value: "caio" } });
     expect(screen.getByText(texts.handle.checking)).toBeTruthy();
     expect(await screen.findByText(texts.handle.taken)).toBeTruthy();
+    expect(handleInput().getAttribute("aria-invalid")).toBe("true");
 
     fireEvent.change(handleInput(), { target: { value: "admin" } });
     expect(await screen.findByText(texts.handle.reserved)).toBeTruthy();
@@ -691,9 +966,10 @@ describe("home page with accounts", () => {
     expect(links[0]?.textContent).toBe(texts.home.account.login);
     expect(links[0]?.getAttribute("href")).toBe("/entrar");
     expect(screen.getAllByRole("button")).toHaveLength(1);
-    // Right under the button, and before the hint that was already there.
+    // Close under the button: same block, with no gap in it. The hint went up, above the button.
     expect(createButton().nextElementSibling).toBe(account());
-    expect(isBefore(account(), screen.getByText(texts.home.hint))).toBe(true);
+    expect(createButton().parentElement?.className).not.toContain("gap-");
+    expect(isBefore(screen.getByText(texts.home.hint), createButton())).toBe(true);
     // Nothing about the account at the top of the page.
     expect(screen.queryByRole("banner")).toBeNull();
     expect(screen.queryByRole("navigation")).toBeNull();

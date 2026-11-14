@@ -18,12 +18,22 @@ export const TEST_TOKEN = "test-turnstile-token";
  * `{ pass: false }` to keep the token pending and drive the callbacks by hand.
  */
 export function installTurnstileStub({ pass = true } = {}) {
-  const callbacks: { token?: (token: string) => void; error?: () => boolean; expired?: () => void } = {};
+  const callbacks: {
+    token?: (token: string) => void;
+    error?: () => boolean;
+    expired?: () => void;
+    /** Cloudflare demands an interaction from the person. */
+    beforeInteractive?: () => void;
+    /** The interaction is over. */
+    afterInteractive?: () => void;
+  } = {};
   const api = {
     render: vi.fn<TurnstileApi["render"]>((_container, options) => {
       callbacks.token = options.callback;
       callbacks.error = options["error-callback"];
       callbacks.expired = options["expired-callback"];
+      callbacks.beforeInteractive = options["before-interactive-callback"];
+      callbacks.afterInteractive = options["after-interactive-callback"];
       if (pass) options.callback(TEST_TOKEN);
       return "widget-1";
     }),
