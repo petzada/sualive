@@ -930,7 +930,10 @@ describe("plan", () => {
     );
     expect(payment.getByText(money(checkout.amountCents))).toBeTruthy();
     expect(payment.getByText(texts.plus.checkout.expiresAt)).toBeTruthy();
-    expect(accountActions.watchPlusPayment).toHaveBeenCalledWith(checkout.paymentId, expect.any(Function));
+    // O acompanhamento começa num efeito, depois de a tela do pagamento aparecer.
+    await waitFor(() =>
+      expect(accountActions.watchPlusPayment).toHaveBeenCalledWith(checkout.paymentId, expect.any(Function)),
+    );
 
     fireEvent.click(payment.getByRole("button", { name: texts.common.copy }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(checkout.brCode));
