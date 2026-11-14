@@ -10,26 +10,6 @@ import {
 const TAGLINE =
   "Sala de chamada com compartilhamento de tela que abre por um link, sem cadastro e sem anúncio.";
 
-/** Someone shown on the manifesto page. */
-export interface ManifestoPerson {
-  /** First name only. */
-  name: string;
-  /** City and state, e.g. "Recife, PE". */
-  city: string;
-  /** File name inside `apps/web/public/images`. */
-  image: string;
-}
-
-/**
- * People on the manifesto page, in the order they appear (three fit one row). Each card shows up
- * once its photo is in `apps/web/public/images`; until then the person is left out.
- */
-const MANIFESTO_PEOPLE: readonly ManifestoPerson[] = [
-  { name: "Camila", city: "Recife, PE", image: "camila.jpg" },
-  { name: "Rafael", city: "Curitiba, PR", image: "rafael.jpg" },
-  { name: "Bianca", city: "Belo Horizonte, MG", image: "bianca.jpg" },
-];
-
 /** Every user-visible string lives here (pt-BR). Components never hardcode copy. */
 export const texts = {
   meta: {
@@ -81,7 +61,6 @@ export const texts = {
     ],
     closing: "A gente só quer se divertir junto.",
     ageNotice: `O ${APP_NAME} é uma plataforma para maiores de 18 anos.`,
-    people: MANIFESTO_PEOPLE,
   },
   lobby: {
     title: "Entrar na sala",

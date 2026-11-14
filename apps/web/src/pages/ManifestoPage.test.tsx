@@ -7,6 +7,7 @@ import { PeopleCards } from "../components/PeopleCards";
 import type { CreateRoom } from "../lib/room";
 import { installTurnstileStub, renderApp, TEST_TOKEN } from "../test/room";
 import { texts } from "../texts";
+import { MANIFESTO_PHOTOS } from "./ManifestoPage";
 
 function renderManifesto() {
   return render(
@@ -83,63 +84,57 @@ describe("manifesto page", () => {
     await waitFor(() => expect(createRoom).toHaveBeenCalledWith(TEST_TOKEN));
   });
 
-  it("shows the three people by first name, after the button and before the age notice", () => {
-    renderManifesto();
+  it("shows the three photos, with no name or city, after the button and before the age notice", () => {
+    const { container } = renderManifesto();
 
-    expect(texts.manifesto.people.map((person) => person.name)).toEqual(["Camila", "Rafael", "Bianca"]);
-    const cards = screen.getAllByRole("listitem");
-    expect(cards).toHaveLength(3);
-    expect(isBefore(screen.getByRole("button", { name: texts.home.create }), cards[0]!)).toBe(true);
-    expect(isBefore(cards[2]!, screen.getByText(texts.manifesto.ageNotice))).toBe(true);
+    const photos = [...container.querySelectorAll("img")];
+    expect(photos.map((photo) => photo.getAttribute("src"))).toEqual(
+      MANIFESTO_PHOTOS.map((photo) => `/images/${photo}`),
+    );
+    expect(isBefore(screen.getByRole("button", { name: texts.home.create }), photos[0]!)).toBe(true);
+    expect(isBefore(photos[2]!, screen.getByText(texts.manifesto.ageNotice))).toBe(true);
+    // The cards carry no text at all.
+    expect(photos[0]!.closest("[aria-hidden]")?.textContent).toBe("");
   });
 
-  it("drops the people section while no photo is there", () => {
-    renderManifesto();
+  it("drops the photo strip while no photo is there", () => {
+    const { container } = renderManifesto();
 
-    screen
-      .getAllByRole("listitem")
-      .map((card) => card.querySelector("img")!)
-      .forEach((photo) => fireEvent.error(photo));
+    container.querySelectorAll("img").forEach((photo) => fireEvent.error(photo));
 
-    expect(screen.queryByRole("list")).toBeNull();
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("[aria-hidden]")).toBeNull();
   });
 });
 
 describe("people cards", () => {
-  const people = [
-    { name: "Pessoa Um", city: "Recife, PE", image: "um.jpg" },
-    { name: "Pessoa Dois", city: "Curitiba, PR", image: "dois.jpg" },
-    { name: "Pessoa Três", city: "Manaus, AM", image: "tres.jpg" },
-  ];
+  const photos = ["um.jpg", "dois.jpg", "tres.jpg"];
 
-  it("shows each person with the name above the city, over the photo", () => {
-    render(<PeopleCards people={people} />);
+  it("shows one card per photo, with nothing to read or press", () => {
+    const { container } = render(<PeopleCards photos={photos} />);
 
-    const cards = screen.getAllByRole("listitem");
-    expect(cards).toHaveLength(3);
-    cards.forEach((card, index) => {
-      const person = people[index]!;
-      const name = screen.getByText(person.name);
-      const city = screen.getByText(person.city);
-      expect(card.contains(name) && card.contains(city)).toBe(true);
-      expect(isBefore(name, city)).toBe(true);
-      expect(card.querySelector("img")?.getAttribute("src")).toBe(`/images/${person.image}`);
-      // Not a link or a button: the highlight is the whole interaction.
-      expect(card.querySelector("a, button")).toBeNull();
-    });
+    const images = [...container.querySelectorAll("img")];
+    expect(images.map((image) => image.getAttribute("src"))).toEqual(
+      photos.map((photo) => `/images/${photo}`),
+    );
+    expect(container.textContent).toBe("");
+    // Not a link or a button: the highlight is the whole interaction.
+    expect(container.querySelector("a, button, [tabindex]")).toBeNull();
   });
 
-  it("leaves out a person whose photo is missing", () => {
-    render(<PeopleCards people={people} />);
+  it("leaves out a photo that is missing", () => {
+    const { container } = render(<PeopleCards photos={photos} />);
 
-    fireEvent.error(screen.getAllByRole("listitem")[1]!.querySelector("img")!);
+    fireEvent.error(container.querySelectorAll("img")[1]!);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
-    expect(screen.queryByText("Pessoa Dois")).toBeNull();
+    expect([...container.querySelectorAll("img")].map((image) => image.getAttribute("src"))).toEqual([
+      "/images/um.jpg",
+      "/images/tres.jpg",
+    ]);
   });
 
   it("renders nothing for an empty list", () => {
-    const { container } = render(<PeopleCards people={[]} />);
+    const { container } = render(<PeopleCards photos={[]} />);
 
     expect(container.firstChild).toBeNull();
   });

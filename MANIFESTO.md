@@ -68,37 +68,31 @@ componente.
 - Topo: "sualive" pequeno e centralizado, levando à tela inicial.
 - Coluna de leitura estreita e centralizada, fundo `canvas`.
 - Título centralizado: `text-display-sm` (48px) a partir de telas médias, `text-heading` (40px) no celular.
-- Corpo alinhado à esquerda, 21px.
+- Corpo de 21px: justificado no desktop, alinhado à esquerda no celular.
 - Frase final centralizada, em destaque, **em uma linha só no celular** (cerca de 17px em 375px de
   largura, 24px no desktop).
 - Botão "Criar sala" depois da frase final, igual ao da tela inicial, com o mesmo comportamento.
-- Três cartões de pessoas depois do botão, sem título acima: uma linha no desktop, empilhados no celular.
+- Três cartões de fotos depois do botão, sem título acima: uma linha no desktop, empilhados no celular.
 - Rodapé em duas linhas, como no texto.
 
-### Cartões de pessoas
+### Cartões de fotos
 
-- Foto de fundo, primeiro nome em cima e cidade embaixo (ex.: "Recife, PE"), no canto inferior esquerdo.
-- Pessoas: Camila, Rafael e Bianca.
-- Ao passar o ponteiro ou focar um cartão, ele cresce e os outros recuam, esmaecem e desfocam. Sem
-  movimento para quem pede movimento reduzido.
-- Não são clicáveis.
+- Só a foto, sem nome, sem cidade e sem nenhum texto.
+- Ao passar o ponteiro num cartão, ele cresce e os outros recuam, esmaecem e desfocam. Sem movimento para
+  quem pede movimento reduzido.
+- Não são clicáveis nem recebem foco: são decorativos.
 - Canto de 28px (`rounded-card`) e nenhuma sombra projetada, pelos tokens de `DESIGN.md`. Sem dependência
   nova: o efeito é só CSS.
-- Só pessoas reais que autorizaram nome, cidade e foto.
-- O cartão de cada pessoa só aparece quando a foto dela existe; sem nenhuma foto, a seção não aparece.
-- As fotos ficam em `apps/web/public/images`.
+- Cada cartão só aparece quando a foto dele carrega; sem nenhuma foto, a faixa não aparece.
 
-## Como incluir as pessoas
+## Como trocar as fotos
 
-Coloque as fotos em `apps/web/public/images` com estes nomes (retrato ou quadrada; o cartão corta para
-caber): `camila.jpg`, `rafael.jpg` e `bianca.jpg`. Cada cartão aparece quando a foto dele existe.
-
-Nomes, cidades e arquivos ficam em `MANIFESTO_PEOPLE`, em `apps/web/src/texts.ts`. As cidades de hoje
-(Recife, Curitiba e Belo Horizonte) vieram do mockup e precisam ser conferidas pelo dono.
+As fotos ficam em `apps/web/public/images` como `manifesto-1.jpg`, `manifesto-2.jpg` e `manifesto-3.jpg`
+(retrato ou quadrada, cerca de 800px de largura; o cartão corta para caber). A lista e a ordem estão em
+`MANIFESTO_PHOTOS`, em `apps/web/src/pages/ManifestoPage.tsx`.
 
 ## O que ainda falta
 
-- As três fotos e a conferência das cidades (dono do produto).
 - Termos de uso e política de privacidade publicados: quando existirem, entram os dois links na segunda
   linha do rodapé. Hoje o rodapé tem só a linha da maioridade.
 - Denúncia existindo no produto: quando existir, o último parágrafo ganha a frase "E quem vê algo errado
