@@ -5,6 +5,7 @@ import { Route, Routes } from "react-router";
 import { PATHS } from "./components/account/paths";
 import { DebugError } from "./components/DebugError";
 import { MANIFESTO_PATH } from "./components/ManifestoCard";
+import { TermsBanner } from "./components/TermsBanner";
 import { ErrorPage } from "./pages/ErrorPage";
 import { HomePage } from "./pages/HomePage";
 import { LegalPage } from "./pages/LegalPage";
@@ -52,6 +53,7 @@ export function App() {
 function AppRoutes() {
   return (
     <>
+      <TermsBanner />
       <Routes>
         <Route path={PATHS.home} element={<HomePage />} />
         <Route path={MANIFESTO_PATH} element={<ManifestoPage />} />

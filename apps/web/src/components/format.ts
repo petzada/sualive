@@ -20,6 +20,12 @@ export function formatDate(timestamp: number): string {
   return dateFormat.format(timestamp);
 }
 
+/** "2026-11-14" → "14/11/2026", for a date written the ISO way (the version of the legal texts). */
+export function formatIsoDate(date: string): string {
+  const [year, month, day] = date.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : date;
+}
+
 export function formatDateTime(timestamp: number): string {
   return dateTimeFormat.format(timestamp);
 }

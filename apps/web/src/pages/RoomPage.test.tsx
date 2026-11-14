@@ -1,7 +1,7 @@
 import { CHAT_MAX_LENGTH, NICKNAME_MAX_LENGTH, REACTIONS, ROOM_MAX_PEOPLE } from "@sualive/config";
 import type { DevicePreview } from "@sualive/media";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NICKNAME_STORAGE_KEY } from "../components/room/Lobby";
 import { noticeText } from "../components/room/NoticeBanner";
 import type { RoomNotice, RoomPhase } from "../lib/room";
@@ -33,6 +33,20 @@ function leaveRoom() {
   fireEvent.click(
     within(leaveConfirmation()!).getByRole("button", { name: texts.controls.leaveConfirm.confirm }),
   );
+}
+
+/**
+ * jsdom cannot navigate: `location.reload()` only reports "not implemented" on its virtual console
+ * (vitest leaves the jsdom instance on the global object). Counts those reports.
+ */
+function watchReloads() {
+  type Listen = (event: "jsdomError", listener: (error: Error) => void) => unknown;
+  const { virtualConsole } = (
+    globalThis as unknown as { jsdom: { virtualConsole: { on: Listen; off: Listen } } }
+  ).jsdom;
+  const seen = vi.fn<(error: Error) => void>();
+  virtualConsole.on("jsdomError", seen);
+  return { seen, stop: () => void virtualConsole.off("jsdomError", seen) };
 }
 
 describe("room phases", () => {
@@ -69,11 +83,14 @@ describe("room phases", () => {
     expect(screen.getByRole("button", { name: texts.controls.leave }).hasAttribute("disabled")).toBe(false);
   });
 
-  it.each(["ended", "full", "banned", "kicked", "error"] as const)("shows the %s screen", (phase) => {
-    renderApp({ state: makeState({ phase }) });
-    expect(heading()).toBe(texts.roomEnd[phase].title);
-    expect(screen.getByText(texts.roomEnd[phase].message)).toBeTruthy();
-  });
+  it.each(["ended", "full", "banned", "kicked", "replaced", "error"] as const)(
+    "shows the %s screen",
+    (phase) => {
+      renderApp({ state: makeState({ phase }) });
+      expect(heading()).toBe(texts.roomEnd[phase].title);
+      expect(screen.getByText(texts.roomEnd[phase].message)).toBeTruthy();
+    },
+  );
 
   it("offers to create another room when the room ended", () => {
     renderApp({ state: makeState({ phase: "ended" }) });
@@ -94,6 +111,36 @@ describe("room phases", () => {
     renderApp({ state: makeState({ phase: "banned" }) });
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByRole("link", { name: texts.common.backHome })).toBeTruthy();
+  });
+
+  it("offers to use this tab when the room was opened in another one, without reloading", () => {
+    const reloads = watchReloads();
+    const { actions } = renderApp({ state: makeState({ phase: "replaced" }) });
+
+    expect(heading()).toBe(texts.roomEnd.replaced.title);
+    expect(heading()).toBe("Você abriu esta sala em outra aba");
+    expect(screen.getByText(texts.roomEnd.replaced.message)).toBeTruthy();
+    // Like the other final screens: no header, no logo, nothing announced as an error.
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("link", { name: texts.common.backHome }).getAttribute("href")).toBe("/");
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar esta aba" }));
+
+    expect(actions.useThisTab).toHaveBeenCalledTimes(1);
+    expect(reloads.seen).not.toHaveBeenCalled();
+    reloads.stop();
+  });
+
+  it("still reloads the page to try again on the other final screens", () => {
+    const reloads = watchReloads();
+    const { actions } = renderApp({ state: makeState({ phase: "full" }) });
+
+    fireEvent.click(screen.getByRole("button", { name: texts.roomEnd.full.action }));
+
+    expect(actions.useThisTab).not.toHaveBeenCalled();
+    expect(reloads.seen).toHaveBeenCalledTimes(1);
+    reloads.stop();
   });
 
   it("covers every phase of the contract", () => {
