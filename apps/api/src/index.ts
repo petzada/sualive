@@ -1,5 +1,6 @@
 import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
 import { app } from "./app";
+import { runDailyBilling } from "./billing/daily";
 import type { AppEnv } from "./env";
 import { RoomBase } from "./room";
 import { sentryOptions } from "./sentry";
@@ -10,6 +11,10 @@ export type Room = RoomBase;
 
 const handler = {
   fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+  // Rotina diária do Plus (cron em `triggers.crons` do wrangler.jsonc).
+  scheduled: async (_controller, env) => {
+    await runDailyBilling(env, Date.now());
+  },
 } satisfies ExportedHandler<AppEnv>;
 
 export default withSentry(sentryOptions, handler);

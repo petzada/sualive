@@ -2,6 +2,7 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 import type { ParticipantView, RoomActions } from "../../lib/room";
 import { texts } from "../../texts";
+import { Badges } from "../account/Badges";
 import { HandIcon, MicIcon, MicOffIcon, MoreIcon, VoiceBars } from "../icons";
 import { Avatar } from "./media";
 
@@ -87,10 +88,15 @@ export function PeopleList({ participants, isOwner, onModerate }: PeopleListProp
         return (
           <li key={participant.id} className="flex flex-col">
             <div className="flex min-h-12 items-center gap-3 py-1.5">
-              <Avatar nickname={participant.nickname} speaking={participant.speaking} />
+              <Avatar
+                nickname={participant.nickname}
+                avatarUrl={participant.avatarUrl}
+                speaking={participant.speaking}
+              />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-baseline gap-1.5 text-body-sm">
                   <span className="truncate font-medium">{participant.nickname}</span>
+                  <Badges badges={participant.badges} />
                   {participant.isSelf && <span className="shrink-0 text-muted">({texts.common.you})</span>}
                   {participant.isOwner && (
                     <span className="shrink-0 rounded-button bg-mist px-2 py-0.5 text-compact">
@@ -98,9 +104,13 @@ export function PeopleList({ participants, isOwner, onModerate }: PeopleListProp
                     </span>
                   )}
                 </span>
-                {(connection || participant.relayed) && (
+                {(participant.handle || connection || participant.relayed) && (
                   <span className="truncate text-compact text-muted">
-                    {[connection, participant.relayed ? texts.people.relayed : ""]
+                    {[
+                      participant.handle ? texts.handle.display(participant.handle) : "",
+                      connection,
+                      participant.relayed ? texts.people.relayed : "",
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </span>

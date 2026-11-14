@@ -36,9 +36,10 @@ function metaTags(pageUrl: string, imageUrl: string): string {
 }
 
 /**
- * Página da sala (`/s/<código>`): o `index.html` do front com as tags Open Graph e Twitter, para
- * o link mostrar título e imagem nos aplicativos de mensagem. Textos fixos: não revela se a sala
- * existe. URLs absolutas com a origem da requisição.
+ * Página da sala (`/s/<código>` e a de link fixo, `/@<nome>`): o `index.html` do front com as tags
+ * Open Graph e Twitter, para o link mostrar título e imagem nos aplicativos de mensagem. Textos
+ * fixos: não revela se a sala existe, nem se a conta do @nome existe ou tem Plus. URLs absolutas com
+ * a origem da requisição.
  */
 export async function roomPagePreview(request: Request, env: AppEnv): Promise<Response> {
   const url = new URL(request.url);

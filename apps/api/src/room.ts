@@ -6,40 +6,78 @@ import {
   ROOM_MAX_PEOPLE,
   ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
+  type RoomTheme,
 } from "@sualive/config";
 import {
+  badgeSchema,
   clientMessageSchema,
   serverMessageSchema,
   WS_CLOSE,
   WS_PING_FRAME,
   WS_PONG_FRAME,
+  type Badge,
   type ChatMessage,
   type ClientMessage,
   type Participant,
+  type RoomSettings,
   type RoomVideo,
   type ServerMessage,
 } from "@sualive/protocol";
 import { DurableObject } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
+import { findUserById } from "./account";
+import { isOnboarded } from "./auth/viewer";
+import { getPlanStatus } from "./billing/plan";
 import { randomToken, safeEqual, sha256 } from "./crypto";
+import { createDb } from "./db";
+import { users } from "./db/schema";
 import type { AppEnv } from "./env";
 
 /**
- * Um Durable Object por sala (`idFromName(código)`). Guarda no próprio storage a meta da sala, as
- * admissões, os banidos e o histórico do chat; o estado de cada conexão fica no attachment do
- * WebSocket para sobreviver à hibernação. Quando a sala acaba, apaga todo o storage.
+ * Um Durable Object por sala: `idFromName(código)` na sala comum e `idFromName("@<nome>")` na sala
+ * de link fixo de um assinante. Guarda no próprio storage a meta da sala, as admissões, os banidos
+ * e o histórico do chat; o estado de cada conexão fica no attachment do WebSocket para sobreviver à
+ * hibernação. Quando a sala acaba, apaga todo o storage.
  *
- * O Worker fala com ele por RPC (`create`, `info`, `admit`, `checkAdmission`) e encaminha o
- * WebSocket por `fetch`, com a identidade num cabeçalho interno que o cliente não alcança (o
- * Worker monta a requisição do zero).
+ * O Worker fala com ele por RPC (`create`, `ensureFixed`, `endFixed`, `info`, `admit`,
+ * `checkAdmission`) e encaminha o WebSocket por `fetch`, com a identidade num cabeçalho interno que
+ * o cliente não alcança (o Worker monta a requisição do zero). Conta, perfil e plano chegam prontos
+ * do Worker, consultados no servidor a cada entrada e a cada conexão.
+ *
+ * Sala de link fixo: não é criada por `create`; o Worker chama `ensureFixed` enquanto o dono tem
+ * Plus. Ela não acaba quando esvazia: depois de ROOM_EMPTY_TTL_MS vazia, apaga o chat, as admissões e
+ * os banidos (a "sessão" da sala acaba, o link continua). Enquanto há gente, um alarme confere a
+ * cada ROOM_EMPTY_TTL_MS se o dono ainda tem Plus e ainda é dono do @nome; se não, a sala acaba.
  */
 
 /** Cabeçalho interno com a identidade (JSON em encodeURIComponent), montado pelo Worker. */
 export const ROOM_IDENTITY_HEADER = "x-sualive-identity";
 
+/** Conta de quem entra logado, com o plano consultado no servidor. */
+export interface RoomAccount {
+  userId: string;
+  handle: string;
+  avatarUrl: string | null;
+  badges: Badge[];
+  /** Plus ativo agora (segundo a cobrança). */
+  plus: boolean;
+  /** Limite de vídeos simultâneos desta pessoa (pelo plano dela, não o do dono). */
+  videosPerPerson: number;
+}
+
 export interface RoomIdentity {
   participantId: string;
   nickname: string;
   ip: string;
+  /** `null` para quem não tem conta. */
+  account: RoomAccount | null;
+}
+
+/** Dono da sala de link fixo, resolvido pelo Worker a partir do @nome. */
+export interface FixedOwner {
+  userId: string;
+  handle: string;
+  theme: RoomTheme;
 }
 
 export type AdmitResult = "ok" | "room_ended" | "banned" | "room_full";
@@ -47,14 +85,18 @@ export type AdmissionCheck = "ok" | "room_ended" | "banned" | "unauthorized";
 export interface RoomInfo {
   status: "open" | "ended";
   participants: number;
+  fixed: boolean;
 }
 
 interface RoomMeta {
-  ownerTokenHash: string;
+  /** Hash do token do dono. Nulo na sala de link fixo (o dono é reconhecido pela conta). */
+  ownerTokenHash: string | null;
   /** Sal dos hashes de IP guardados para banimento. */
   ipSalt: string;
   createdAt: number;
   chatSeq: number;
+  /** Presente só na sala de link fixo. */
+  fixed?: FixedOwner;
 }
 
 interface Admission {
@@ -78,13 +120,23 @@ interface Connection {
   chatTimes: number[];
   /** Saída já tratada (removido, substituído ou fechado). */
   departed: boolean;
+  userId: string | null;
+  handle: string | null;
+  avatarUrl: string | null;
+  badges: Badge[];
+  videosPerPerson: number;
 }
 
 const META_KEY = "meta";
 const ADMISSION_PREFIX = "admission:";
+const BAN_PREFIX = "ban:";
 const BAN_PARTICIPANT_PREFIX = "ban:participant:";
 const BAN_IP_PREFIX = "ban:ip:";
 const CHAT_PREFIX = "chat:";
+/** Máximo de chaves por chamada de `storage.delete`. */
+const DELETE_BATCH = 128;
+
+const DEFAULT_ROOM: RoomSettings = { theme: "default", fixed: false, ownerHandle: null };
 
 function chatKey(seq: number): string {
   return `${CHAT_PREFIX}${seq.toString().padStart(12, "0")}`;
@@ -105,7 +157,7 @@ export class RoomBase extends DurableObject<AppEnv> {
 
   // ---------- RPC chamado pelo Worker ----------
 
-  /** Inicializa a sala. `false` se o código já está em uso. */
+  /** Inicializa a sala comum. `false` se o código já está em uso. */
   async create(ownerTokenHash: string): Promise<boolean> {
     if (this.meta) return false;
     const meta: RoomMeta = {
@@ -121,10 +173,44 @@ export class RoomBase extends DurableObject<AppEnv> {
     return true;
   }
 
+  /**
+   * A sala de link fixo existe enquanto o dono tem Plus (o Worker confere antes de chamar). Cria a
+   * meta se faltar e atualiza o tema; se o storage era de outra conta (o @nome mudou de dono),
+   * começa do zero.
+   */
+  async ensureFixed(owner: FixedOwner): Promise<void> {
+    const current = this.meta;
+    if (current && current.fixed?.userId !== owner.userId) await this.end();
+    const meta = this.meta;
+    if (!meta) {
+      const created: RoomMeta = {
+        ownerTokenHash: null,
+        ipSalt: randomToken(16),
+        createdAt: Date.now(),
+        chatSeq: 0,
+        fixed: { ...owner },
+      };
+      await this.ctx.storage.put(META_KEY, created);
+      this.meta = created;
+      return;
+    }
+    const fixed = meta.fixed!;
+    if (fixed.theme === owner.theme && fixed.handle === owner.handle) return;
+    meta.fixed = { ...owner };
+    await this.ctx.storage.put(META_KEY, meta);
+    // O dono trocou o tema pelo perfil: vale na hora para quem está na sala.
+    this.broadcast({ type: "room.updated", room: this.settings() });
+  }
+
+  /** O dono do link fixo perdeu o Plus (ou o @nome): avisa, desconecta todos e apaga a sala. */
+  async endFixed(): Promise<void> {
+    if (this.meta?.fixed) await this.end();
+  }
+
   /** Estado público. Só lê: não cria nada no storage para código inexistente. */
   info(): RoomInfo {
-    if (!this.meta) return { status: "ended", participants: 0 };
-    return { status: "open", participants: this.presentIds().size };
+    if (!this.meta) return { status: "ended", participants: 0, fixed: false };
+    return { status: "open", participants: this.presentIds().size, fixed: Boolean(this.meta.fixed) };
   }
 
   /** Registra a admissão de uma sessão (depois do Turnstile), recusando banidos e sala cheia. */
@@ -176,19 +262,21 @@ export class RoomBase extends DurableObject<AppEnv> {
     // Corrida entre dois joins: a lotação vale também aqui.
     if (this.isFullFor(identity.participantId)) return refuse(WS_CLOSE.roomFull, "room_full");
 
-    // A mesma sessão em outra conexão (outra aba): a antiga sai.
+    // A mesma sessão (ou a mesma conta) em outra conexão: a antiga sai.
     for (const old of this.liveSockets()) {
       if (attachmentOf(old).participantId !== identity.participantId) continue;
       this.depart(old, "left");
       closeQuietly(old, WS_CLOSE.replaced, "replaced");
     }
 
+    const account = identity.account;
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, [identity.participantId]);
     const connection: Connection = {
       participantId: identity.participantId,
-      nickname: admission.nickname,
+      // Quem tem conta usa o apelido atual do perfil; quem não tem, o do join nesta sala.
+      nickname: account ? identity.nickname : admission.nickname,
       ipHash,
       joinedAt: Date.now(),
       ready: false,
@@ -198,10 +286,15 @@ export class RoomBase extends DurableObject<AppEnv> {
       videos: [],
       chatTimes: [],
       departed: false,
+      userId: account?.userId ?? null,
+      handle: account?.handle ?? null,
+      avatarUrl: account?.avatarUrl ?? null,
+      badges: account?.badges ?? [],
+      videosPerPerson: account?.videosPerPerson ?? VIDEOS_PER_PERSON,
     };
     server.serializeAttachment(connection);
-    // Alguém chegou: cancela o encerramento.
-    await this.ctx.storage.deleteAlarm();
+    // Alguém chegou: a sala comum cancela o encerramento; a de link fixo passa a conferir o plano.
+    await this.scheduleOccupied();
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -238,6 +331,8 @@ export class RoomBase extends DurableObject<AppEnv> {
         return this.onSignal(ws, message);
       case "moderate":
         return this.onModerate(ws, message);
+      case "room.setTheme":
+        return this.onSetTheme(ws, message.theme);
     }
   }
 
@@ -255,8 +350,29 @@ export class RoomBase extends DurableObject<AppEnv> {
   // ---------- Encerramento ----------
 
   override async alarm(): Promise<void> {
-    // Alguém voltou e o alarme ficou para trás: a sala continua.
-    if (this.liveSockets().length > 0) return;
+    const meta = this.meta;
+    if (!meta) return;
+    const occupied = this.liveSockets().length > 0;
+
+    if (!meta.fixed) {
+      // Alguém voltou e o alarme ficou para trás: a sala continua.
+      if (occupied) return;
+      return this.end();
+    }
+
+    // Link fixo: o dono ainda tem Plus e ainda é dono deste @nome?
+    if (!(await this.ownerStillQualifies(meta.fixed))) return this.end();
+    if (!this.meta) return;
+    if (this.liveSockets().length > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + ROOM_EMPTY_TTL_MS);
+      return;
+    }
+    // Vazia pelo prazo: a sala continua, mas nada da conversa fica guardado.
+    await this.clearSession();
+  }
+
+  /** Acaba a sala: avisa e desconecta todos e apaga todo o storage. */
+  private async end(): Promise<void> {
     const ended = JSON.stringify(serverMessageSchema.parse({ type: "room.ended" }));
     for (const ws of this.ctx.getWebSockets()) {
       try {
@@ -264,11 +380,48 @@ export class RoomBase extends DurableObject<AppEnv> {
       } catch {
         // conexão já fechada
       }
+      // Saída tratada sem avisar os demais: todos recebem `room.ended`.
+      try {
+        const connection = attachmentOf(ws);
+        if (connection) ws.serializeAttachment({ ...connection, departed: true, videos: [] });
+      } catch {
+        // conexão já encerrada
+      }
       closeQuietly(ws, WS_CLOSE.roomEnded, "room_ended");
     }
     this.meta = null;
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
+  }
+
+  /** Sala de link fixo vazia: apaga chat, admissões e banidos; a sala (e o tema) continuam. */
+  private async clearSession(): Promise<void> {
+    const keys: string[] = [];
+    for (const prefix of [CHAT_PREFIX, ADMISSION_PREFIX, BAN_PREFIX]) {
+      keys.push(...(await this.ctx.storage.list({ prefix })).keys());
+    }
+    for (let i = 0; i < keys.length; i += DELETE_BATCH) {
+      await this.ctx.storage.delete(keys.slice(i, i + DELETE_BATCH));
+    }
+    const meta = this.meta;
+    if (!meta) return;
+    meta.chatSeq = 0;
+    meta.ipSalt = randomToken(16);
+    await this.ctx.storage.put(META_KEY, meta);
+  }
+
+  private async ownerStillQualifies(owner: FixedOwner): Promise<boolean> {
+    const user = await findUserById(this.env, owner.userId);
+    if (!user || user.handle !== owner.handle || !isOnboarded(user)) return false;
+    return (await getPlanStatus(this.env, owner.userId)).plan.plus;
+  }
+
+  private async scheduleOccupied(): Promise<void> {
+    if (this.meta?.fixed) {
+      await this.ctx.storage.setAlarm(Date.now() + ROOM_EMPTY_TTL_MS);
+    } else {
+      await this.ctx.storage.deleteAlarm();
+    }
   }
 
   private async scheduleEndIfEmpty(): Promise<void> {
@@ -282,7 +435,13 @@ export class RoomBase extends DurableObject<AppEnv> {
     if (attachmentOf(ws).ready) return this.send(ws, { type: "error", code: "invalid_message" });
     const meta = this.meta;
     if (!meta) return;
-    const isOwner = ownerToken ? safeEqual(await sha256(ownerToken), meta.ownerTokenHash) : false;
+    const userId = attachmentOf(ws).userId;
+    // Link fixo: o dono é a conta dona do @nome (o token não vale). Sala comum: o token secreto.
+    const isOwner = meta.fixed
+      ? userId !== null && userId === meta.fixed.userId
+      : ownerToken && meta.ownerTokenHash
+        ? safeEqual(await sha256(ownerToken), meta.ownerTokenHash)
+        : false;
     const history = await this.ctx.storage.list<ChatMessage>({ prefix: CHAT_PREFIX });
 
     // Depois dos awaits, relê o estado: a conexão pode ter saído ou já ter dito hello.
@@ -305,6 +464,8 @@ export class RoomBase extends DurableObject<AppEnv> {
 
     this.send(ws, {
       type: "welcome",
+      room: this.settings(),
+      limits: { videosPerPerson: connection.videosPerPerson },
       self: connection.participantId,
       participants: this.readySockets().map((s) => toParticipant(attachmentOf(s))),
       chat: [...history.values()].slice(-CHAT_HISTORY_SIZE),
@@ -342,7 +503,8 @@ export class RoomBase extends DurableObject<AppEnv> {
 
   private onVideoRequest(ws: WebSocket, requestId: string, kind: RoomVideo["kind"]): void {
     const connection = attachmentOf(ws);
-    if (connection.videos.length >= VIDEOS_PER_PERSON) {
+    // Limite pelo plano de cada pessoa, decidido no servidor ao conectar.
+    if (connection.videos.length >= connection.videosPerPerson) {
       return this.send(ws, { type: "video.denied", requestId, reason: "person_limit" });
     }
     const roomVideos = this.readySockets().reduce((total, s) => total + attachmentOf(s).videos.length, 0);
@@ -391,7 +553,7 @@ export class RoomBase extends DurableObject<AppEnv> {
     const reason = message.action === "ban" ? "banned" : "kicked";
     const state = attachmentOf(target);
     // Primeiro tira da sala (síncrono), depois grava: removido perde a admissão (volta pelo
-    // join); banido fica barrado, por sessão e por IP, até a sala acabar.
+    // join); banido fica barrado, por sessão (ou conta) e por IP, até a sala acabar.
     this.send(target, { type: "removed", reason });
     this.depart(target, reason);
     closeQuietly(target, reason === "banned" ? WS_CLOSE.banned : WS_CLOSE.kicked, reason);
@@ -405,7 +567,33 @@ export class RoomBase extends DurableObject<AppEnv> {
     await this.scheduleEndIfEmpty();
   }
 
+  /** Tema: só o dono Plus, na sala de link fixo dele. Grava no perfil e vale na hora para todos. */
+  private async onSetTheme(ws: WebSocket, theme: RoomTheme): Promise<void> {
+    const meta = this.meta;
+    const actor = attachmentOf(ws);
+    const owner = meta?.fixed;
+    if (!owner || !actor.isOwner || actor.userId !== owner.userId) {
+      return this.send(ws, { type: "error", code: "not_allowed" });
+    }
+    if (!(await getPlanStatus(this.env, owner.userId)).plan.plus) {
+      return this.send(ws, { type: "error", code: "not_allowed" });
+    }
+    await createDb(this.env.DB).update(users).set({ roomTheme: theme }).where(eq(users.id, owner.userId));
+    // Relê depois dos awaits: a sala pode ter acabado.
+    const current = this.meta;
+    if (!current?.fixed || current.fixed.userId !== owner.userId) return;
+    current.fixed = { ...current.fixed, theme };
+    await this.ctx.storage.put(META_KEY, current);
+    this.broadcast({ type: "room.updated", room: this.settings() });
+  }
+
   // ---------- Auxiliares ----------
+
+  private settings(): RoomSettings {
+    const fixed = this.meta?.fixed;
+    if (!fixed) return DEFAULT_ROOM;
+    return { theme: fixed.theme, fixed: true, ownerHandle: fixed.handle };
+  }
 
   /** Aplica uma mudança no estado da conexão e avisa todos com `participant.updated`. */
   private update(ws: WebSocket, change: (connection: Connection) => void): void {
@@ -492,6 +680,9 @@ function toParticipant(connection: Connection): Participant {
   return {
     id: connection.participantId,
     nickname: connection.nickname,
+    handle: connection.handle,
+    avatarUrl: connection.avatarUrl,
+    badges: connection.badges,
     isOwner: connection.isOwner,
     micMuted: connection.micMuted,
     handRaised: connection.handRaised,
@@ -512,10 +703,24 @@ function parseClientMessage(raw: string | ArrayBuffer): ClientMessage | null {
   return result.success ? result.data : null;
 }
 
+function parseAccount(value: unknown): RoomAccount | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== "object") return undefined;
+  const { userId, handle, avatarUrl, badges, plus, videosPerPerson } = value as Record<string, unknown>;
+  if (typeof userId !== "string" || typeof handle !== "string" || typeof plus !== "boolean") return undefined;
+  if (avatarUrl !== null && typeof avatarUrl !== "string") return undefined;
+  if (typeof videosPerPerson !== "number" || !Number.isInteger(videosPerPerson) || videosPerPerson < 1) {
+    return undefined;
+  }
+  const parsedBadges = badgeSchema.array().safeParse(badges);
+  if (!parsedBadges.success) return undefined;
+  return { userId, handle, avatarUrl, badges: parsedBadges.data, plus, videosPerPerson };
+}
+
 function parseIdentity(header: string | null): RoomIdentity | null {
   if (!header) return null;
   try {
-    const value = JSON.parse(decodeURIComponent(header)) as Partial<RoomIdentity>;
+    const value = JSON.parse(decodeURIComponent(header)) as Record<string, unknown>;
     if (
       typeof value.participantId !== "string" ||
       typeof value.nickname !== "string" ||
@@ -523,7 +728,9 @@ function parseIdentity(header: string | null): RoomIdentity | null {
     ) {
       return null;
     }
-    return { participantId: value.participantId, nickname: value.nickname, ip: value.ip };
+    const account = parseAccount(value.account ?? null);
+    if (account === undefined) return null;
+    return { participantId: value.participantId, nickname: value.nickname, ip: value.ip, account };
   } catch {
     return null;
   }

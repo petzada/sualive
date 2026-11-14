@@ -17,7 +17,12 @@ export const ORIGIN = "https://sualive.test";
 export const GOOD_TURNSTILE = "turnstile-ok";
 export const BAD_TURNSTILE = "turnstile-recusado";
 
-type FetchHandler = (url: string, init: RequestInit | undefined) => Response | Promise<Response>;
+type FetchHandler = (
+  url: string,
+  init: RequestInit | undefined,
+  /** A própria Request, quando o código chama `fetch(request)` (ex.: Arctic). */
+  request?: Request,
+) => Response | Promise<Response>;
 
 /**
  * Simula o `fetch` de saída (o Worker roda no mesmo isolate dos testes). Turnstile: aceita só
@@ -30,7 +35,7 @@ export function mockOutboundFetch(extra?: FetchHandler) {
       const body = init?.body as FormData;
       return Response.json({ success: body.get("response") === GOOD_TURNSTILE });
     }
-    if (extra) return extra(url, init);
+    if (extra) return extra(url, init, input instanceof Request ? input : undefined);
     throw new Error(`fetch inesperado nos testes: ${url}`);
   });
 }

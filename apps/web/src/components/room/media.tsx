@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ParticipantView } from "../../lib/room";
 
 interface StreamVideoProps {
@@ -57,23 +57,46 @@ export function VoiceOutputs({ participants }: { participants: ParticipantView[]
 
 interface AvatarProps {
   nickname: string;
+  /** Picture of the account (Google or Discord). Without it, or if it fails to load: the initial. */
+  avatarUrl?: string | null;
   speaking?: boolean;
-  size?: "sm" | "lg";
+  size?: "xs" | "sm" | "lg";
 }
 
-/** Initial of the nickname. A dark ring marks who is speaking. */
-export function Avatar({ nickname, speaking = false, size = "sm" }: AvatarProps) {
+const AVATAR_SIZES = {
+  xs: "size-6 text-compact",
+  sm: "size-9 text-body-sm",
+  lg: "size-16 text-kicker",
+};
+
+/** Picture of the account, or the initial of the nickname. A dark ring marks who is speaking. */
+export function Avatar({ nickname, avatarUrl = null, speaking = false, size = "sm" }: AvatarProps) {
+  // Remembers which address failed, so a new address gets its own chance.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const initial = Array.from(nickname.trim())[0]?.toLocaleUpperCase("pt-BR") ?? "?";
-  const sizeClass = size === "lg" ? "size-16 text-kicker" : "size-9 text-body-sm";
+  const showPicture = avatarUrl !== null && avatarUrl !== failedUrl;
+
   return (
     <span
       aria-hidden="true"
       data-speaking={speaking || undefined}
-      className={`inline-flex shrink-0 items-center justify-center rounded-button bg-control font-semibold text-ink outline-2 outline-offset-2 ${sizeClass} ${
+      data-testid="avatar"
+      className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-button bg-control font-semibold text-ink outline-2 outline-offset-2 ${AVATAR_SIZES[size]} ${
         speaking ? "outline-ink" : "outline-transparent"
       }`}
     >
-      {initial}
+      {showPicture ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          // The picture lives on another site: it does not need to know which room asked for it.
+          referrerPolicy="no-referrer"
+          onError={() => setFailedUrl(avatarUrl)}
+          className="size-full object-cover"
+        />
+      ) : (
+        initial
+      )}
     </span>
   );
 }

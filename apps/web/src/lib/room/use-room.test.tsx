@@ -1,3 +1,4 @@
+import { welcomeDefaults } from "./testing/fakes";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CODE, createHarness, participant, type Harness } from "./testing/fakes";
@@ -27,6 +28,7 @@ async function enterRoom(strict: boolean) {
     h.socket.accept();
     h.socket.receive({
       type: "welcome",
+      ...welcomeDefaults,
       self: "me",
       participants: [participant("me"), participant("bob")],
       chat: [],

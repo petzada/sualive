@@ -2,8 +2,11 @@ import { CHAT_MAX_LENGTH } from "@sualive/config";
 import type { ChatMessage } from "@sualive/protocol";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
+import type { ParticipantView } from "../../lib/room";
 import { texts } from "../../texts";
+import { Badges } from "../account/Badges";
 import { ArrowDownIcon, SendIcon } from "../icons";
+import { Avatar } from "./media";
 
 /** Distance from the end (px) still counted as "following the conversation". */
 const STICK_THRESHOLD_PX = 48;
@@ -15,6 +18,8 @@ const timeFormat = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "
 interface ChatPanelProps {
   messages: ChatMessage[];
   selfId: string | null;
+  /** People in the room now: gives the picture, the @handle and the badges of who wrote. */
+  participants?: ParticipantView[];
   onSend: (text: string) => void;
   /** `false` while the panel is hidden behind another tab. */
   visible?: boolean;
@@ -22,7 +27,15 @@ interface ChatPanelProps {
 }
 
 /** Text only: messages are rendered as plain text, never as markup, links or media. */
-export function ChatPanel({ messages, selfId, onSend, visible = true, disabled = false }: ChatPanelProps) {
+export function ChatPanel({
+  messages,
+  selfId,
+  participants = [],
+  onSend,
+  visible = true,
+  disabled = false,
+}: ChatPanelProps) {
+  const authors = new Map(participants.map((participant) => [participant.id, participant]));
   const listRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const [atEnd, setAtEnd] = useState(true);
@@ -94,6 +107,8 @@ export function ChatPanel({ messages, selfId, onSend, visible = true, disabled =
           ) : (
             messages.map((message) => {
               const own = message.from === selfId;
+              // Who already left has no account data here: the message keeps only the nickname.
+              const author = authors.get(message.from);
               return (
                 <article
                   key={message.id}
@@ -101,7 +116,18 @@ export function ChatPanel({ messages, selfId, onSend, visible = true, disabled =
                   className={`flex max-w-full flex-col text-body-sm ${own ? "items-end self-end text-right" : "items-start self-start"}`}
                 >
                   <header className="flex max-w-full items-baseline gap-2">
+                    {author?.avatarUrl && (
+                      <span className="shrink-0 self-center">
+                        <Avatar nickname={message.nickname} avatarUrl={author.avatarUrl} size="xs" />
+                      </span>
+                    )}
                     <span className="truncate font-semibold">{message.nickname}</span>
+                    {author && <Badges badges={author.badges} />}
+                    {author?.handle && (
+                      <span className="min-w-0 shrink truncate text-compact text-muted">
+                        {texts.handle.display(author.handle)}
+                      </span>
+                    )}
                     {own && <span className="shrink-0 text-muted">({texts.common.you})</span>}
                     <time
                       dateTime={new Date(message.sentAt).toISOString()}

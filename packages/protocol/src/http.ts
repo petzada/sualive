@@ -3,6 +3,7 @@ import {
   NICKNAME_MIN_LENGTH,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
+  HANDLE_PATTERN,
 } from "@sualive/config";
 import { z } from "zod";
 
@@ -22,6 +23,15 @@ export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export const roomCodeSchema = z
   .string()
   .regex(new RegExp(`^[${ROOM_CODE_ALPHABET}]{${ROOM_CODE_LENGTH}}$`), "invalid room code");
+
+/**
+ * Chave da sala nas rotas `/api/rooms/:key`: o código de uma sala comum ou `@nome` para a sala
+ * de link fixo de um assinante (entrega 2).
+ */
+export const roomKeySchema = z.union([
+  roomCodeSchema,
+  z.string().regex(new RegExp(`^@${HANDLE_PATTERN.slice(1)}`), "invalid room key"),
+]);
 
 /** Apelido: aparado, de NICKNAME_MIN_LENGTH a NICKNAME_MAX_LENGTH caracteres. */
 export const nicknameSchema = z.string().trim().min(NICKNAME_MIN_LENGTH).max(NICKNAME_MAX_LENGTH);
@@ -43,6 +53,15 @@ export const apiErrorCodeSchema = z.enum([
   "unauthorized", // sem sessão válida ou sem admissão na sala
   "not_found",
   "internal_error",
+  // Conta e Plus (entrega 2)
+  "onboarding_required", // logado, mas falta concluir o primeiro acesso
+  "handle_taken",
+  "handle_reserved",
+  "handle_change_too_soon",
+  "provider_unavailable", // login não configurado neste ambiente
+  "plus_required",
+  "billing_unavailable", // assinatura desligada neste ambiente
+  "already_subscribed",
 ]);
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 
@@ -69,6 +88,8 @@ export const roomInfoResponseSchema = z.object({
   /** Pessoas conectadas agora. */
   participants: z.number().int().min(0),
   capacity: z.number().int().min(1),
+  /** Sala de link fixo de um assinante (não expira quando esvazia). */
+  fixed: z.boolean(),
 });
 export type RoomInfoResponse = z.infer<typeof roomInfoResponseSchema>;
 
@@ -77,7 +98,8 @@ export type RoomInfoResponse = z.infer<typeof roomInfoResponseSchema>;
 // com identificador aleatório e apelido) e admite a sessão na sala. Só depois o WebSocket abre.
 
 export const joinRoomRequestSchema = z.object({
-  nickname: nicknameSchema,
+  /** Obrigatório para quem não tem conta. Quem está logado entra com o apelido do perfil. */
+  nickname: nicknameSchema.optional(),
   turnstileToken: turnstileTokenSchema,
 });
 export type JoinRoomRequest = z.infer<typeof joinRoomRequestSchema>;

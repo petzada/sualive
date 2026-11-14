@@ -124,7 +124,7 @@ describe("lobby", () => {
       Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
     const button = screen.getByRole("button", { name: texts.lobby.join });
     const hint = screen.getByText(texts.lobby.mutedHint);
-    const turnstile = screen.getByRole("group", { name: texts.turnstile.label });
+    const turnstile = screen.getByTestId("turnstile");
 
     expect(isBefore(nicknameInput(), button)).toBe(true);
     expect(isBefore(button, hint)).toBe(true);
@@ -805,7 +805,7 @@ describe("notices", () => {
   ];
 
   it("has a different text for each notice", () => {
-    const all = notices.map(noticeText);
+    const all = notices.map((notice) => noticeText(notice));
     expect(all.every((text) => text.length > 0)).toBe(true);
     // Only the two "too many attempts"/"robot check" texts may repeat elsewhere; here all differ.
     expect(new Set(all).size).toBe(all.length);

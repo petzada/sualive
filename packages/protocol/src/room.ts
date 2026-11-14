@@ -1,4 +1,4 @@
-import { CHAT_MAX_LENGTH, REACTIONS } from "@sualive/config";
+import { CHAT_MAX_LENGTH, REACTIONS, ROOM_THEMES } from "@sualive/config";
 import { z } from "zod";
 import { nicknameSchema, participantIdSchema } from "./http";
 
@@ -26,6 +26,11 @@ export const participantSchema = z.object({
   handRaised: z.boolean(),
   videos: z.array(roomVideoSchema),
   joinedAt: z.number().int(),
+  // Conta (entrega 2). Quem não tem conta: handle e avatarUrl nulos, sem selos.
+  handle: z.string().nullable(),
+  avatarUrl: z.string().url().nullable(),
+  /** Selos ao lado do nome: "plus" e "early_supporter". */
+  badges: z.array(z.enum(["plus", "early_supporter"])),
 });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -40,6 +45,21 @@ export const chatMessageSchema = z.object({
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
 export const reactionSchema = z.enum(REACTIONS);
+
+/** O que vale para a sala inteira. */
+export const roomSettingsSchema = z.object({
+  /** Tema da sala. Sala comum: sempre o padrão. Link fixo: o que o dono Plus escolheu. */
+  theme: z.enum(ROOM_THEMES),
+  /** Sala de link fixo (permanente) de um assinante. */
+  fixed: z.boolean(),
+  /** @nome do dono da sala de link fixo (mostrado no cabeçalho no lugar do código). */
+  ownerHandle: z.string().nullable(),
+});
+export type RoomSettings = z.infer<typeof roomSettingsSchema>;
+
+/** Limites que o servidor aplica a ESTA pessoa (dependem do plano dela, não do dono). */
+export const selfLimitsSchema = z.object({ videosPerPerson: z.number().int().min(1) });
+export type SelfLimits = z.infer<typeof selfLimitsSchema>;
 
 // ---------- Sinalização WebRTC (repassada pelo servidor sem interpretar) ----------
 
@@ -97,6 +117,8 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
     action: z.enum(["mute", "kick", "ban"]),
     target: participantIdSchema,
   }),
+  // Só o dono Plus, na sala de link fixo dele. Vale na hora para todos e fica gravado no perfil.
+  z.object({ type: z.literal("room.setTheme"), theme: z.enum(ROOM_THEMES) }),
   z.object({ type: z.literal("ping") }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -122,7 +144,10 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
     self: participantIdSchema,
     participants: z.array(participantSchema),
     chat: z.array(chatMessageSchema),
+    room: roomSettingsSchema,
+    limits: selfLimitsSchema,
   }),
+  z.object({ type: z.literal("room.updated"), room: roomSettingsSchema }),
   z.object({ type: z.literal("participant.joined"), participant: participantSchema }),
   z.object({ type: z.literal("participant.updated"), participant: participantSchema }),
   z.object({

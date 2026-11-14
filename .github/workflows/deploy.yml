@@ -54,10 +54,16 @@ jobs:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET_STAGING }}
           TURN_KEY_ID: ${{ secrets.TURN_KEY_ID_STAGING }}
           TURN_KEY_API_TOKEN: ${{ secrets.TURN_KEY_API_TOKEN_STAGING }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID_STAGING }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET_STAGING }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID_STAGING }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET_STAGING }}
+          WOOVI_APP_ID: ${{ secrets.WOOVI_APP_ID_STAGING }}
+          WOOVI_WEBHOOK_SECRET: ${{ secrets.WOOVI_WEBHOOK_SECRET_STAGING }}
         run: |
           secrets_file="${RUNNER_TEMP}/worker-secrets.json"
           trap 'rm -f "${secrets_file}"' EXIT
-          node ../../scripts/write-worker-secrets.mjs "${secrets_file}" SENTRY_DSN TURNSTILE_SECRET_KEY SESSION_SECRET TURN_KEY_ID TURN_KEY_API_TOKEN
+          node ../../scripts/write-worker-secrets.mjs "${secrets_file}" SENTRY_DSN TURNSTILE_SECRET_KEY SESSION_SECRET TURN_KEY_ID TURN_KEY_API_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET WOOVI_APP_ID WOOVI_WEBHOOK_SECRET
           pnpm exec wrangler deploy --env staging --var "COMMIT_SHA:${GITHUB_SHA}" --secrets-file "${secrets_file}"
 
       - name: Verificação (homologação)
@@ -103,10 +109,16 @@ jobs:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           TURN_KEY_ID: ${{ secrets.TURN_KEY_ID }}
           TURN_KEY_API_TOKEN: ${{ secrets.TURN_KEY_API_TOKEN }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          WOOVI_APP_ID: ${{ secrets.WOOVI_APP_ID }}
+          WOOVI_WEBHOOK_SECRET: ${{ secrets.WOOVI_WEBHOOK_SECRET }}
         run: |
           secrets_file="${RUNNER_TEMP}/worker-secrets.json"
           trap 'rm -f "${secrets_file}"' EXIT
-          node ../../scripts/write-worker-secrets.mjs "${secrets_file}" SENTRY_DSN TURNSTILE_SECRET_KEY SESSION_SECRET TURN_KEY_ID TURN_KEY_API_TOKEN
+          node ../../scripts/write-worker-secrets.mjs "${secrets_file}" SENTRY_DSN TURNSTILE_SECRET_KEY SESSION_SECRET TURN_KEY_ID TURN_KEY_API_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET WOOVI_APP_ID WOOVI_WEBHOOK_SECRET
           pnpm exec wrangler deploy --env="" --var "COMMIT_SHA:${GITHUB_SHA}" --secrets-file "${secrets_file}"
 
       - name: Verificação (produção)

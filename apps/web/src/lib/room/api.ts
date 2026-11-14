@@ -41,8 +41,17 @@ export interface RoomApi {
 
 const ROOMS_PATH = "/api/rooms";
 
-function roomPath(code: string, suffix = ""): string {
-  return `${ROOMS_PATH}/${encodeURIComponent(code)}${suffix}`;
+/**
+ * Chave da sala como segmento de caminho: o código comum ou `@nome`. O "@" é válido num segmento
+ * (RFC 3986, `pchar`) e fica literal; o resto passa por `encodeURIComponent`.
+ */
+export function roomKeySegment(key: string): string {
+  return key.startsWith("@") ? `@${encodeURIComponent(key.slice(1))}` : encodeURIComponent(key);
+}
+
+/** `/api/rooms/<chave><sufixo>`. */
+export function roomPath(key: string, suffix = ""): string {
+  return `${ROOMS_PATH}/${roomKeySegment(key)}${suffix}`;
 }
 
 export function createRoomApi(fetchImpl: FetchLike): RoomApi {

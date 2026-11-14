@@ -1,0 +1,168 @@
+/*
+ * Temas de sala (entrega 2): o dono Plus escolhe um para a sala de link fixo dele e vale para todos.
+ * Cada tema redefine alguns dos MESMOS tokens de tokens.css (superfícies, linhas, texto secundário
+ * e acentos) sob data-room-theme, no claro e no escuro. Nenhum componente conhece os temas: quem
+ * usa só tokens já acompanha. "default" não tem regra de sala: é exatamente o visual de tokens.css.
+ * O atributo fica no <html> enquanto a sala está na tela (components/room/RoomThemePicker.tsx) e
+ * também nas amostras do seletor. Tabela de tokens e contrastes em DESIGN.md, "Temas de sala".
+ * Sem gradiente e sem sombra projetada, como no resto.
+ */
+@layer theme {
+  /*
+   * Só para a amostra do seletor: dentro de uma sala com outro tema, a amostra do padrão precisa
+   * dos valores de tokens.css (os dois que ela mostra), e não dos do tema em uso.
+   */
+  [data-room-theme] [data-room-theme="default"] {
+    --color-mist: #f5f5f7;
+    --color-accent: #0071e3;
+  }
+  [data-theme="dark"] [data-room-theme="default"] {
+    --color-mist: #0e0e10;
+    --color-accent: #3d9bff;
+  }
+
+  /* ---------- Oceano ---------- */
+  :root[data-room-theme="ocean"],
+  [data-room-theme="ocean"] {
+    --color-canvas: #f6fafe;
+    --color-mist: #e3eff9;
+    --color-frost: #eef5fb;
+    --color-control: #d0e2f1;
+    --color-hairline: #b9d0e3;
+    --color-outline: #6f8496;
+    --color-muted: #566574;
+    --color-link: #075a9e;
+    --color-accent: #0b62ad;
+    --color-notice: #a33d00;
+  }
+  :root[data-theme="dark"][data-room-theme="ocean"],
+  :root[data-theme="dark"] [data-room-theme="ocean"] {
+    --color-canvas: #10202f;
+    --color-mist: #07111b;
+    --color-frost: #172b3d;
+    --color-control: #1f3a52;
+    --color-hairline: #2c4a66;
+    --color-outline: #7f9bb3;
+    --color-muted: #a3b6c7;
+    --color-link: #74bbff;
+    --color-accent: #4aa8ff;
+    --color-on-accent: #04121f;
+    --color-notice: #ff9d4d;
+  }
+
+  /* ---------- Floresta ---------- */
+  :root[data-room-theme="forest"],
+  [data-room-theme="forest"] {
+    --color-canvas: #f7fbf7;
+    --color-mist: #e6f2e8;
+    --color-frost: #eff7f0;
+    --color-control: #d2e5d5;
+    --color-hairline: #bbd3bf;
+    --color-outline: #6f8773;
+    --color-muted: #536757;
+    --color-link: #1a6b35;
+    --color-accent: #1f7a3d;
+    --color-notice: #a33d00;
+  }
+  :root[data-theme="dark"][data-room-theme="forest"],
+  :root[data-theme="dark"] [data-room-theme="forest"] {
+    --color-canvas: #122117;
+    --color-mist: #08130b;
+    --color-frost: #192c1f;
+    --color-control: #213a29;
+    --color-hairline: #2e4d37;
+    --color-outline: #82a38a;
+    --color-muted: #a5bcaa;
+    --color-link: #6fd58c;
+    --color-accent: #52c477;
+    --color-on-accent: #04160a;
+    --color-notice: #ff9d4d;
+  }
+
+  /* ---------- Pôr do sol ---------- */
+  :root[data-room-theme="sunset"],
+  [data-room-theme="sunset"] {
+    --color-canvas: #fffaf6;
+    --color-mist: #fbece1;
+    --color-frost: #fdf3eb;
+    --color-control: #f1dac9;
+    --color-hairline: #e2c6b1;
+    --color-outline: #94796a;
+    --color-muted: #735c4f;
+    --color-link: #a03c10;
+    --color-accent: #b3461a;
+    --color-notice: #a33d00;
+  }
+  :root[data-theme="dark"][data-room-theme="sunset"],
+  :root[data-theme="dark"] [data-room-theme="sunset"] {
+    --color-canvas: #281810;
+    --color-mist: #170c07;
+    --color-frost: #332016;
+    --color-control: #422a1d;
+    --color-hairline: #573a29;
+    --color-outline: #b3917e;
+    --color-muted: #c9b0a2;
+    --color-link: #ffab7a;
+    --color-accent: #ff9259;
+    --color-on-accent: #1f0c03;
+    --color-notice: #ff9d4d;
+  }
+
+  /* ---------- Lavanda ---------- */
+  :root[data-room-theme="lavender"],
+  [data-room-theme="lavender"] {
+    --color-canvas: #fbf9ff;
+    --color-mist: #eee9fa;
+    --color-frost: #f4f0fc;
+    --color-control: #ddd4f1;
+    --color-hairline: #cabfe4;
+    --color-outline: #7d7396;
+    --color-muted: #615877;
+    --color-link: #5a39ab;
+    --color-accent: #6843c0;
+    --color-notice: #a33d00;
+  }
+  :root[data-theme="dark"][data-room-theme="lavender"],
+  :root[data-theme="dark"] [data-room-theme="lavender"] {
+    --color-canvas: #1b1629;
+    --color-mist: #0e0a18;
+    --color-frost: #241e35;
+    --color-control: #302845;
+    --color-hairline: #40365b;
+    --color-outline: #978bb5;
+    --color-muted: #b5abcc;
+    --color-link: #b79dff;
+    --color-accent: #a487ff;
+    --color-on-accent: #100724;
+    --color-notice: #ff9d4d;
+  }
+
+  /* ---------- Grafite ---------- */
+  :root[data-room-theme="graphite"],
+  [data-room-theme="graphite"] {
+    --color-canvas: #f3f4f5;
+    --color-mist: #e2e3e6;
+    --color-frost: #ebecee;
+    --color-control: #d0d2d6;
+    --color-hairline: #babdc2;
+    --color-outline: #70747b;
+    --color-muted: #575a60;
+    --color-link: #00579e;
+    --color-accent: #3a3d44;
+    --color-notice: #a33d00;
+  }
+  :root[data-theme="dark"][data-room-theme="graphite"],
+  :root[data-theme="dark"] [data-room-theme="graphite"] {
+    --color-canvas: #141416;
+    --color-mist: #050506;
+    --color-frost: #1c1c1f;
+    --color-control: #27272b;
+    --color-hairline: #35353a;
+    --color-outline: #8e8e93;
+    --color-muted: #a8a8ad;
+    --color-link: #8ec5ff;
+    --color-accent: #aeb2ba;
+    --color-on-accent: #141416;
+    --color-notice: #ff9d4d;
+  }
+}

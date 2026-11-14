@@ -1,11 +1,10 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
-import { texts } from "../texts";
 
 /** Official script, explicit rendering. The only third-party script the screens load. */
 const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-/** Cloudflare's public test key that always passes; used when no site key is configured. */
-const TEST_SITE_KEY = "1x00000000000000000000AA";
+/** Cloudflare's public test key of the invisible kind, which always passes; used when no site key is configured. */
+const TEST_SITE_KEY = "1x00000000000000000000BB";
 
 interface TurnstileRenderOptions {
   sitekey: string;
@@ -16,6 +15,7 @@ interface TurnstileRenderOptions {
   theme: "light";
   language: string;
   size: "flexible";
+  appearance: "interaction-only";
 }
 
 export interface TurnstileApi {
@@ -117,6 +117,9 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
           // O widget só reconhece o código em minúsculas ("pt-BR" gera aviso e cai no fallback).
           language: "pt-br",
           size: "flexible",
+          // Nothing on screen while the check runs. A site key of the invisible kind never shows
+          // anything at all; any other kind only appears if Cloudflare demands an interaction.
+          appearance: "interaction-only",
         });
         widgetIdRef.current = widgetId ?? null;
       })
@@ -132,12 +135,7 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
   }, [attempt]);
 
   return (
-    <div
-      ref={containerRef}
-      role="group"
-      aria-label={texts.turnstile.label}
-      className="min-h-16 w-full max-w-xs"
-      data-testid="turnstile"
-    />
+    // No reserved space and no label: the check runs out of sight.
+    <div ref={containerRef} className="w-full max-w-xs empty:hidden" data-testid="turnstile" />
   );
 }

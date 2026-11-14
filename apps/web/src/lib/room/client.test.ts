@@ -1,3 +1,4 @@
+import { welcomeDefaults } from "./testing/fakes";
 import { FREE_VIDEO_QUALITY, RELAY_VIDEO_QUALITY } from "@sualive/config";
 import { WS_CLOSE, WS_PING_FRAME } from "@sualive/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,7 +43,13 @@ async function connect(others = [participant("bob")], self = participant("me")) 
   const joining = client.actions.join({ nickname: "Ana", turnstileToken: "tok" });
   await joining;
   h.socket.accept();
-  h.socket.receive({ type: "welcome", self: self.id, participants: [self, ...others], chat: [] });
+  h.socket.receive({
+    type: "welcome",
+    ...welcomeDefaults,
+    self: self.id,
+    participants: [self, ...others],
+    chat: [],
+  });
   await flush();
 }
 
@@ -77,6 +84,7 @@ describe("entrada", () => {
     expect(h.socket.sent).toEqual([{ type: "hello" }]);
     h.socket.receive({
       type: "welcome",
+      ...welcomeDefaults,
       self: "me",
       participants: [participant("me"), participant("bob")],
       chat: [{ id: "c1", from: "bob", nickname: "Pessoa bob", text: "oi", sentAt: 1 }],
@@ -95,7 +103,7 @@ describe("entrada", () => {
   });
 
   it("sala encerrada vai para ended", async () => {
-    h.server.room({ status: "ended", participants: 0, capacity: 6 });
+    h.server.room({ status: "ended", participants: 0, capacity: 6, fixed: false });
     start();
     await flush();
     expect(state().phase).toBe("ended");
@@ -545,6 +553,7 @@ describe("reconexão", () => {
     expect(h.socket.sent[0]).toEqual({ type: "hello", ownerToken: OWNER_TOKEN });
     h.socket.receive({
       type: "welcome",
+      ...welcomeDefaults,
       self: "me",
       participants: [participant("me"), participant("bob")],
       chat: [],
@@ -575,7 +584,13 @@ describe("reconexão", () => {
     h.socket.serverClose(1006);
     await vi.advanceTimersByTimeAsync(RECONNECT_BASE_DELAY_MS);
     h.socket.accept();
-    h.socket.receive({ type: "welcome", self: "me", participants: [participant("me")], chat: [] });
+    h.socket.receive({
+      type: "welcome",
+      ...welcomeDefaults,
+      self: "me",
+      participants: [participant("me")],
+      chat: [],
+    });
     expect(h.media.unpublishVideo).toHaveBeenCalledWith("v1");
     expect(state().localVideoIds).toEqual([]);
   });

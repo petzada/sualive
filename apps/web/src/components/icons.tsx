@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
 /** Own minimal line icons (24px grid, stroke follows the text color). Always decorative. */
-function Icon({ children }: { children: ReactNode }) {
+function Icon({ children, size = 20 }: { children: ReactNode; size?: number }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="20"
-      height="20"
+      width={size}
+      height={size}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.7"
@@ -126,6 +126,37 @@ export const MoreIcon = () => (
 export const ArrowDownIcon = () => (
   <Icon>
     <path d="M12 5v14M6 13l6 6 6-6" />
+  </Icon>
+);
+
+export const CheckIcon = () => (
+  <Icon>
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
+  </Icon>
+);
+
+export const PaletteIcon = () => (
+  <Icon>
+    <path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.9 0-1.6-1.1-1.6-1.1-3 0-1 .8-1.6 1.9-1.6H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z" />
+    <path d="M7.5 12h.01M9.5 8h.01M14 7h.01" strokeWidth="2.4" />
+  </Icon>
+);
+
+/** Badge glyphs: smaller than the control icons, to sit beside a name. */
+const BADGE_ICON_SIZE = 14;
+
+export const PlusBadgeIcon = () => (
+  <Icon size={BADGE_ICON_SIZE}>
+    <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z" fill="currentColor" />
+  </Icon>
+);
+
+export const SupporterBadgeIcon = () => (
+  <Icon size={BADGE_ICON_SIZE}>
+    <path
+      d="M12 20s-7-4.4-7-9.6A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.4C19 15.6 12 20 12 20z"
+      fill="currentColor"
+    />
   </Icon>
 );
 

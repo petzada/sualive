@@ -4,9 +4,12 @@ import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import type { Mock } from "vitest";
 import { App } from "../App";
+import { AccountClientProvider } from "../components/account/AccountClient";
 import { RoomClientProvider } from "../components/room/RoomClient";
 import type { TurnstileApi } from "../components/Turnstile";
+import type { AccountActions, AccountState } from "../lib/account";
 import type { CreateRoom, ParticipantView, RoomActions, RoomState, VideoView } from "../lib/room";
+import { makeAccountActions, makeAccountState } from "./account";
 
 export const TEST_TOKEN = "test-turnstile-token";
 
@@ -34,6 +37,9 @@ export function installTurnstileStub({ pass = true } = {}) {
 export function makeParticipant(overrides: Partial<ParticipantView> = {}): ParticipantView {
   return {
     id: "p1",
+    handle: null,
+    avatarUrl: null,
+    badges: [],
     nickname: "Ana",
     isSelf: false,
     isOwner: false,
@@ -54,6 +60,11 @@ export function makeVideo(overrides: Partial<VideoView> = {}): VideoView {
 export function makeState(overrides: Partial<RoomState> = {}): RoomState {
   return {
     phase: "lobby",
+    fixed: false,
+    ownerHandle: null,
+    theme: "default",
+    maxOwnVideos: 1,
+    accountNickname: null,
     code: "abcdefghjk",
     link: "https://sualive.test/s/abcdefghjk",
     occupancy: { participants: 2, capacity: ROOM_MAX_PEOPLE },
@@ -92,6 +103,7 @@ export function makeConnectedState(overrides: Partial<RoomState> = {}): RoomStat
 export function makeActions(): { [K in keyof RoomActions]: Mock<RoomActions[K]> } {
   return {
     startPreview: vi.fn<RoomActions["startPreview"]>(() => Promise.resolve()),
+    setRoomTheme: vi.fn<RoomActions["setRoomTheme"]>(),
     join: vi.fn<RoomActions["join"]>(() => Promise.resolve()),
     leave: vi.fn<RoomActions["leave"]>(),
     sendChat: vi.fn<RoomActions["sendChat"]>(),
@@ -112,22 +124,30 @@ interface RenderAppOptions {
   state?: RoomState;
   actions?: RoomActions;
   createRoom?: CreateRoom;
+  /** Account seen by the screens; anonymous unless told otherwise. */
+  account?: AccountState;
+  accountActions?: AccountActions;
 }
 
-/** Renders the whole app at `path` with a fake room client in place of `lib/room`. */
+/** Renders the whole app at `path` with fake room and account clients in place of `lib`. */
 export function renderApp({
   path = "/s/abcdefghjk",
   state = makeState(),
   actions = makeActions(),
   createRoom = vi.fn<CreateRoom>(() => Promise.resolve({ ok: true, code: "abcdefghjk" })),
+  account = makeAccountState(),
+  accountActions = makeAccountActions(),
 }: RenderAppOptions = {}) {
-  const useRoom = vi.fn(() => ({ state, actions }));
+  const useRoom = vi.fn((_code: string) => ({ state, actions }));
+  const useAccount = () => ({ state: account, actions: accountActions });
   const view = render(
     <MemoryRouter initialEntries={[path]}>
-      <RoomClientProvider client={{ useRoom, createRoom }}>
-        <App />
-      </RoomClientProvider>
+      <AccountClientProvider client={{ useAccount }}>
+        <RoomClientProvider client={{ useRoom, createRoom }}>
+          <App />
+        </RoomClientProvider>
+      </AccountClientProvider>
     </MemoryRouter>,
   );
-  return { ...view, useRoom, createRoom, actions };
+  return { ...view, useRoom, createRoom, actions, accountActions };
 }

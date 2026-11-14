@@ -253,8 +253,9 @@ Quem quiser cria conta em dois cliques, ganha um perfil e pode assinar o Plus po
 **Conta e perfil**
 
 - Login com Google e com Discord. Sem senha própria.
-- No primeiro acesso: declarar ter 18 anos ou mais, aceitar os termos de uso e a política de privacidade,
-  e escolher um @nome único (3 a 20 caracteres, letras minúsculas, números e sublinhado; troca permitida
+- No primeiro acesso: um único aceite ("Declaro que sou maior de 18 anos e aceito os Termos de Uso e a
+  Política de Privacidade."; os termos dizem que quem os aceita declara ser maior de idade) e a escolha
+  de um @nome único (3 a 20 caracteres, letras minúsculas, números e sublinhado; troca permitida
   a cada 30 dias **[padrão]**).
 - Perfil: @nome, apelido, avatar vindo do Google ou do Discord, e selos.
 - Quem está logado entra nas salas com o apelido e o avatar do perfil. Quem não tem conta continua

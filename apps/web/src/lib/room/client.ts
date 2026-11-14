@@ -9,25 +9,32 @@
  */
 import {
   CHAT_HISTORY_SIZE,
+  FIXED_ROOM_PATH_PREFIX,
   FREE_VIDEO_QUALITY,
+  PLUS_VIDEO_QUALITY,
   RELAY_VIDEO_QUALITY,
   ROOM_MAX_PEOPLE,
+  VIDEOS_PER_PERSON,
   ROOM_PATH_PREFIX,
   type Reaction,
+  type RoomTheme,
 } from "@sualive/config";
 import type { DevicePreview, MediaSession, PeerConnectionState, SignalData, VideoKind } from "@sualive/media";
 import {
   clientMessageSchema,
-  roomCodeSchema,
+  roomKeySchema,
   serverMessageSchema,
   WS_CLOSE,
   WS_PING_FRAME,
   type ClientMessage,
+  type JoinRoomRequest,
+  type MeUser,
   type Participant,
+  type RoomSettings,
   type RoomVideo,
   type ServerMessage,
 } from "@sualive/protocol";
-import { createRoomApi, type ApiFailure, type RoomApi } from "./api";
+import { createRoomApi, roomPath, type ApiFailure, type RoomApi } from "./api";
 import { socketUrl, type RoomDeps, type SocketLike } from "./deps";
 import { pickFeaturedVideo } from "./featured";
 import { forgetOwnerToken, readOwnerToken } from "./owner-token";
@@ -92,6 +99,18 @@ function frameType(data: unknown): string {
   return typeof type === "string" ? type.slice(0, 40) : "unknown";
 }
 
+/** `@nome` é a chave da sala de link fixo; o resto é código de sala comum. */
+function isFixedKey(key: string): boolean {
+  return key.startsWith("@");
+}
+
+/** Endereço da sala para copiar: `/s/<código>` ou `/@<nome>`. */
+export function roomLink(origin: string, key: string): string {
+  return isFixedKey(key)
+    ? `${origin}${FIXED_ROOM_PATH_PREFIX}${key.slice(1)}`
+    : `${origin}${ROOM_PATH_PREFIX}${key}`;
+}
+
 export class RoomClient {
   readonly actions: RoomActions;
 
@@ -104,6 +123,11 @@ export class RoomClient {
   private started = false;
   private disposed = false;
   private stopResume: (() => void) | null = null;
+  private stopAccount: (() => void) | null = null;
+  /** Só vale a leitura mais nova da conta. */
+  private accountRead = 0;
+  /** Conta com que a pessoa entrou (decide a qualidade do que ela transmite). */
+  private sessionAccount: MeUser | null = null;
 
   // Prévia do lobby
   private preview: DevicePreview | null = null;
@@ -156,8 +180,14 @@ export class RoomClient {
     this.state = {
       phase: "loading",
       code,
-      link: `${deps.origin}${ROOM_PATH_PREFIX}${code}`,
+      link: roomLink(deps.origin, code),
       occupancy: { participants: 0, capacity: ROOM_MAX_PEOPLE },
+      // Até a consulta da sala (e depois o `welcome`) dizer o contrário.
+      fixed: false,
+      ownerHandle: null,
+      theme: "default",
+      maxOwnVideos: VIDEOS_PER_PERSON,
+      accountNickname: null,
       selfId: null,
       isOwner: false,
       participants: [],
@@ -174,6 +204,7 @@ export class RoomClient {
     };
     this.actions = {
       startPreview: () => this.startPreview(),
+      setRoomTheme: (theme) => this.setRoomTheme(theme),
       join: (options) => this.join(options),
       leave: () => this.leave(),
       sendChat: (text) => void this.send({ type: "chat.send", text }),
@@ -218,6 +249,8 @@ export class RoomClient {
     if (this.started) return;
     this.started = true;
     this.stopResume = this.deps.onResume(() => this.onResume());
+    this.stopAccount = this.deps.account.subscribe(() => void this.syncAccount());
+    void this.syncAccount();
     void this.load();
   }
 
@@ -239,11 +272,29 @@ export class RoomClient {
     this.lifetime.abort();
     this.stopResume?.();
     this.stopResume = null;
+    this.stopAccount?.();
+    this.stopAccount = null;
     this.listeners.clear();
   }
 
+  /** Lê a conta logada e mostra o apelido do perfil (o lobby não pede apelido a quem tem conta). */
+  private async syncAccount(): Promise<MeUser | null> {
+    const read = ++this.accountRead;
+    let account: MeUser | null;
+    try {
+      account = await this.deps.account.current();
+    } catch {
+      account = null;
+    }
+    if (read === this.accountRead && !this.disposed) {
+      const accountNickname = account?.nickname ?? null;
+      if (accountNickname !== this.state.accountNickname) this.update({ accountNickname });
+    }
+    return account;
+  }
+
   private async load(): Promise<void> {
-    if (!roomCodeSchema.safeParse(this.code).success) {
+    if (!roomKeySchema.safeParse(this.code).success) {
       this.update({ phase: "ended" });
       return;
     }
@@ -261,7 +312,17 @@ export class RoomClient {
     this.update({
       phase: "lobby",
       occupancy: { participants: result.data.participants, capacity: result.data.capacity },
+      ...this.fixedFromInfo(result.data.fixed),
     });
+  }
+
+  /** `GET /api/rooms/:key` diz se a sala é fixa; o @nome do dono é a própria chave. */
+  private fixedFromInfo(fixed: boolean): Pick<RoomState, "fixed" | "ownerHandle"> {
+    return { fixed, ownerHandle: fixed && isFixedKey(this.code) ? this.code.slice(1) : null };
+  }
+
+  private applyRoomSettings(room: RoomSettings): Pick<RoomState, "fixed" | "ownerHandle" | "theme"> {
+    return { fixed: room.fixed, ownerHandle: room.ownerHandle, theme: room.theme };
   }
 
   /** Atualiza a lotação mostrada no lobby (ou descobre que a sala acabou). */
@@ -274,6 +335,7 @@ export class RoomClient {
     }
     this.update({
       occupancy: { participants: result.data.participants, capacity: result.data.capacity },
+      ...this.fixedFromInfo(result.data.fixed),
     });
   }
 
@@ -336,12 +398,17 @@ export class RoomClient {
     if (this.disposed || !CAN_JOIN.has(this.state.phase)) return;
     const request = ++this.joinRequest;
     this.update({ phase: "joining", notice: null });
-    const result = await this.api.joinRoom(this.code, { nickname, turnstileToken }, this.lifetime.signal);
+    // Quem está logado entra com o apelido do perfil: o servidor o tira da conta.
+    const account = await this.syncAccount();
+    if (this.disposed || request !== this.joinRequest || this.state.phase !== "joining") return;
+    const body: JoinRoomRequest = account ? { turnstileToken } : { nickname, turnstileToken };
+    const result = await this.api.joinRoom(this.code, body, this.lifetime.signal);
     if (this.disposed || request !== this.joinRequest || this.state.phase !== "joining") return;
     if (!result.ok) {
       this.onJoinFailed(result.error);
       return;
     }
+    this.sessionAccount = account;
     this.stopPreview();
     this.inSession = true;
     this.welcomed = false;
@@ -364,14 +431,22 @@ export class RoomClient {
       case "rate_limited":
         return this.update({ phase: "lobby", notice: { kind: "rateLimited" } });
       case "invalid_request":
+        return this.update({ phase: "lobby" });
       case "unauthorized":
+      case "onboarding_required":
+        // A conta mudou (sessão perdida) ou falta o primeiro acesso: volta ao lobby e atualiza a
+        // conta, para a tela (que lê `useAccount`) levar ao primeiro acesso ou pedir o apelido.
+        void this.deps.account
+          .refresh()
+          .catch(() => undefined)
+          .then(() => this.syncAccount());
         return this.update({ phase: "lobby" });
       case "aborted":
         return;
-      case "internal_error":
       case "network":
-      case "invalid_response":
-        if (error !== "network") this.deps.report("room: join failed", { error });
+        return this.update({ phase: "error" });
+      default:
+        this.deps.report("room: join failed", { error });
         return this.update({ phase: "error" });
     }
   }
@@ -437,12 +512,13 @@ export class RoomClient {
     this.chosenFeatured = null;
     this.selfId = null;
     this.handRaised = false;
+    this.sessionAccount = null;
   }
 
   // ---------- WebSocket ----------
 
   private openSocket(): void {
-    const url = socketUrl(this.deps.origin, `/api/rooms/${encodeURIComponent(this.code)}/ws`);
+    const url = socketUrl(this.deps.origin, roomPath(this.code, "/ws"));
     const socket: SocketLike = this.deps.createSocket(url, {
       onOpen: () => this.onSocketOpen(socket),
       onMessage: (data) => this.onSocketMessage(socket, data),
@@ -591,6 +667,8 @@ export class RoomClient {
         return;
       case "force.muted":
         return this.onForceMuted();
+      case "room.updated":
+        return this.update(this.applyRoomSettings(message.room));
       case "error":
         if (message.code === "rate_limited") this.notify({ kind: "chatRateLimited" });
         return;
@@ -633,7 +711,13 @@ export class RoomClient {
     this.syncPeers();
     // O servidor recomeça todo mundo mudo; se o microfone está aberto, a lista precisa saber.
     if (this.micEnabled && !this.state.micMuted) this.send({ type: "mic.set", muted: false });
-    this.rebuild({ phase: "connected", chat: message.chat.slice(-CHAT_HISTORY_SIZE) });
+    this.rebuild({
+      phase: "connected",
+      chat: message.chat.slice(-CHAT_HISTORY_SIZE),
+      ...this.applyRoomSettings(message.room),
+      // O servidor decide quantos vídeos esta pessoa pode transmitir (depende do plano dela).
+      maxOwnVideos: message.limits.videosPerPerson,
+    });
   }
 
   private onParticipant(participant: Participant): void {
@@ -690,7 +774,9 @@ export class RoomClient {
         if (!result.ok) throw new Error(`ice: ${result.error}`);
         return result.data.iceServers;
       },
-      quality: FREE_VIDEO_QUALITY,
+      // Única regra de plano aplicada pelo navegador: a qualidade do que a própria pessoa transmite
+      // na sala direta. A retransmissão continua limitada para todos.
+      quality: this.sessionAccount?.plan.plus ? PLUS_VIDEO_QUALITY : FREE_VIDEO_QUALITY,
       relayQuality: RELAY_VIDEO_QUALITY,
     });
     this.media = media;
@@ -804,8 +890,15 @@ export class RoomClient {
   }
 
   private async startVideo(kind: VideoKind): Promise<void> {
+    // Um pedido por vez; o segundo vídeo (Plus) pode ser pedido depois que o primeiro foi autorizado.
     if (!this.isConnected() || this.videoRequestInFlight) return;
     if (kind === "screen" && !this.state.capabilities.canShareScreen) return;
+    const self = this.selfId ? this.participants.get(this.selfId) : undefined;
+    if ((self?.videos.length ?? 0) >= this.state.maxOwnVideos) {
+      // O limite é o que o servidor mandou no `welcome`; pedir de novo só traria a mesma recusa.
+      this.notify({ kind: "videoPersonLimit" });
+      return;
+    }
     this.videoRequestInFlight = true;
     try {
       await this.requestAndPublish(kind);
@@ -896,6 +989,12 @@ export class RoomClient {
     this.rebuild();
   }
 
+  /** Só o dono da sala de link fixo; o tema muda quando o servidor confirma com `room.updated`. */
+  private setRoomTheme(theme: RoomTheme): void {
+    if (!this.isConnected() || !this.state.isOwner || !this.state.fixed) return;
+    this.send({ type: "room.setTheme", theme });
+  }
+
   private moderate(action: "mute" | "kick" | "ban", participantId: string): void {
     if (!this.isConnected() || !this.state.isOwner || participantId === this.selfId) return;
     this.send({ type: "moderate", action, target: participantId });
@@ -926,6 +1025,9 @@ export class RoomClient {
         nickname: p.nickname,
         isSelf,
         isOwner: p.isOwner,
+        handle: p.handle,
+        avatarUrl: p.avatarUrl,
+        badges: p.badges,
         micMuted: isSelf ? this.state.micMuted : p.micMuted,
         handRaised: isSelf ? this.handRaised : p.handRaised,
         speaking: this.speaking.has(p.id),
