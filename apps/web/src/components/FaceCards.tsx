@@ -1,12 +1,12 @@
 /**
- * The three people of the manifesto, smiling (the sad takes stay on the manifesto), one face per card. Each photo is a portrait with the face in
- * its upper third, so each one says where its face is: the crop goes from the top of the head to
- * the chin, centered in the card.
+ * The three people of the manifesto, smiling (the sad takes stay on the manifesto), one face per
+ * card. Each photo is a portrait with the face in its upper third, so each one says where its face
+ * is: the crop goes from the top of the hair to under the chin, centered in the card.
  */
 const FACES = [
-  { photo: "feliz-1.jpg", crop: "origin-[51%_50%] scale-[1.12] object-[51%_29%]" },
-  { photo: "feliz-2.jpg", crop: "origin-[51%_50%] scale-[1.12] object-[51%_26%]" },
-  { photo: "feliz-3.jpg", crop: "origin-[51%_50%] scale-[1.12] object-[51%_27%]" },
+  { photo: "feliz-1.jpg", crop: "object-[51%_31%]" },
+  { photo: "feliz-2.jpg", crop: "object-[51%_29%]" },
+  { photo: "feliz-3.jpg", crop: "object-[51%_30%]" },
 ] as const;
 
 /**
