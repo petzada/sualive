@@ -2,7 +2,6 @@ import { Button } from "@heroui/react";
 import { ROOM_PATH_PREFIX } from "@sualive/config";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { IpNotice } from "../components/IpNotice";
 import { useRoomClient } from "../components/room/RoomClient";
 import { TurnstileField } from "../components/TurnstileField";
 import { useTurnstileAction } from "../components/useTurnstileAction";
@@ -38,7 +37,13 @@ export function HomePage() {
       <h1 className="font-display text-heading font-semibold sm:text-display-sm lg:text-display">
         {texts.home.title}
       </h1>
-      <p className="max-w-xl">{texts.home.tagline}</p>
+      <p className="max-w-xl">
+        {texts.home.tagline.map((line) => (
+          <span key={line} className="block">
+            {line}
+          </span>
+        ))}
+      </p>
 
       <Button
         variant="primary"
@@ -65,9 +70,6 @@ export function HomePage() {
       )}
 
       <TurnstileField {...turnstile} />
-      <div className="max-w-xl">
-        <IpNotice />
-      </div>
     </main>
   );
 }

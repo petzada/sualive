@@ -16,16 +16,48 @@ function renderAt(path: string) {
 
 const createButton = () => screen.getByRole("button", { name: texts.home.create });
 
+/** `true` when `first` comes before `second` in the document. */
+const isBefore = (first: Element, second: Element) =>
+  Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
 describe("App", () => {
-  it("renders the home page with one create button and the IP warning", () => {
+  it("renders the home page with one create button", () => {
     renderAt("/");
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(texts.home.title);
-    expect(screen.getByText(texts.home.tagline)).toBeTruthy();
-    expect(screen.getByText(texts.ipNotice.message, { exact: false })).toBeTruthy();
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(createButton()).toBeTruthy();
     expect(screen.getByRole("main")).toBeTruthy();
+  });
+
+  it("breaks the sub-headline in two lines", () => {
+    renderAt("/");
+
+    const [first, second] = texts.home.tagline;
+    expect(texts.home.tagline).toHaveLength(2);
+    const lines = [screen.getByText(first), screen.getByText(second)];
+    // Each line is its own block inside the same paragraph.
+    expect(lines.map((line) => line.className)).toEqual(["block", "block"]);
+    expect(lines[0]?.parentElement).toBe(lines[1]?.parentElement);
+    expect(lines[0]?.parentElement?.tagName).toBe("P");
+  });
+
+  it("orders the home page: name, sub-headline, button, hint and Turnstile at the end", () => {
+    renderAt("/");
+
+    const main = screen.getByRole("main");
+    const order = [
+      screen.getByRole("heading", { level: 1 }),
+      screen.getByText(texts.home.tagline[0]),
+      screen.getByText(texts.home.tagline[1]),
+      createButton(),
+      screen.getByText(texts.home.hint),
+      screen.getByRole("group", { name: texts.turnstile.label }),
+    ];
+    order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
+    // Nothing after the Turnstile: the page ends there.
+    expect(main.lastElementChild?.contains(order.at(-1)!)).toBe(true);
+    expect(main.textContent).not.toContain("IP");
   });
 
   it("creates a room with the Turnstile token and goes to its link", async () => {
@@ -108,7 +140,7 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(texts.error.crash.title);
     expect(screen.getByRole("link", { name: texts.error.backHome })).toBeTruthy();
-    expect(screen.queryByText(texts.home.tagline)).toBeNull();
+    expect(screen.queryByText(texts.home.tagline[0])).toBeNull();
   });
 
   it("ignores ?debug=erro in production", () => {

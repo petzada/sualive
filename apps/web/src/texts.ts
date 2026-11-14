@@ -21,11 +21,6 @@ export const texts = {
     cancel: "Cancelar",
     backHome: "Voltar ao início",
   },
-  ipNotice: {
-    title: "Sala direta",
-    message:
-      "Nesta sala, áudio e vídeo vão direto de um navegador para o outro. Por isso, quem está na sala pode ver o endereço IP dos outros participantes.",
-  },
   turnstile: {
     label: "Verificação contra robôs",
     failed: "Não foi possível concluir a verificação contra robôs.",
@@ -34,10 +29,11 @@ export const texts = {
   },
   home: {
     title: APP_NAME,
-    tagline: TAGLINE,
+    /** One entry per line: the break between them is part of the copy. */
+    tagline: ["Compartilhe sua tela em dois cliques.", "Sem cadastro e sem anúncio."],
     create: "Criar sala",
     creating: "Criando a sala…",
-    hint: `Até ${ROOM_MAX_PEOPLE} pessoas com voz, tela, webcam e chat. É só enviar o link.`,
+    hint: `Voz, tela, webcam e chat. Até ${ROOM_MAX_PEOPLE} pessoas.`,
     errors: {
       turnstileFailed:
         "A verificação contra robôs não passou. Refaça a verificação e tente criar a sala de novo.",
@@ -47,10 +43,6 @@ export const texts = {
   },
   lobby: {
     title: "Entrar na sala",
-    occupancy: (participants: number, capacity: number) =>
-      participants === 0
-        ? `Ninguém na sala ainda · até ${capacity} pessoas`
-        : `${participants} de ${capacity} pessoas na sala`,
     nicknameLabel: "Seu apelido",
     nicknamePlaceholder: "Como quer ser chamado",
     nicknameHint: `De ${NICKNAME_MIN_LENGTH} a ${NICKNAME_MAX_LENGTH} caracteres.`,
@@ -73,6 +65,7 @@ export const texts = {
   room: {
     loading: "Abrindo a sala…",
     reconnecting: "A conexão caiu. Reconectando…",
+    codeLabel: "Código da sala:",
     occupancy: (participants: number, capacity: number) => `${participants}/${capacity}`,
     occupancyLabel: (participants: number, capacity: number) =>
       `${participants} de ${capacity} pessoas na sala`,
