@@ -209,7 +209,7 @@ test("conta nova: o primeiro acesso vem antes de tudo e devolve ao destino", asy
   await expect(page).toHaveURL(`/boas-vindas?returnTo=${encodeURIComponent(roomPath)}`);
   await expect(page.getByRole("heading", { name: texts.onboarding.title })).toBeVisible();
 
-  // Um único aceite: maior de 18 anos, Termos de Uso e Política de Privacidade.
+  // Um único aceite: maior de 18 anos, Termos de Uso e Políticas de Privacidade.
   const consent = page.getByRole("checkbox");
   await expect(consent).toHaveCount(1);
   const { before, terms, and, privacy, after } = texts.onboarding.consent;

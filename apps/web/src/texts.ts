@@ -43,19 +43,46 @@ const PLUS_GUARANTEE = `Garantia de ${PLUS_GUARANTEE_DAYS} dias`;
 
 const PLUS_QUALITY = `${PLUS_VIDEO_QUALITY.height}p a ${PLUS_VIDEO_QUALITY.frameRate} fps`;
 
+/**
+ * Numbers that only the legal pages state. Not parameters of `@sualive/config` yet: nothing on the
+ * server reads them.
+ */
+const REFUND_PAYOUT_BUSINESS_DAYS = 7;
+const BILLING_RECORDS_YEARS = 5;
+const ACCESS_LOG_MONTHS = 6;
+const LIABILITY_WINDOW_MONTHS = 12;
+
+/** Who operates the service and the only channel for questions, complaints and data requests. */
+const OPERATOR = "MARCIO PETIGROSSO, empresa brasileira inscrita no CNPJ sob o nº 63.940.273/0001-36";
+const CONTACT_EMAIL = "contato@sualive.com.br";
+
+/*
+ * TERMOS DE USO E POLÍTICAS DE PRIVACIDADE — LEIA ANTES DE MUDAR O PRODUTO.
+ *
+ * Os dois textos abaixo descrevem o que o produto faz hoje (entregas 1 e 2) e o que o responsável
+ * decidiu em 14/11/2026: operador, contato, foro, reembolso, prazos de guarda e limite de
+ * responsabilidade. Toda entrega que mudar algo descrito aqui (dado coletado ou guardado, operador
+ * novo, pagamento, moderação, sala pública, denúncia, moeda, envio de arquivo, limite de idade)
+ * revisa os dois textos no mesmo PR e muda `TERMS_VERSION` em `@sualive/config`.
+ *
+ * Prometido no texto e ainda NÃO implementado (pendência de uma próxima entrega):
+ * - guarda do registro de acesso (IP, data e hora) por 6 meses, seção "Registros de acesso";
+ * - caixa de entrada do `contato@sualive.com.br`, que depende do domínio (fim do MVP).
+ */
 const TERMS_SECTIONS: LegalSection[] = [
   {
     title: "O que é o serviço",
     blocks: [
       `O ${APP_NAME} é uma sala de chamada com voz, vídeo, compartilhamento de tela e chat que abre por um link. Dá para criar e entrar em salas sem conta. Quem quiser pode criar uma conta gratuita e, se desejar, assinar o Plus.`,
-      { pending: "razão social, CNPJ e endereço de quem opera o serviço" },
+      `O ${APP_NAME} é operado por ${OPERATOR}.`,
     ],
   },
   {
     title: "Quem pode usar",
     blocks: [
-      `Para ter conta é preciso ter ${MINIMUM_AGE} anos ou mais. Quem aceita estes termos declara ter ${MINIMUM_AGE} anos ou mais: no primeiro acesso, o aceite e essa declaração são feitos juntos e ficam registrados.`,
+      `O ${APP_NAME} é uma plataforma para maiores de ${MINIMUM_AGE} anos. Quem aceita estes Termos de Uso declara ter ${MINIMUM_AGE} anos ou mais: no primeiro acesso, o aceite e essa declaração são feitos juntos e ficam registrados.`,
       "A conta é criada com o login do Google ou do Discord. Não existe senha própria nem cadastro por e-mail.",
+      `Contas e salas usadas por menores de ${MINIMUM_AGE} anos são encerradas assim que identificadas.`,
     ],
   },
   {
@@ -70,7 +97,7 @@ const TERMS_SECTIONS: LegalSection[] = [
     title: "Como a sala funciona",
     blocks: [
       `A sala é direta: voz e vídeo trafegam entre os navegadores dos participantes, sem passar por um servidor nosso de mídia, com até ${ROOM_MAX_PEOPLE} pessoas. Por isso os participantes de uma mesma sala podem descobrir o endereço IP uns dos outros. Entre apenas em salas de pessoas em quem você confia.`,
-      "Nada é gravado por nós. O chat existe só enquanto a sala existe e é apagado quando ela acaba. Outros participantes podem gravar ou fotografar a tela por conta própria; não temos como impedir.",
+      "Não gravamos áudio nem vídeo. O chat existe só enquanto a sala existe e é apagado quando ela acaba. Outros participantes podem gravar ou fotografar a tela por conta própria; não temos como impedir.",
     ],
   },
   {
@@ -78,7 +105,7 @@ const TERMS_SECTIONS: LegalSection[] = [
     blocks: [
       "Não use o serviço para atividade ilegal, assédio, ameaça, conteúdo sexual envolvendo menores, violação de direitos de terceiros ou para prejudicar o funcionamento do serviço.",
       "Quem cria a sala é o dono dela e pode silenciar, remover e banir participantes. Cada dono responde pela moderação da própria sala.",
-      "Podemos encerrar salas e contas que violem estes termos.",
+      "Podemos encerrar salas e contas que violem estes Termos de Uso. Não ter gravação não significa não ter regra: atendemos às ordens das autoridades com os registros que a lei nos manda guardar, descritos nas Políticas de Privacidade.",
     ],
   },
   {
@@ -87,32 +114,50 @@ const TERMS_SECTIONS: LegalSection[] = [
       "O Plus é o único plano pago. O pagamento é só por Pix, processado pela Woovi. O plano mensal usa o Pix Automático e renova sozinho até ser cancelado; o plano anual é um Pix único, vale pelo período pago e não renova sozinho.",
       `Se uma cobrança do plano mensal falhar, tentamos de novo (até ${PLUS_RETRY_ATTEMPTS} vezes em ${PLUS_RETRY_WINDOW_DAYS} dias) e os benefícios continuam durante as tentativas. Você pode cancelar pela página do plano; o Plus vale até o fim do período já pago.`,
       `Quando o Plus acaba, os benefícios cessam e o link fixo fica reservado por ${FIXED_LINK_RESERVE_DAYS} dias.`,
-      { pending: "política de reembolso e de arrependimento da compra" },
+    ],
+  },
+  {
+    title: "Garantia e reembolso",
+    blocks: [
+      `Você tem ${PLUS_GUARANTEE_DAYS} dias, contados de cada contratação do Plus (mensal ou anual), para desistir e receber de volta o valor integral, sem precisar explicar o motivo.`,
+      `O pedido é feito pelo e-mail ${CONTACT_EMAIL}. A devolução é feita por Pix, para a conta que pagou, em até ${REFUND_PAYOUT_BUSINESS_DAYS} dias úteis. Com o reembolso, o Plus e os benefícios acabam na hora.`,
+      `Depois dos ${PLUS_GUARANTEE_DAYS} dias não há reembolso: cancelar interrompe as próximas cobranças e o Plus continua valendo até o fim do período já pago.`,
+      "Quem tem a conta encerrada por violar estes Termos de Uso perde o Plus sem reembolso, salvo quando a lei determinar o contrário.",
     ],
   },
   {
     title: "Disponibilidade e responsabilidade",
     blocks: [
       "O serviço é oferecido como está. A qualidade da chamada depende da conexão e do equipamento de cada participante, e o serviço pode ficar indisponível.",
-      { pending: "limites de responsabilidade, lei aplicável e foro" },
+      "Não respondemos pelo que os participantes dizem, mostram ou transmitem nas salas, nem por gravações feitas por eles.",
+      `Nossa responsabilidade por danos ligados ao serviço fica limitada ao valor que você pagou ao ${APP_NAME} nos ${LIABILITY_WINDOW_MONTHS} meses anteriores ao fato. Esse limite não afasta os direitos que a lei garante ao consumidor nem os casos em que a lei não permite limitar.`,
     ],
   },
   {
-    title: "Mudanças nestes termos",
+    title: "Lei e foro",
     blocks: [
-      "Quando estes termos mudarem, a versão indicada no topo desta página muda junto. Mudanças importantes serão avisadas no próprio serviço.",
+      "Estes Termos de Uso seguem a lei brasileira. Qualquer disputa é resolvida no foro do domicílio do usuário.",
+    ],
+  },
+  {
+    title: "Mudanças nestes Termos de Uso",
+    blocks: [
+      "Quando estes Termos de Uso mudarem, a versão indicada no topo desta página muda junto. Mudanças importantes serão avisadas no próprio serviço. Continuar usando o serviço depois da mudança vale como aceite da nova versão.",
     ],
   },
   {
     title: "Contato",
-    blocks: [{ pending: "canal de contato para dúvidas e reclamações" }],
+    blocks: [`Dúvidas, reclamações e pedidos: ${CONTACT_EMAIL}.`],
   },
 ];
 
 const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Quem trata os seus dados",
-    blocks: [{ pending: "razão social, CNPJ e endereço do controlador dos dados" }],
+    blocks: [
+      `O controlador dos dados é quem opera o ${APP_NAME}: ${OPERATOR}.`,
+      `O encarregado pelo tratamento de dados é o próprio operador e atende pelo e-mail ${CONTACT_EMAIL}.`,
+    ],
   },
   {
     title: "Sem conta",
@@ -124,7 +169,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
     title: "Com conta",
     blocks: [
       "A conta é criada pelo login do Google ou do Discord. Não guardamos o seu e-mail nem a sua senha.",
-      "Guardamos: o identificador da sua conta no Google ou no Discord (para reconhecer você no próximo login), o @nome, o apelido, o endereço da foto do perfil nesses serviços, o registro do aceite dos termos (com a versão aceita) e a declaração de que você tem a idade mínima.",
+      "Guardamos: o identificador da sua conta no Google ou no Discord (para reconhecer você no próximo login), o @nome, o apelido, o endereço da foto do perfil nesses serviços, o registro do aceite dos Termos de Uso (com a versão aceita) e a declaração de que você tem a idade mínima.",
       "Para manter você logado usamos um cookie de sessão, que só o servidor lê.",
     ],
   },
@@ -137,11 +182,24 @@ const PRIVACY_SECTIONS: LegalSection[] = [
     ],
   },
   {
+    title: "Registros de acesso",
+    blocks: [
+      `Guardamos o registro de acesso ao serviço (endereço IP, data e hora) por ${ACCESS_LOG_MONTHS} meses, como manda o Marco Civil da Internet. Esse registro não inclui o conteúdo das salas e só é entregue a autoridades mediante ordem judicial.`,
+    ],
+  },
+  {
     title: "Pagamento",
     blocks: [
       "O Plus é pago por Pix, processado pela Woovi. Para gerar a cobrança pedimos o seu CPF. Nós não guardamos o CPF: ele só passa pelo nosso servidor a caminho da Woovi, que processa o Pix.",
-      "Guardamos o estado da assinatura (ciclo, período pago, situação) e o registro de cada cobrança.",
-      { pending: "prazo de guarda dos registros de cobrança e base legal de cada tratamento" },
+      `Guardamos o estado da assinatura (ciclo, período pago, situação) e o registro de cada cobrança. Os registros de cobrança ficam guardados por ${BILLING_RECORDS_YEARS} anos, para cumprir obrigações fiscais e responder a reclamações, e depois são apagados.`,
+    ],
+  },
+  {
+    title: "Por que tratamos os seus dados",
+    blocks: [
+      "Para prestar o serviço que você pediu (execução de contrato): a sessão, a conta, a sala e a cobrança do Plus.",
+      "Para cumprir a lei (obrigação legal): os registros de cobrança e os registros de acesso.",
+      "Por legítimo interesse: limitar abusos, corrigir falhas e medir o acesso ao site, sem cookies de rastreamento.",
     ],
   },
   {
@@ -154,25 +212,27 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Excluir a conta",
     blocks: [
-      "Você exclui a conta pela página do perfil. A exclusão apaga os seus dados pessoais: @nome, apelido, endereço da foto, vínculo com o Google ou o Discord, aceite dos termos e declaração de idade. Registros de cobrança que precisem ser mantidos deixam de estar ligados à conta.",
+      "Você exclui a conta pela página do perfil. A exclusão apaga os seus dados pessoais: @nome, apelido, endereço da foto, vínculo com o Google ou o Discord, aceite dos Termos de Uso e declaração de idade. Registros de cobrança que precisem ser mantidos deixam de estar ligados à conta.",
     ],
   },
   {
     title: "Seus direitos",
     blocks: [
-      "Você pode pedir acesso, correção e exclusão dos seus dados, nos termos da Lei Geral de Proteção de Dados.",
-      { pending: "canal de contato e nome do encarregado pelo tratamento de dados" },
+      `Você pode pedir confirmação do tratamento, acesso, correção, portabilidade e exclusão dos seus dados, nos termos da Lei Geral de Proteção de Dados, pelo e-mail ${CONTACT_EMAIL}.`,
+      "Se o pedido não for atendido, você pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).",
     ],
   },
   {
     title: "Idade mínima",
     blocks: [
-      `A conta é só para quem tem ${MINIMUM_AGE} anos ou mais. Quem aceita os termos de uso e esta política declara ter ${MINIMUM_AGE} anos ou mais, e guardamos o registro dessa declaração.`,
+      `A conta é só para quem tem ${MINIMUM_AGE} anos ou mais. Quem aceita os Termos de Uso e estas Políticas de Privacidade declara ter ${MINIMUM_AGE} anos ou mais, e guardamos o registro dessa declaração.`,
     ],
   },
   {
-    title: "Mudanças nesta política",
-    blocks: ["Quando esta política mudar, a versão indicada no topo desta página muda junto."],
+    title: "Mudanças nestas Políticas de Privacidade",
+    blocks: [
+      "Quando estas Políticas de Privacidade mudarem, a versão indicada no topo desta página muda junto. Mudanças importantes serão avisadas no próprio serviço.",
+    ],
   },
 ];
 
@@ -208,8 +268,8 @@ export const texts = {
     plus: "Plus",
     profile: (nickname: string) => `Perfil de ${nickname}`,
     footerLabel: "Rodapé",
-    terms: "Termos de uso",
-    privacy: "Privacidade",
+    terms: "Termos de Uso",
+    privacy: "Políticas de Privacidade",
   },
   badges: {
     plus: { name: "Plus", hint: "Assinante do Plus" },
@@ -255,16 +315,16 @@ export const texts = {
   },
   onboarding: {
     title: "Só falta mais um passo",
-    intro: "Escolha seu @nome e aceite os termos.",
+    intro: "Escolha seu @nome e aceite os Termos de Uso.",
     /** One sentence, one checkbox: the two links sit inside it. */
     consent: {
       before: `Declaro que sou maior de ${MINIMUM_AGE} anos e aceito os `,
       terms: "Termos de Uso",
-      and: " e a ",
-      privacy: "Política de Privacidade",
+      and: " e as ",
+      privacy: "Políticas de Privacidade",
       after: ".",
     },
-    consentRequired: `Para ter conta é preciso declarar que você é maior de ${MINIMUM_AGE} anos e aceitar os Termos de Uso e a Política de Privacidade.`,
+    consentRequired: `Para ter conta é preciso declarar que você é maior de ${MINIMUM_AGE} anos e aceitar os Termos de Uso e as Políticas de Privacidade.`,
     handleHint: `Esse nome é a sua identificação oficial. Pode ser trocado a cada ${HANDLE_CHANGE_INTERVAL_DAYS} dias.`,
     handleRequired: "Escolha um @nome.",
     submit: "Concluir",
@@ -293,7 +353,7 @@ export const texts = {
     loggingOut: "Saindo…",
     deleteTitle: "Excluir a conta",
     deleteExplain:
-      "Excluir a conta apaga os seus dados pessoais: @nome, apelido, endereço da foto, o aceite dos termos e a declaração de idade. O @nome fica livre e o link fixo deixa de existir. Não dá para desfazer.",
+      "Excluir a conta apaga os seus dados pessoais: @nome, apelido, endereço da foto, o aceite dos Termos de Uso e a declaração de idade. O @nome fica livre e o link fixo deixa de existir. Não dá para desfazer.",
     deletePlusWarning:
       "Você tem um Plus em andamento. Excluir a conta encerra os benefícios; se o plano for mensal, cancele a assinatura antes, na página do plano.",
     deleteStart: "Quero excluir a minha conta",
@@ -437,8 +497,8 @@ export const texts = {
   legal: {
     version: (version: string) => `Versão de ${version}`,
     pendingLabel: "Pendente de preenchimento pelo responsável:",
-    terms: { title: "Termos de uso", sections: TERMS_SECTIONS },
-    privacy: { title: "Política de privacidade", sections: PRIVACY_SECTIONS },
+    terms: { title: "Termos de Uso", sections: TERMS_SECTIONS },
+    privacy: { title: "Políticas de Privacidade", sections: PRIVACY_SECTIONS },
   },
   turnstile: {
     failed: "Não foi possível concluir a verificação contra robôs.",
@@ -456,8 +516,7 @@ export const texts = {
     account: { question: "Já tem conta?", login: "Entrar" },
     manifesto: {
       title: "Nosso manifesto",
-      description: "Conheça a plataforma",
-      action: "Saber mais",
+      action: "Saiba mais",
     },
     errors: {
       turnstileFailed:
@@ -472,13 +531,13 @@ export const texts = {
     title: "Tela compartilhada é companhia.",
     /**
      * One entry per paragraph. When reporting exists in the product, the last paragraph ends with
-     * "E quem vê algo errado pode denunciar." (see MANIFESTO.md).
+     * " E quem vê algo errado pode denunciar." (see MANIFESTO.md).
      */
     paragraphs: [
       "A gente acredita que dividir a tela é uma forma de estar junto. Quem mostra, convida. Quem assiste, faz companhia.",
       "Em agosto de 2026, uma decisão oficial suspendeu o vídeo e o compartilhamento de tela do Discord no Brasil. A medida veio depois de casos graves envolvendo menores. Proteger crianças e adolescentes é dever de toda plataforma, inclusive desta.",
       "Com a suspensão, interrompeu-se um hábito de muita gente: o filme visto a dois em cidades diferentes, a partida acompanhada pelos amigos, o trabalho mostrado a quem pediu para ver.",
-      `A gente fez o ${APP_NAME} para isso. Aqui, nada é gravado. Quando a sala acaba, a conversa acaba com ela.`,
+      `A gente fez o ${APP_NAME} para que esses encontros continuem: um lugar simples, com regras claras, onde quem cria a sala cuida dela.`,
     ],
     closing: "A gente só quer se divertir junto.",
     ageNotice: `O ${APP_NAME} é uma plataforma para maiores de 18 anos.`,

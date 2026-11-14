@@ -57,13 +57,14 @@ describe("pages without a header: profile, Plus and the own plan", () => {
     expect(screen.queryByRole("link", { name: texts.nav.plus })).toBeNull();
     expect(screen.queryByRole("link", { name: texts.nav.login })).toBeNull();
     expect(screen.queryByRole("link", { name: texts.nav.profile("Marina") })).toBeNull();
-    // The row at the top is only the place of the back button, and the titles come right after it.
+    // Nothing above the column of the page: the place of the back arrow is the first thing in it,
+    // right above the title.
     const top = screen.getByTestId("page-top");
     const main = screen.getByRole("main");
-    expect(top.parentElement?.firstElementChild).toBe(top);
-    expect(top.nextElementSibling).toBe(main);
+    expect(main.parentElement?.firstElementChild).toBe(main);
+    expect(main.firstElementChild).toBe(top);
     expect(top.textContent).toBe("");
-    expect(main.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
+    expect(top.nextElementSibling?.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
   });
 
   it.each(pages)("keeps a discreet way home in the footer of %s (%#)", (path, _title, account) => {
@@ -111,7 +112,7 @@ describe("back button", () => {
     expect(historyIndex()).toBe(0);
     expect(backButton()).toBeNull();
     // Its row keeps its height, so the titles are where they are when the button is there.
-    expect(screen.getByTestId("page-top").className.split(" ")).toContain("min-h-14");
+    expect(screen.getByTestId("page-top").className.split(" ")).toContain("min-h-11");
   });
 
   it("is not there after a redirect that replaced the first page of the tab", () => {
@@ -132,19 +133,20 @@ describe("back button", () => {
     expect(heading()).toBe(texts.profile.title);
     expect(historyIndex()).toBe(1);
     const back = backButton()!;
-    // At the top left, in the row above the content.
+    // In the column of the page, right above the title.
     expect(back.parentElement).toBe(screen.getByTestId("page-top"));
+    expect(back.parentElement?.nextElementSibling?.contains(screen.getByRole("heading", { level: 1 }))).toBe(
+      true,
+    );
     // Only the arrow, with its accessible name.
     expect(texts.common.back).toBe("Voltar");
     expect(back.getAttribute("aria-label")).toBe("Voltar");
     expect(back.textContent).toBe("");
     expect(back.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
-    // Ink, thin outline, no fill.
+    // Ink, no circle around it: no outline and no fill.
     const classes = back.className.split(" ");
-    for (const name of ["size-11", "rounded-button", "border", "border-outline", "text-ink"]) {
-      expect(classes).toContain(name);
-    }
-    expect(back.className).not.toMatch(/(^| )bg-/);
+    for (const name of ["size-11", "text-ink"]) expect(classes).toContain(name);
+    expect(back.className).not.toMatch(/(^| )(border|shadow-outline|bg-)/);
 
     pressBack();
 

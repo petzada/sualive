@@ -21,6 +21,10 @@ function renderManifesto() {
 const isBefore = (first: Element, second: Element) =>
   Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
 
+/** The paragraph whose whole text is `text`, even when the name of the product is a `strong` inside it. */
+const byWholeText = (text: string) =>
+  screen.getByText((_content, element) => element?.tagName === "P" && element.textContent === text);
+
 describe("manifesto page", () => {
   it("is where the home card's link leads", () => {
     render(
@@ -39,16 +43,21 @@ describe("manifesto page", () => {
 
     const order = [
       screen.getByRole("heading", { level: 1, name: texts.manifesto.title }),
-      ...texts.manifesto.paragraphs.map((paragraph) => screen.getByText(paragraph)),
+      ...texts.manifesto.paragraphs.map((paragraph) => byWholeText(paragraph)),
       screen.getByText(texts.manifesto.closing),
       screen.getByRole("button", { name: texts.home.create }),
-      screen.getByText(texts.manifesto.ageNotice),
+      byWholeText(texts.manifesto.ageNotice),
     ];
     order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
     expect(texts.manifesto.paragraphs).toHaveLength(4);
+    // The name of the product is in bold wherever the text has it.
+    const names = [...document.querySelectorAll("strong")].map((name) => name.textContent);
+    expect(names).toEqual(["sualive", "sualive"]);
+    // Nothing that reads as a promise of leaving no trace.
+    expect(texts.manifesto.paragraphs.join(" ")).not.toMatch(/gravad|a conversa acaba/);
   });
 
-  it("ends with the legal links of the home footer, below the age notice", () => {
+  it("ends with the way home and the legal links, below the age notice, and has no back arrow", () => {
     renderManifesto();
 
     const footer = screen.getByRole("contentinfo", { name: texts.nav.footerLabel });
@@ -56,8 +65,12 @@ describe("manifesto page", () => {
     const privacy = within(footer).getByRole("link", { name: texts.nav.privacy });
     expect(terms.getAttribute("href")).toBe("/termos");
     expect(privacy.getAttribute("href")).toBe("/privacidade");
-    expect(isBefore(screen.getByText(texts.manifesto.ageNotice), terms)).toBe(true);
+    const home = within(footer).getByRole("link", { name: texts.nav.homeShort });
+    expect(home.getAttribute("href")).toBe("/");
+    expect(isBefore(byWholeText(texts.manifesto.ageNotice), home)).toBe(true);
+    expect(isBefore(home, terms)).toBe(true);
     expect(isBefore(terms, privacy)).toBe(true);
+    expect(screen.queryByRole("button", { name: texts.common.back })).toBeNull();
     // Nothing comes after them.
     expect(footer.parentElement?.lastElementChild).toBe(footer);
   });
@@ -84,7 +97,9 @@ describe("manifesto page", () => {
 
     expect(screen.queryByRole("banner")).toBeNull();
     expect(screen.queryByRole("link", { name: texts.home.title })).toBeNull();
-    expect(container.querySelector('a[href="/"]')).toBeNull();
+    // The only way home is the discreet one in the footer.
+    expect(container.querySelectorAll('a[href="/"]')).toHaveLength(1);
+    expect(screen.getByRole("main").querySelector('a[href="/"]')).toBeNull();
     // The column of the page is the first thing in it, and the photos the first thing in the column.
     const main = screen.getByRole("main");
     expect(main.parentElement?.firstElementChild).toBe(main);

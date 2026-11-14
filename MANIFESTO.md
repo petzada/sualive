@@ -1,7 +1,7 @@
 # Manifesto
 
 Especificação da página `/manifesto`, fechada com o dono do produto em 2026-11-14 e implementada em
-`apps/web/src/pages/ManifestoPage.tsx`. O botão "Saber mais" do cartão da tela inicial leva a ela.
+`apps/web/src/pages/ManifestoPage.tsx`. O botão "Saiba mais" do cartão da tela inicial leva a ela.
 
 ## Texto final
 
@@ -24,8 +24,8 @@ componente.
 > Com a suspensão, interrompeu-se um hábito de muita gente: o filme visto a dois em cidades diferentes, a
 > partida acompanhada pelos amigos, o trabalho mostrado a quem pediu para ver.
 >
-> A gente fez o sualive para isso. Aqui, nada é gravado. Quando a sala acaba, a conversa acaba com ela. E
-> quem vê algo errado pode denunciar.
+> A gente fez o sualive para que esses encontros continuem: um lugar simples, com regras claras, onde
+> quem cria a sala cuida dela. E quem vê algo errado pode denunciar.
 
 **Frase final**
 
@@ -37,7 +37,7 @@ componente.
 
 > O sualive é uma plataforma para maiores de 18 anos.
 >
-> Termos de uso · Política de privacidade
+> Início · Termos de Uso · Políticas de Privacidade
 
 **Aba e prévia do link:** título "Manifesto · sualive"; descrição "Tela compartilhada é companhia."
 
@@ -73,7 +73,8 @@ componente.
   largura, 24px no desktop).
 - Botão "Criar sala" depois da frase final, igual ao da tela inicial, com o mesmo comportamento.
 - Três cartões de fotos depois do botão, sem título acima: uma linha no desktop, empilhados no celular.
-- Rodapé em duas linhas, como no texto.
+- Rodapé em duas linhas, como no texto. Sem seta de voltar: o caminho para a tela inicial é o "Início"
+  do rodapé.
 
 ### Cartões de fotos
 
