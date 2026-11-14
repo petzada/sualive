@@ -1,6 +1,6 @@
 import {
   MINIMUM_AGE,
-  PLUS_ANNUAL_EXPIRY_NOTICE_DAYS,
+  PLUS_ANNUAL_PERIOD_DAYS,
   PLUS_ANNUAL_PRICE_CENTS,
   PLUS_MONTHLY_PRICE_CENTS,
   TERMS_VERSION,
@@ -8,7 +8,7 @@ import {
 import type { Plan } from "@sualive/protocol";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { planStatusText } from "../components/account/plan";
+import { annualDiscountPercent, planStatusText } from "../components/account/plan";
 import { formatCents, formatDate, isValidCpf, maskCpf } from "../components/format";
 import {
   DAY_MS,
@@ -292,40 +292,26 @@ describe("profile", () => {
     expect(accountActions.updateProfile).not.toHaveBeenCalled();
   });
 
-  it("summarizes the plan with a link to its page, and warns discreetly near the annual expiry", () => {
+  it("has no plan card: only a discreet text link to the page of the plan", () => {
     const free = renderApp({ path: "/perfil", account: logged() });
-    expect(screen.getByText(texts.profile.planFree)).toBeTruthy();
-    expect(screen.getByRole("link", { name: texts.profile.planLink }).getAttribute("href")).toBe("/plus");
-    expect(screen.queryByTestId("annual-expiry")).toBeNull();
+    const offer = screen.getByTestId("profile-plan-link");
+    expect(offer.tagName).toBe("A");
+    expect(offer.textContent).toBe(texts.profile.plusLink);
+    expect(offer.getAttribute("href")).toBe("/plus");
     free.unmount();
 
     const periodEnd = Date.now() + 3 * DAY_MS;
     const plan = makeActivePlan({ cycle: "annual", renews: false, periodEnd });
     renderApp({ path: "/perfil", account: logged(makeUser({ plan })) });
-    expect(screen.getByText(planStatusText(plan)!)).toBeTruthy();
-    expect(screen.getByTestId("annual-expiry").textContent).toBe(
-      texts.plus.annualExpiry(3, formatDate(periodEnd)),
-    );
-    expect(screen.getByRole("link", { name: texts.profile.planManage })).toBeTruthy();
-  });
-
-  it("gives the fixed link, to copy and to open, only to who has the Plus", async () => {
-    const writeText = vi.fn(() => Promise.resolve());
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-    const free = renderApp({ path: "/perfil", account: logged() });
-    expect(screen.queryByLabelText(texts.profile.fixedLinkLabel)).toBeNull();
-    free.unmount();
-
-    renderApp({ path: "/perfil", account: logged(makeUser({ plan: makeActivePlan() })) });
-    const address = `${window.location.origin}/@marina`;
-    expect(screen.getByLabelText<HTMLInputElement>(texts.profile.fixedLinkLabel).value).toBe(address);
-    expect(screen.getByRole("link", { name: texts.profile.fixedLinkOpen }).getAttribute("href")).toBe(
-      "/@marina",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: texts.common.copy }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(address));
-    expect(await screen.findByRole("button", { name: texts.common.copied })).toBeTruthy();
+    const link = screen.getByTestId("profile-plan-link");
+    expect(link.textContent).toBe(texts.profile.planLink);
+    expect(link.getAttribute("href")).toBe("/plano");
+    // Nothing of the plan itself stays here: state, expiry warning, fixed link, cancellation.
+    expect(screen.queryByText(planStatusText(plan)!)).toBeNull();
+    expect(screen.queryByTestId("plan-status")).toBeNull();
+    expect(screen.queryByTestId("annual-expiry")).toBeNull();
+    expect(screen.queryByLabelText(texts.plan.fixedLinkLabel)).toBeNull();
+    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
   });
 
   it("logs out and goes back to the home page", async () => {
@@ -394,15 +380,77 @@ describe("plan", () => {
     renderApp({ path: "/plus" });
 
     expect(heading()).toBe(texts.plus.title);
+    expect(
+      screen.getByText("O sualive oferece plano pago para ajudar no crescimento da plataforma."),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "O que você ganha ajudando" })).toBeTruthy();
     for (const benefit of texts.plus.benefits) expect(screen.getByText(benefit.title)).toBeTruthy();
     const monthly = within(screen.getByTestId("cycle-monthly"));
     const annual = within(screen.getByTestId("cycle-annual"));
     expect(monthly.getByText(money(PLUS_MONTHLY_PRICE_CENTS))).toBeTruthy();
-    expect(monthly.getByText(texts.plus.cycles.monthly.how)).toBeTruthy();
+    expect(monthly.getByText(texts.plus.cycles.monthly.how[0])).toBeTruthy();
     expect(annual.getByText(money(PLUS_ANNUAL_PRICE_CENTS))).toBeTruthy();
-    expect(annual.getByText(texts.plus.cycles.annual.how)).toBeTruthy();
     // Pix only.
     expect(document.body.textContent).not.toMatch(/cartão|boleto/i);
+  });
+
+  it("takes the annual price from the configuration, with nothing written by hand", () => {
+    renderApp({ path: "/plus" });
+    expect(PLUS_ANNUAL_PRICE_CENTS).toBe(15990);
+    expect(within(screen.getByTestId("cycle-annual")).getByText("R$ 159,90")).toBeTruthy();
+    // No amount lives in the copy: every "R$" on the page comes from the two prices of the config.
+    const amounts = document.body.textContent?.replace(/\s/g, " ").match(/R\$ [\d.,]+\d/g);
+    expect(amounts).toEqual([money(PLUS_MONTHLY_PRICE_CENTS), money(PLUS_ANNUAL_PRICE_CENTS)]);
+    expect(JSON.stringify(texts)).not.toMatch(/R\$|159,90|19,90/);
+  });
+
+  it("breaks the description of the annual plan in two lines", () => {
+    renderApp({ path: "/plus" });
+    const first = within(screen.getByTestId("cycle-annual")).getByText(
+      `Pix único: paga uma vez e vale ${PLUS_ANNUAL_PERIOD_DAYS} dias.`,
+    );
+    const second = within(screen.getByTestId("cycle-annual")).getByText("Não renova sozinho.");
+    expect(first.nextElementSibling).toBe(second);
+    expect(first.className).toContain("block");
+    expect(second.className).toContain("block");
+    expect(first.parentElement?.children).toHaveLength(2);
+  });
+
+  it("works out the annual discount from the two prices, rounded down", () => {
+    expect(annualDiscountPercent(1990, 15990)).toBe(33);
+    expect(annualDiscountPercent(PLUS_MONTHLY_PRICE_CENTS, PLUS_ANNUAL_PRICE_CENTS)).toBe(
+      Math.floor((1 - PLUS_ANNUAL_PRICE_CENTS / (12 * PLUS_MONTHLY_PRICE_CENTS)) * 100),
+    );
+    // Rounded down, never up; and never negative when the year costs more.
+    expect(annualDiscountPercent(1000, 8001)).toBe(33);
+    expect(annualDiscountPercent(1000, 6000)).toBe(50);
+    expect(annualDiscountPercent(1000, 13000)).toBe(0);
+    expect(annualDiscountPercent(0, 1000)).toBe(0);
+  });
+
+  it("shows the discount badge only on the annual card", () => {
+    renderApp({ path: "/plus" });
+    const percent = annualDiscountPercent(PLUS_MONTHLY_PRICE_CENTS, PLUS_ANNUAL_PRICE_CENTS);
+    const badge = within(screen.getByTestId("cycle-annual")).getByTestId("annual-discount");
+    expect(badge.textContent).toBe(texts.plus.annualDiscount(percent));
+    expect(badge.textContent).toBe(`${percent}% de desconto`);
+    expect(badge.className).toContain("bg-ink");
+    expect(badge.className).toContain("text-canvas");
+    expect(within(screen.getByTestId("cycle-monthly")).queryByTestId("annual-discount")).toBeNull();
+    expect(screen.getAllByTestId("annual-discount")).toHaveLength(1);
+  });
+
+  it("puts each subscribe button inside its card, below the description", () => {
+    renderApp({ path: "/plus", account: logged() });
+    for (const cycle of ["monthly", "annual"] as const) {
+      const card = screen.getByTestId(`cycle-${cycle}`);
+      const button = within(card).getByRole("button", { name: texts.plus.cycles[cycle].choose });
+      const description = within(card).getByText(texts.plus.cycles[cycle].how.at(-1)!);
+      expect(description.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(card.lastElementChild).toBe(button);
+    }
+    // Nowhere else on the page.
+    expect(screen.getAllByRole("button", { name: /^Assinar/ })).toHaveLength(2);
   });
 
   it("formats cents the Brazilian way", () => {
@@ -424,13 +472,32 @@ describe("plan", () => {
     expect(cpfInput()).toBeTruthy();
   });
 
-  it("only shows the benefits while billing is off", () => {
+  it("says who processes the payments, and has no way to pay, while billing is off", () => {
     renderApp({ path: "/plus", account: makeAccountState({ user: makeUser(), billingEnabled: false }) });
 
-    expect(screen.getByTestId("billing-disabled").textContent).toBe(texts.plus.billingDisabled);
+    expect(screen.queryByTestId("billing-disabled")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/não está disponível|Em breve/);
+    const note = screen.getByTestId("payments-note");
+    expect(note.textContent).toBe(
+      "Os pagamentos são processados por provedores externos e nenhum dado fica com a plataforma sualive.",
+    );
+    // Same plain style as the line of the first subscribers, both centered.
+    const early = screen.getByText(texts.plus.earlySupporter);
+    expect(note.className).toBe(early.className);
+    expect(note.className).toContain("text-center");
+    expect(note.getAttribute("role")).toBeNull();
+    // Right after it come the legal pages.
+    const footer = screen.getByRole("contentinfo");
+    expect(note.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(note.closest("main")?.lastElementChild).toBe(note);
     expect(screen.getByText(texts.plus.benefits[0].title)).toBeTruthy();
     expect(screen.queryByRole("button", { name: texts.plus.cycles.monthly.choose })).toBeNull();
     expect(screen.queryByRole("button", { name: texts.plus.cycles.annual.choose })).toBeNull();
+  });
+
+  it("keeps that line out of the page while billing is on", () => {
+    renderApp({ path: "/plus", account: logged() });
+    expect(screen.queryByTestId("payments-note")).toBeNull();
   });
 
   const periodEnd = Date.now() + 40 * DAY_MS;
@@ -442,15 +509,27 @@ describe("plan", () => {
     ["ended", makePlan({ status: "ended", plus: false, cycle: "monthly", periodEnd: Date.now() - DAY_MS })],
   ];
 
-  it.each(plans)("describes the %s state of the subscription", (_name, plan) => {
+  it.each(plans)("points who has the Plus to the page of the plan (%s)", (_name, plan) => {
     renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
 
-    const status = within(screen.getByTestId("plan-status"));
-    expect(status.getByText(planStatusText(plan)!)).toBeTruthy();
     // Who has the Plus is not offered another subscription; who lost it can subscribe again.
     expect(Boolean(screen.queryByRole("button", { name: texts.plus.cycles.monthly.choose }))).toBe(
       !plan.plus,
     );
+    // The management is not repeated here.
+    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
+    expect(screen.queryByTestId("plan-details")).toBeNull();
+    if (plan.plus) {
+      const current = within(screen.getByTestId("plan-current"));
+      expect(current.getByText(texts.plus.current.text)).toBeTruthy();
+      expect(current.getByRole("link", { name: texts.plus.current.link }).getAttribute("href")).toBe(
+        "/plano",
+      );
+      expect(screen.queryByTestId("plan-status")).toBeNull();
+    } else {
+      expect(screen.queryByTestId("plan-current")).toBeNull();
+      expect(within(screen.getByTestId("plan-status")).getByText(planStatusText(plan)!)).toBeTruthy();
+    }
   });
 
   it("has a different sentence for each state, with the dates", () => {
@@ -466,28 +545,8 @@ describe("plan", () => {
   it("has no subscription card for who never subscribed", () => {
     renderApp({ path: "/plus", account: logged() });
     expect(screen.queryByTestId("plan-status")).toBeNull();
+    expect(screen.queryByTestId("plan-current")).toBeNull();
     expect(screen.getByRole("button", { name: texts.plus.cycles.monthly.choose })).toBeTruthy();
-  });
-
-  it.each([
-    [PLUS_ANNUAL_EXPIRY_NOTICE_DAYS, true],
-    [1, true],
-    [PLUS_ANNUAL_EXPIRY_NOTICE_DAYS + 1, false],
-  ])("warns about the annual plan at %i days from the end: %s", (days, warns) => {
-    // Half a day short, so the count rounds up to exactly `days`.
-    const end = Date.now() + days * DAY_MS - DAY_MS / 2;
-    const plan = makeActivePlan({ cycle: "annual", renews: false, periodEnd: end });
-    renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-
-    const notice = screen.queryByTestId("annual-expiry");
-    expect(Boolean(notice)).toBe(warns);
-    if (warns) expect(notice?.textContent).toBe(texts.plus.annualExpiry(days, formatDate(end)));
-  });
-
-  it("never warns about a monthly plan, which renews by itself", () => {
-    const plan = makeActivePlan({ periodEnd: Date.now() + DAY_MS });
-    renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-    expect(screen.queryByTestId("annual-expiry")).toBeNull();
   });
 
   it("masks and validates the CPF before creating the charge", async () => {
@@ -612,35 +671,6 @@ describe("plan", () => {
     generate();
 
     expect(await screen.findByText(texts.account.errors.error)).toBeTruthy();
-  });
-
-  it("cancels the subscription after a confirmation that says until when it is valid", async () => {
-    const plan = makeActivePlan({ periodEnd });
-    const { accountActions } = renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-    const status = within(screen.getByTestId("plan-status"));
-
-    fireEvent.click(status.getByRole("button", { name: texts.plus.cancel.start }));
-    expect(status.getByText(texts.plus.cancel.explain(formatDate(periodEnd)))).toBeTruthy();
-    expect(accountActions.cancelPlus).not.toHaveBeenCalled();
-
-    fireEvent.click(status.getByRole("button", { name: texts.plus.cancel.confirm }));
-
-    await waitFor(() => expect(accountActions.cancelPlus).toHaveBeenCalledTimes(1));
-    expect(await status.findByText(/Assinatura cancelada/)).toBeTruthy();
-    expect(status.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
-  });
-
-  it("can keep the subscription, and has nothing to cancel on the annual plan", () => {
-    const monthly = renderApp({ path: "/plus", account: logged(makeUser({ plan: makeActivePlan() })) });
-    fireEvent.click(screen.getByRole("button", { name: texts.plus.cancel.start }));
-    fireEvent.click(screen.getByRole("button", { name: texts.plus.cancel.keep }));
-    expect(monthly.accountActions.cancelPlus).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: texts.plus.cancel.start })).toBeTruthy();
-    monthly.unmount();
-
-    const plan = makeActivePlan({ cycle: "annual", renews: false });
-    renderApp({ path: "/plus", account: logged(makeUser({ plan })) });
-    expect(screen.queryByRole("button", { name: texts.plus.cancel.start })).toBeNull();
   });
 });
 

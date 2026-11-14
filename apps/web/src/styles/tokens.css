@@ -25,6 +25,10 @@
   --color-on-accent: #ffffff;
   --color-notice: #b64400; /* rótulo de novidade, texto puro */
 
+  /* Pílula do plano na sala: o par mais forte do tema, invertido no escuro para seguir destacada */
+  --color-plan: #000000;
+  --color-on-plan: #ffffff;
+
   /* Vídeo: fundo atrás do vídeo e etiquetas sobre ele; escuro nos dois temas */
   --color-stage: #1d1d1f;
   --color-on-stage: #ffffff;
@@ -147,5 +151,8 @@
 
     --color-stage: #000000;
     --color-on-stage: #ffffff;
+
+    --color-plan: #ffffff;
+    --color-on-plan: #000000;
   }
 }

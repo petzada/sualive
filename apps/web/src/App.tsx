@@ -11,9 +11,11 @@ import { LegalPage } from "./pages/LegalPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ManifestoPage } from "./pages/ManifestoPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { PlanPage } from "./pages/PlanPage";
 import { PlusPage } from "./pages/PlusPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { FixedRoomPage, RoomPage } from "./pages/RoomPage";
+import { WelcomePage } from "./pages/WelcomePage";
 
 /**
  * Demo of the screens with fake room and account clients. Development only: in a production build
@@ -58,6 +60,8 @@ function AppRoutes() {
         <Route path={PATHS.onboarding} element={<OnboardingPage />} />
         <Route path={PATHS.profile} element={<ProfilePage />} />
         <Route path={PATHS.plus} element={<PlusPage />} />
+        <Route path={PATHS.welcome} element={<WelcomePage />} />
+        <Route path={PATHS.plan} element={<PlanPage />} />
         <Route path={PATHS.terms} element={<LegalPage kind="terms" />} />
         <Route path={PATHS.privacy} element={<LegalPage kind="privacy" />} />
         {DemoPage && (
