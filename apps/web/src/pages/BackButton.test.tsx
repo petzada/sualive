@@ -84,13 +84,15 @@ describe("pages without a header: profile, Plus and the own plan", () => {
     expect(screen.getByRole("button", { name: texts.home.create })).toBeTruthy();
   });
 
-  it("leaves the other pages as they were: the legal pages keep the name at the top, the home page has no 'Início'", () => {
-    const legal = renderApp({ path: "/termos" });
-    expect(siteHeaders()).toHaveLength(1);
-    expect(within(siteHeaders()[0]!).getByRole("link", { name: texts.nav.home })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: texts.nav.homeShort })).toBeNull();
-    expect(backButton()).toBeNull();
-    legal.unmount();
+  it("the legal pages have no header either, and the home page has no 'Início'", () => {
+    for (const path of ["/termos", "/privacidade"]) {
+      const legal = renderApp({ path });
+      expect(siteHeaders()).toHaveLength(0);
+      expect(screen.getByRole("link", { name: texts.nav.homeShort })).toBeTruthy();
+      // Primeira página da aba: sem página anterior, sem botão de voltar.
+      expect(backButton()).toBeNull();
+      legal.unmount();
+    }
 
     renderApp({ path: "/" });
     expect(screen.queryByRole("link", { name: texts.nav.homeShort })).toBeNull();
