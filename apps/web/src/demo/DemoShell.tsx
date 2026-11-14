@@ -10,9 +10,11 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { AccountClientProvider } from "../components/account/AccountClient";
 import { RoomClientProvider } from "../components/room/RoomClient";
+import { WalletClientProvider } from "../components/wallet/WalletClient";
 import { createDemoAccountClient, DEMO_ACCOUNT_LABELS, DEMO_ACCOUNTS } from "./fakeAccount";
 import type { DemoAccountOptions } from "./fakeAccount";
 import { createDemoClient } from "./fakeRoom";
+import { createDemoWalletClient } from "./fakeWallet";
 
 /** Same key that `App.tsx` looks for before loading this file. */
 export const DEMO_SESSION_KEY = "sualive:demo";
@@ -62,6 +64,7 @@ export function createDemoClients(session: DemoSession) {
   const plus = ["mensal", "anual", "vencendo", "atraso", "cancelado"].includes(session.account);
   return {
     account: createDemoAccountClient(session),
+    wallet: createDemoWalletClient({ logged, payment: session.payment }),
     room: createDemoClient({
       phase: "lobby",
       isOwner: session.owner,
@@ -82,15 +85,17 @@ export default function DemoShell({ children }: { children: ReactNode }) {
 
   return (
     <AccountClientProvider client={clients.account}>
-      <RoomClientProvider client={clients.room}>
-        {children}
-        <a
-          href="/demo"
-          className="fixed bottom-2 left-2 z-50 rounded-button bg-ink px-3 py-1.5 text-compact text-canvas opacity-80"
-        >
-          demo · {DEMO_ACCOUNT_LABELS[session.account]} · trocar
-        </a>
-      </RoomClientProvider>
+      <WalletClientProvider client={clients.wallet}>
+        <RoomClientProvider client={clients.room}>
+          {children}
+          <a
+            href="/demo"
+            className="fixed bottom-2 left-2 z-50 rounded-button bg-ink px-3 py-1.5 text-compact text-canvas opacity-80"
+          >
+            demo · {DEMO_ACCOUNT_LABELS[session.account]} · trocar
+          </a>
+        </RoomClientProvider>
+      </WalletClientProvider>
     </AccountClientProvider>
   );
 }

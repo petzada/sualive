@@ -14,26 +14,14 @@ import {
   type MeUser,
 } from "@sualive/protocol";
 import { createAccountApi, type AccountApi, type AccountApiFailure, type AccountApiResult } from "./api";
-import type { AccountDeps, TimerId } from "./deps";
+import type { AccountDeps } from "./deps";
 import type { AccountActions, AccountErrorReason, AccountResult, AccountState, PaymentStatus } from "./types";
+import { watchPayment } from "./watch-payment";
 
-// ---------- Tempos técnicos (não são regras de produto) ----------
-
-/** Primeira espera da consulta do pagamento; cresce a cada consulta até o teto (ms). */
-export const PAYMENT_POLL_BASE_DELAY_MS = 2_000;
-export const PAYMENT_POLL_MAX_DELAY_MS = 15_000;
-const PAYMENT_POLL_GROWTH = 1.5;
+export { PAYMENT_POLL_BASE_DELAY_MS, PAYMENT_POLL_MAX_DELAY_MS } from "./watch-payment";
 
 /** Mesmo limite do servidor para o caminho de volta do login. */
 const RETURN_TO_MAX_LENGTH = 512;
-
-/** Falhas passageiras na consulta do pagamento: tenta de novo na próxima volta. */
-const TRANSIENT_FAILURES: ReadonlySet<AccountApiFailure> = new Set([
-  "network",
-  "rate_limited",
-  "internal_error",
-  "invalid_response",
-]);
 
 const INITIAL_STATE: AccountState = {
   status: "loading",
@@ -269,79 +257,14 @@ export class AccountStore {
     });
   }
 
-  /**
-   * Consulta o pagamento com espera crescente até um estado final. Para quando é cancelada,
-   * pausa com a aba oculta e retoma (na hora) quando ela volta. Pago → atualiza a conta.
-   * Erro definitivo (pagamento desconhecido, sessão perdida...) encerra como `failed`.
-   */
+  /** Acompanha o pagamento do Plus (veja `watchPayment`). Pago → atualiza a conta (o plano mudou). */
   private watchPlusPayment(paymentId: string, onChange: (status: PaymentStatus) => void): () => void {
-    const { timers, visibility } = this.deps;
-    const controller = new AbortController();
-    let stopped = false;
-    let inFlight = false;
-    let timer: TimerId | null = null;
-    let delay = PAYMENT_POLL_BASE_DELAY_MS;
-    let last: PaymentStatus | null = null;
-
-    const clearTimer = () => {
-      if (timer !== null) timers.clearTimeout(timer);
-      timer = null;
-    };
-    const emit = (status: PaymentStatus) => {
-      if (status === last) return;
-      last = status;
-      onChange(status);
-    };
-    const schedule = () => {
-      clearTimer();
-      if (stopped || visibility.isHidden()) return;
-      timer = timers.setTimeout(() => {
-        timer = null;
-        void poll();
-      }, delay);
-      delay = Math.min(delay * PAYMENT_POLL_GROWTH, PAYMENT_POLL_MAX_DELAY_MS);
-    };
-    const poll = async () => {
-      if (stopped || inFlight || visibility.isHidden()) return;
-      inFlight = true;
-      const result = await this.api.getPayment(paymentId, controller.signal);
-      inFlight = false;
-      if (stopped) return;
-      if (result.ok) {
-        const { status } = result.data;
-        if (status === "pending") {
-          emit(status);
-          schedule();
-          return;
-        }
-        stop();
-        if (status === "paid") void this.refresh(); // o plano mudou
-        emit(status);
-        return;
-      }
-      if (TRANSIENT_FAILURES.has(result.error)) {
-        if (result.error === "invalid_response") this.failed(result.error, "payment");
-        schedule();
-        return;
-      }
-      stop();
-      this.failed(result.error, "payment");
-      emit("failed");
-    };
-    const stopVisibility = visibility.onChange(() => {
-      if (stopped) return;
-      if (visibility.isHidden()) clearTimer();
-      else if (timer === null) void poll();
+    return watchPayment({
+      deps: this.deps,
+      fetchStatus: (signal) => this.api.getPayment(paymentId, signal),
+      onPaid: () => void this.refresh(),
+      onFailure: (error) => void this.failed(error, "payment"),
+      onChange,
     });
-    const stop = () => {
-      if (stopped) return;
-      stopped = true;
-      clearTimer();
-      stopVisibility();
-      controller.abort();
-    };
-
-    schedule();
-    return stop;
   }
 }

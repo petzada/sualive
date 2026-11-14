@@ -12,6 +12,7 @@ import {
   FIXED_ROOM_PATH_PREFIX,
   FREE_VIDEO_QUALITY,
   PLUS_VIDEO_QUALITY,
+  REACTIONS,
   RELAY_VIDEO_QUALITY,
   ROOM_MAX_PEOPLE,
   VIDEOS_PER_PERSON,
@@ -21,6 +22,7 @@ import {
 import type { DevicePreview, MediaSession, PeerConnectionState, SignalData, VideoKind } from "@sualive/media";
 import {
   clientMessageSchema,
+  giftAmountSchema,
   roomKeySchema,
   serverMessageSchema,
   WS_CLOSE,
@@ -38,12 +40,14 @@ import { socketUrl, type RoomDeps, type SocketLike } from "./deps";
 import { pickFeaturedVideo } from "./featured";
 import { forgetOwnerToken, readOwnerToken } from "./owner-token";
 import type {
+  GiftEvent,
   JoinOptions,
   ParticipantView,
   RoomActions,
   RoomNotice,
   RoomPhase,
   RoomState,
+  SendGoldResult,
   VideoView,
 } from "./types";
 
@@ -62,6 +66,12 @@ export const VIDEO_REQUEST_TIMEOUT_MS = 10_000;
 export const REACTION_LIFETIME_MS = 4_000;
 /** Reações simultâneas guardadas no estado (as mais antigas saem antes). */
 const MAX_REACTIONS = 30;
+/** Quanto esperar a resposta do servidor a um `gift.send` (ms). */
+export const GIFT_REQUEST_TIMEOUT_MS = 10_000;
+/** Quanto tempo cada aviso de ouro enviado fica na tela (ms). */
+export const GIFT_LIFETIME_MS = 6_000;
+/** Avisos de ouro simultâneos guardados no estado (os mais antigos saem antes). */
+const MAX_GIFTS = 10;
 
 /** Fases em que a pessoa está fora da sala e pode (tentar) entrar. */
 const CAN_JOIN: ReadonlySet<RoomPhase> = new Set(["lobby", "kicked", "error"]);
@@ -82,6 +92,12 @@ type VideoReply =
 interface PendingVideo {
   timer: ReturnType<typeof setTimeout>;
   resolve: (reply: VideoReply) => void;
+}
+
+interface PendingGift {
+  requestId: string;
+  timer: ReturnType<typeof setTimeout>;
+  resolve: (result: SendGoldResult) => void;
 }
 
 /** Cancelar o seletor de tela não é erro: a pessoa só desistiu. */
@@ -170,6 +186,9 @@ export class RoomClient {
   private readonly cancelledVideos = new Set<string>();
   private joinRequest = 0;
   private readonly reactionTimers = new Set<ReturnType<typeof setTimeout>>();
+  /** O envio de ouro no ar (um por vez). */
+  private pendingGift: PendingGift | null = null;
+  private readonly giftTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(
     readonly code: string,
@@ -194,6 +213,9 @@ export class RoomClient {
       featuredVideoId: null,
       chat: [],
       reactions: [],
+      availableReactions: [...REACTIONS],
+      canSendGold: false,
+      gifts: [],
       notice: null,
       micMuted: true,
       handRaised: false,
@@ -215,6 +237,7 @@ export class RoomClient {
       stopVideo: (videoId) => this.stopVideo(videoId),
       setFeaturedVideo: (videoId) => this.setFeaturedVideo(videoId),
       moderate: (action, participantId) => this.moderate(action, participantId),
+      sendGold: (participantId, amount) => this.sendGold(participantId, amount),
       copyLink: () => this.copyLink(),
       dismissNotice: () => this.update({ notice: null }),
     };
@@ -496,6 +519,9 @@ export class RoomClient {
       featuredVideoId: null,
       chat: [],
       reactions: [],
+      gifts: [],
+      canSendGold: false,
+      availableReactions: [...REACTIONS],
       micMuted: true,
       handRaised: false,
       localVideoIds: [],
@@ -520,8 +546,11 @@ export class RoomClient {
       this.pendingVideos.delete(requestId);
       pending.resolve({ type: "lost" });
     }
+    this.resolveGift({ ok: false, reason: "lost" });
     for (const timer of this.reactionTimers) clearTimeout(timer);
     this.reactionTimers.clear();
+    for (const timer of this.giftTimers) clearTimeout(timer);
+    this.giftTimers.clear();
     this.participants = new Map();
     this.peerMedia.clear();
     this.speaking.clear();
@@ -601,6 +630,7 @@ export class RoomClient {
       this.pendingVideos.delete(requestId);
       pending.resolve({ type: "lost" });
     }
+    this.resolveGift({ ok: false, reason: "lost" });
     if (this.state.phase !== "reconnecting") this.update({ phase: "reconnecting" });
     this.clearReconnectTimer();
     const delay = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_DELAY_MS);
@@ -681,6 +711,18 @@ export class RoomClient {
         return this.onVideoReply(message.requestId, { type: "granted", video: message.video });
       case "video.denied":
         return this.onVideoReply(message.requestId, { type: "denied", reason: message.reason });
+      case "gift.result":
+        if (this.pendingGift?.requestId !== message.requestId) return; // tarde demais: ninguém espera
+        return this.resolveGift(message.ok ? { ok: true } : { ok: false, reason: message.reason ?? "error" });
+      case "gift":
+        return this.addGift({
+          id: this.deps.randomId(),
+          fromId: message.from,
+          fromNickname: message.fromNickname,
+          toId: message.to,
+          toNickname: message.toNickname,
+          amount: message.amount,
+        });
       case "signal":
         for (const handler of [...this.signalHandlers]) handler(message.from, message.data);
         return;
@@ -734,8 +776,10 @@ export class RoomClient {
       phase: "connected",
       chat: message.chat.slice(-CHAT_HISTORY_SIZE),
       ...this.applyRoomSettings(message.room),
-      // O servidor decide quantos vídeos esta pessoa pode transmitir (depende do plano dela).
+      // O servidor decide quantos vídeos esta pessoa pode transmitir (depende do plano dela) e quais
+      // reações ela pode enviar (as básicas mais as dos pacotes equipados).
       maxOwnVideos: message.limits.videosPerPerson,
+      availableReactions: message.limits.reactions,
     });
   }
 
@@ -763,6 +807,15 @@ export class RoomClient {
     }, REACTION_LIFETIME_MS);
     this.reactionTimers.add(timer);
     this.update({ reactions: [...this.state.reactions, event].slice(-MAX_REACTIONS) });
+  }
+
+  private addGift(event: GiftEvent): void {
+    const timer = setTimeout(() => {
+      this.giftTimers.delete(timer);
+      this.update({ gifts: this.state.gifts.filter((gift) => gift.id !== event.id) });
+    }, GIFT_LIFETIME_MS);
+    this.giftTimers.add(timer);
+    this.update({ gifts: [...this.state.gifts, event].slice(-MAX_GIFTS) });
   }
 
   private onForceMuted(): void {
@@ -884,7 +937,36 @@ export class RoomClient {
   }
 
   private react(reaction: string): void {
+    // A lista é a que o servidor mandou; fora dela, ele só recusaria.
+    if (!this.state.availableReactions.includes(reaction)) return;
     this.send({ type: "reaction.send", reaction });
+  }
+
+  private sendGold(participantId: string, amount: number): Promise<SendGoldResult> {
+    if (!this.isConnected()) return Promise.resolve({ ok: false, reason: "lost" });
+    if (this.pendingGift || !giftAmountSchema.safeParse(amount).success) {
+      return Promise.resolve({ ok: false, reason: "error" });
+    }
+    const requestId = this.deps.randomId();
+    return new Promise<SendGoldResult>((resolve) => {
+      const timer = setTimeout(
+        () => this.resolveGift({ ok: false, reason: "lost" }),
+        GIFT_REQUEST_TIMEOUT_MS,
+      );
+      this.pendingGift = { requestId, timer, resolve };
+      if (!this.send({ type: "gift.send", requestId, to: participantId, amount })) {
+        this.resolveGift({ ok: false, reason: "lost" });
+      }
+    });
+  }
+
+  /** Encerra o envio de ouro no ar (se houver) com o resultado dado. */
+  private resolveGift(result: SendGoldResult): void {
+    const pending = this.pendingGift;
+    if (!pending) return;
+    this.pendingGift = null;
+    clearTimeout(pending.timer);
+    pending.resolve(result);
   }
 
   private setHandRaised(raised: boolean): void {
@@ -1047,6 +1129,8 @@ export class RoomClient {
         handle: p.handle,
         avatarUrl: p.avatarUrl,
         badges: p.badges,
+        cosmetics: p.cosmetics,
+        canReceiveGold: p.canReceiveGold,
         micMuted: isSelf ? this.state.micMuted : p.micMuted,
         handRaised: isSelf ? this.handRaised : p.handRaised,
         speaking: this.speaking.has(p.id),
@@ -1074,6 +1158,8 @@ export class RoomClient {
     this.update({
       selfId,
       isOwner: self?.isOwner ?? false,
+      // O servidor marca quem entrou com conta; é o mesmo que a deixa enviar ouro.
+      canSendGold: self?.canReceiveGold ?? false,
       handRaised: this.handRaised,
       participants,
       videos,

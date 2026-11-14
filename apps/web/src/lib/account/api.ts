@@ -33,30 +33,27 @@ export type AccountApiFailure = ApiErrorCode | "network" | "invalid_response" | 
 export type AccountApiResult<T> = { ok: true; data: T } | { ok: false; error: AccountApiFailure };
 
 /** O pedaço de um esquema do zod que o cliente usa. */
-interface Schema<T> {
+export interface Schema<T> {
   safeParse(value: unknown): { success: true; data: T } | { success: false };
 }
 
 /** Resposta sem corpo (204). */
-const NO_CONTENT = Symbol("no content");
-
-export interface AccountApi {
-  getMe(signal?: AbortSignal): Promise<AccountApiResult<MeResponse>>;
-  logout(): Promise<AccountApiResult<void>>;
-  completeOnboarding(body: OnboardingRequest): Promise<AccountApiResult<MeUser>>;
-  updateMe(body: UpdateMeRequest): Promise<AccountApiResult<MeUser>>;
-  markTermsSeen(): Promise<AccountApiResult<MeUser>>;
-  deleteMe(): Promise<AccountApiResult<void>>;
-  checkHandle(handle: string): Promise<AccountApiResult<HandleAvailabilityResponse>>;
-  startCheckout(body: PlusCheckoutRequest): Promise<AccountApiResult<PlusCheckoutResponse>>;
-  getPayment(paymentId: string, signal?: AbortSignal): Promise<AccountApiResult<PlusPaymentResponse>>;
-  cancelPlus(): Promise<AccountApiResult<Plan>>;
-}
+export const NO_CONTENT = Symbol("no content");
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
-export function createAccountApi(fetchImpl: FetchLike): AccountApi {
-  async function request<T>(
+export type JsonRequest = <T>(
+  path: string,
+  schema: Schema<T> | typeof NO_CONTENT,
+  init: { method: Method; body?: unknown; signal?: AbortSignal },
+) => Promise<AccountApiResult<T>>;
+
+/**
+ * Pedido JSON à API do mesmo site: valida a resposta pelo esquema e traduz o erro para o código da
+ * API (também usado pelo cliente da carteira).
+ */
+export function createJsonRequest(fetchImpl: FetchLike): JsonRequest {
+  return async function request<T>(
     path: string,
     schema: Schema<T> | typeof NO_CONTENT,
     init: { method: Method; body?: unknown; signal?: AbortSignal },
@@ -90,7 +87,24 @@ export function createAccountApi(fetchImpl: FetchLike): AccountApi {
     }
     const error = apiErrorSchema.safeParse(body);
     return { ok: false, error: error.success ? error.data.error : "invalid_response" };
-  }
+  };
+}
+
+export interface AccountApi {
+  getMe(signal?: AbortSignal): Promise<AccountApiResult<MeResponse>>;
+  logout(): Promise<AccountApiResult<void>>;
+  completeOnboarding(body: OnboardingRequest): Promise<AccountApiResult<MeUser>>;
+  updateMe(body: UpdateMeRequest): Promise<AccountApiResult<MeUser>>;
+  markTermsSeen(): Promise<AccountApiResult<MeUser>>;
+  deleteMe(): Promise<AccountApiResult<void>>;
+  checkHandle(handle: string): Promise<AccountApiResult<HandleAvailabilityResponse>>;
+  startCheckout(body: PlusCheckoutRequest): Promise<AccountApiResult<PlusCheckoutResponse>>;
+  getPayment(paymentId: string, signal?: AbortSignal): Promise<AccountApiResult<PlusPaymentResponse>>;
+  cancelPlus(): Promise<AccountApiResult<Plan>>;
+}
+
+export function createAccountApi(fetchImpl: FetchLike): AccountApi {
+  const request = createJsonRequest(fetchImpl);
 
   return {
     getMe: (signal) => request("/api/me", meResponseSchema, { method: "GET", signal }),
