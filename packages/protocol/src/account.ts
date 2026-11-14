@@ -31,12 +31,16 @@ export type PlusCycle = z.infer<typeof plusCycleSchema>;
 export const plusStatusSchema = z.enum(["none", "active", "past_due", "canceled", "ended"]);
 export type PlusStatus = z.infer<typeof plusStatusSchema>;
 
+/** Ciclo do plano em vigor: os dois pagos ou `gift` (Plus recebido de presente, sem renovação). */
+export const planCycleSchema = z.enum(["monthly", "annual", "gift"]);
+export type PlanCycle = z.infer<typeof planCycleSchema>;
+
 export const planSchema = z.object({
   status: plusStatusSchema,
   /** Os benefícios do Plus valem agora (active, past_due ou canceled dentro do período pago). */
   plus: z.boolean(),
-  cycle: plusCycleSchema.nullable(),
-  /** Fim do período pago (ms). */
+  cycle: planCycleSchema.nullable(),
+  /** Fim do período pago ou presenteado (ms). */
   periodEnd: z.number().int().nullable(),
   /** Renova sozinha no fim do período (só mensal ativo). */
   renews: z.boolean(),

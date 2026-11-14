@@ -2,12 +2,17 @@ import {
   APP_NAME,
   EARLY_SUPPORTER_LIMIT,
   FIXED_LINK_RESERVE_DAYS,
+  GOLD_GIFT_DAILY_LIMIT,
   HANDLE_CHANGE_INTERVAL_DAYS,
   HANDLE_MAX_LENGTH,
   HANDLE_MIN_LENGTH,
   MINIMUM_AGE,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
+  PLUS_GIFT_DAYS,
+  PLUS_GIFT_PRICE_GOLD,
+  PLUS_GOLD_AMOUNT,
+  PLUS_GOLD_INTERVAL_DAYS,
   PLUS_RETRY_ATTEMPTS,
   PLUS_RETRY_WINDOW_DAYS,
   PLUS_VIDEO_QUALITY,
@@ -15,8 +20,10 @@ import {
   ROOM_MAX_PEOPLE,
   ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
+  WELCOME_SILVER,
 } from "@sualive/config";
-import type { RoomTheme } from "@sualive/config";
+import type { Currency, RoomTheme } from "@sualive/config";
+import { formatAmount } from "./components/format";
 
 /** One block of a legal page: plain text, or a passage still waiting for data from the operator. */
 export type LegalBlock = string | { pending: string };
@@ -43,6 +50,14 @@ const PLUS_GUARANTEE = `Garantia de ${PLUS_GUARANTEE_DAYS} dias`;
 
 const PLUS_QUALITY = `${PLUS_VIDEO_QUALITY.height}p a ${PLUS_VIDEO_QUALITY.frameRate} fps`;
 
+/** The two currencies, as they are named in the middle of a sentence. */
+const CURRENCY_NAMES: Record<Currency, string> = { silver: "prata", gold: "ouro" };
+/** "1.990 de ouro": an amount with its currency. */
+const coins = (amount: number, currency: Currency) =>
+  `${formatAmount(amount)} de ${CURRENCY_NAMES[currency]}`;
+const GOLD_DAILY_LIMIT = coins(GOLD_GIFT_DAILY_LIMIT, "gold");
+const PLUS_GIFT_PRICE = coins(PLUS_GIFT_PRICE_GOLD, "gold");
+
 /**
  * Numbers that only the legal pages state. Not parameters of `@sualive/config` yet: nothing on the
  * server reads them.
@@ -59,7 +74,7 @@ const CONTACT_EMAIL = "contato@sualive.com.br";
 /*
  * TERMOS DE USO E POLÍTICAS DE PRIVACIDADE — LEIA ANTES DE MUDAR O PRODUTO.
  *
- * Os dois textos abaixo descrevem o que o produto faz hoje (entregas 1 e 2) e o que o responsável
+ * Os dois textos abaixo descrevem o que o produto faz hoje (entregas 1 a 3) e o que o responsável
  * decidiu em 14/11/2026: operador, contato, foro, reembolso, prazos de guarda e limite de
  * responsabilidade. Toda entrega que mudar algo descrito aqui (dado coletado ou guardado, operador
  * novo, pagamento, moderação, sala pública, denúncia, moeda, envio de arquivo, limite de idade)
@@ -126,6 +141,18 @@ const TERMS_SECTIONS: LegalSection[] = [
     ],
   },
   {
+    title: "Prata, ouro e loja",
+    blocks: [
+      `Prata e ouro são moedas de uso exclusivo dentro do ${APP_NAME}. A prata se ganha: toda conta recebe ${coins(WELCOME_SILVER, "silver")} de boas-vindas. O ouro se compra por Pix, em pacotes, ou vem com o Plus pago: ${coins(PLUS_GOLD_AMOUNT, "gold")} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias de Plus pago. O Plus recebido de presente não dá ouro.`,
+      "A compra de ouro é um Pix único, processado pela Woovi, e pede o CPF, como a assinatura do Plus. O ouro entra na carteira quando o pagamento é confirmado.",
+      "Moeda não vira dinheiro: não existe saque, reembolso em dinheiro nem conversão de ouro em prata. Prata e ouro não expiram.",
+      "Os itens da loja (cor do nome, degradê do nome, moldura do avatar e pacotes de reações) têm um preço só, pago com prata ou com ouro, à sua escolha. Item comprado é permanente e pessoal: fica na sua conta e não passa para outra.",
+      `Você pode enviar ouro a outra conta, até ${GOLD_DAILY_LIMIT} por dia. O envio não se desfaz. Prata não pode ser enviada.`,
+      `Você pode presentear outra conta com ${PLUS_GIFT_DAYS} dias de Plus por ${PLUS_GIFT_PRICE}. Se quem recebe já tem o Plus, os dias somam ao período atual. O Plus de presente não renova, não dá ouro nem o selo de apoiador inicial e acaba sem aviso de vencimento; enquanto ele vale, a conta não assina o Plus pago. Quem está com uma cobrança em atraso e recebe o presente perde os dias ganhos se as novas tentativas de cobrança falharem.`,
+      "Excluir a conta apaga o saldo de prata e de ouro e os itens comprados. Uma compra de ouro ainda não paga é apagada junto: um Pix pago depois da exclusão não gera crédito.",
+    ],
+  },
+  {
     title: "Disponibilidade e responsabilidade",
     blocks: [
       "O serviço é oferecido como está. A qualidade da chamada depende da conexão e do equipamento de cada participante, e o serviço pode ficar indisponível.",
@@ -180,6 +207,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
       "Voz, vídeo e tela trafegam direto entre os navegadores dos participantes. Para isso funcionar, os navegadores trocam endereços de rede, e os participantes de uma mesma sala podem ver o endereço IP uns dos outros. Em algumas redes a mídia passa por um servidor de retransmissão da Cloudflare, que não guarda o conteúdo.",
       "Não gravamos áudio nem vídeo. O chat fica guardado só enquanto a sala existe e é apagado quando ela acaba.",
       "O servidor usa o endereço IP para limitar abusos (excesso de tentativas) e para manter um banimento feito pelo dono, até a sala acabar.",
+      "Os cosméticos que você equipa (cor ou degradê do nome, moldura do avatar e reações) e o ouro que você envia a alguém dentro da sala são vistos pelos outros participantes.",
     ],
   },
   {
@@ -191,14 +219,20 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: "Pagamento",
     blocks: [
-      "O Plus é pago por Pix, processado pela Woovi. Para gerar a cobrança pedimos o seu CPF. Nós não guardamos o CPF: ele só passa pelo nosso servidor a caminho da Woovi, que processa o Pix.",
-      `Guardamos o estado da assinatura (ciclo, período pago, situação) e o registro de cada cobrança. Os registros de cobrança ficam guardados por ${BILLING_RECORDS_YEARS} anos, para cumprir obrigações fiscais e responder a reclamações, e depois são apagados.`,
+      "O Plus e os pacotes de ouro são pagos por Pix, processado pela Woovi. Para gerar a cobrança pedimos o seu CPF. Nós não guardamos o CPF: ele só passa pelo nosso servidor a caminho da Woovi, que processa o Pix.",
+      `Guardamos o estado da assinatura (ciclo, período pago, situação) e o registro de cada cobrança, do Plus e das compras de ouro. Os registros de cobrança ficam guardados por ${BILLING_RECORDS_YEARS} anos, para cumprir obrigações fiscais e responder a reclamações, e depois são apagados.`,
+    ],
+  },
+  {
+    title: "Carteira e loja",
+    blocks: [
+      "Guardamos os saldos de prata e de ouro, o extrato de cada movimento (nos presentes, com a outra conta envolvida), os itens que você comprou e os que estão equipados, e o registro das compras de ouro.",
     ],
   },
   {
     title: "Por que tratamos os seus dados",
     blocks: [
-      "Para prestar o serviço que você pediu (execução de contrato): a sessão, a conta, a sala e a cobrança do Plus.",
+      "Para prestar o serviço que você pediu (execução de contrato): a sessão, a conta, a sala, a carteira, a loja e a cobrança do Plus e do ouro.",
       "Para cumprir a lei (obrigação legal): os registros de cobrança e os registros de acesso.",
       "Por legítimo interesse: limitar abusos, corrigir falhas e medir o acesso ao site, sem cookies de rastreamento.",
     ],
@@ -214,6 +248,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
     title: "Excluir a conta",
     blocks: [
       "Você exclui a conta pela página do perfil. A exclusão apaga os seus dados pessoais: e-mail, @nome, apelido, endereço da foto, vínculo com o Google ou o Discord, aceite dos Termos de Uso e declaração de idade. Registros de cobrança que precisem ser mantidos deixam de estar ligados à conta.",
+      "A exclusão apaga também a carteira (saldos e extrato) e os itens comprados e equipados. No extrato de quem trocou presentes com você, o seu @nome deixa de aparecer. As compras de ouro já pagas ficam como registro contábil, sem ligação com a conta, como já acontece com a cobrança do Plus.",
     ],
   },
   {
@@ -267,6 +302,10 @@ export const texts = {
     homeShort: "Início",
     login: "Entrar",
     plus: "Plus",
+    /** The two entries shown to who is logged, beside the way to the profile. */
+    walletLabel: "Carteira e loja",
+    wallet: "Carteira",
+    shop: "Loja",
     profile: (nickname: string) => `Perfil de ${nickname}`,
     footerLabel: "Rodapé",
     terms: "Termos de Uso",
@@ -354,7 +393,7 @@ export const texts = {
     loggingOut: "Saindo…",
     deleteTitle: "Excluir a conta",
     deleteExplain:
-      "Excluir a conta apaga os seus dados pessoais: @nome, apelido, endereço da foto, o aceite dos Termos de Uso e a declaração de idade. O @nome fica livre e o link fixo deixa de existir. Não dá para desfazer.",
+      "Excluir a conta apaga os seus dados pessoais: @nome, apelido, endereço da foto, o aceite dos Termos de Uso e a declaração de idade. O saldo de prata e de ouro e os itens da loja são apagados junto. O @nome fica livre e o link fixo deixa de existir. Não dá para desfazer.",
     deletePlusWarning:
       "Você tem um Plus em andamento. Excluir a conta encerra os benefícios; se o plano for mensal, cancele a assinatura antes, na página do plano.",
     deleteStart: "Quero excluir a minha conta",
@@ -411,7 +450,7 @@ export const texts = {
       pastDue: `O último pagamento não passou. Estamos tentando de novo (até ${PLUS_RETRY_ATTEMPTS} tentativas em ${PLUS_RETRY_WINDOW_DAYS} dias) e os seus benefícios continuam enquanto isso.`,
       canceled: (date: string) => `Assinatura cancelada. Os benefícios valem até ${date}.`,
       ended: `Seu Plus acabou. O link fixo fica reservado para você por ${FIXED_LINK_RESERVE_DAYS} dias.`,
-      cycle: { monthly: "mensal", annual: "anual" },
+      cycle: { monthly: "mensal", annual: "anual", gift: "de presente" },
       resubscribeLater: "Você poderá assinar de novo quando o período atual acabar.",
     },
     annualExpiry: (days: number, date: string) =>
@@ -464,6 +503,7 @@ export const texts = {
       state: "Situação",
       states: { active: "Ativo", past_due: "Em atraso", canceled: "Cancelado", ended: "Encerrado" },
       cycle: "Ciclo",
+      giftCycle: "Presente",
       renewsOn: "Renova em",
       validUntil: "Vale até",
     },
@@ -510,6 +550,129 @@ export const texts = {
     close: "Fechar aviso",
     /** What the close button shows: only the letter. */
     closeMark: "x",
+  },
+  wallet: {
+    title: "Carteira",
+    loadFailed: "Não foi possível carregar a sua carteira agora.",
+    /** "1.990 de ouro": an amount with its currency. */
+    amount: coins,
+    balances: {
+      title: "Seus saldos",
+      names: { silver: "Prata", gold: "Ouro" },
+      about: {
+        silver: "A prata você ganha, não compra. Ela só compra cosméticos da loja.",
+        gold: "O ouro você compra por Pix ou recebe com o Plus pago. Ele compra cosméticos e pode ser enviado de presente.",
+      },
+      shopLink: "Ir para a loja",
+    },
+    ledger: {
+      title: "Extrato",
+      loading: "Carregando o extrato…",
+      empty: "Nenhum movimento ainda.",
+      failed: "Não foi possível carregar o extrato.",
+      more: "Carregar mais",
+      loadingMore: "Carregando…",
+      /** In place of the @handle of the other account of a gift, when it no longer exists. */
+      deletedAccount: "conta excluída",
+      /** A movement as it was signed: "+300 de prata", "−100 de ouro". */
+      amount: (signed: string, currency: Currency) => `${signed} de ${CURRENCY_NAMES[currency]}`,
+      reasons: {
+        welcome: "Prata de boas-vindas",
+        plus_gold: "Ouro do Plus",
+        gold_purchase: "Compra de ouro",
+        shop_purchase: (item: string | null) => (item ? `Compra na loja: ${item}` : "Compra na loja"),
+        gift_sent: (who: string) => `Ouro enviado para ${who}`,
+        gift_received: (who: string) => `Ouro recebido de ${who}`,
+        plus_gift: (who: string) => `Plus de presente para ${who}`,
+      },
+    },
+    buy: {
+      title: "Comprar ouro",
+      intro: "Pagamento único por Pix. O ouro entra na carteira quando o pagamento é confirmado.",
+      choose: "Comprar",
+      /** Accessible name of the button of a pack: "Comprar 990 de ouro por R$ 9,90". */
+      chooseLabel: (gold: string, price: string) => `Comprar ${gold} por ${price}`,
+      checkoutTitle: (gold: string) => `Comprar ${gold}`,
+      back: "Escolher outro pacote",
+      qrHow: "Abra o app do seu banco e leia o QR Code, ou use o Pix copia e cola.",
+      paidTitle: "Pagamento confirmado",
+      paid: (gold: string) => `Pagamento confirmado: ${gold} creditados na sua carteira.`,
+      paidAction: "Concluir",
+      unavailable: "A compra de ouro não está disponível agora. Tente de novo mais tarde.",
+    },
+    send: {
+      title: "Enviar ouro",
+      intro: "Envie ouro a outra conta pelo @nome. Prata não pode ser enviada.",
+      sentToday: (sent: string, limit: string) => `Enviado hoje: ${sent} de ${limit} de ouro.`,
+      handleLabel: "@nome de quem recebe o ouro",
+      amountLabel: "Quanto ouro enviar",
+      submit: "Enviar ouro",
+      confirmText: (amount: string, handle: string) =>
+        `Enviar ${amount} para @${handle}? O envio não se desfaz.`,
+      confirm: "Confirmar o envio",
+      sending: "Enviando…",
+      done: (amount: string, handle: string) => `Você enviou ${amount} para @${handle}.`,
+    },
+    giftPlus: {
+      title: "Presentear Plus",
+      intro: `Dê ${PLUS_GIFT_DAYS} dias de Plus a outra conta por ${PLUS_GIFT_PRICE}. Se a pessoa já tem o Plus, os dias somam ao período atual. O Plus de presente não renova.`,
+      handleLabel: "@nome de quem recebe o Plus",
+      submit: "Presentear Plus",
+      confirmText: (handle: string) =>
+        `Presentear @${handle} com ${PLUS_GIFT_DAYS} dias de Plus por ${PLUS_GIFT_PRICE}? O presente não se desfaz.`,
+      confirm: "Confirmar o presente",
+      sending: "Presenteando…",
+      done: (handle: string) => `@${handle} recebeu ${PLUS_GIFT_DAYS} dias de Plus.`,
+    },
+    handlePlaceholder: "@nome",
+    handleInvalid: "Informe o @nome de quem vai receber.",
+    amountInvalid: "Informe um valor inteiro, a partir de 1.",
+    /** Always at the foot of the wallet. */
+    notice:
+      "Prata e ouro não viram dinheiro: não há saque, reembolso em dinheiro nem troca de ouro por prata.",
+    errors: {
+      unauthorized: "A sua sessão acabou. Entre de novo para continuar.",
+      insufficientFunds: "Saldo insuficiente.",
+      dailyLimit: `Esse envio passa do limite diário de ${GOLD_DAILY_LIMIT}.`,
+      recipientNotFound: "Não existe conta com esse @nome.",
+      selfGift: "Não dá para presentear a própria conta.",
+      alreadyOwned: "Você já tem este item.",
+      notOwned: "Este item ainda não é seu.",
+      notFound: "Não encontramos o que você pediu. Atualize a página e tente de novo.",
+      billingUnavailable: "A compra de ouro não está disponível agora. Tente de novo mais tarde.",
+      invalid: "Os dados enviados foram recusados. Confira e tente de novo.",
+      rateLimited: "Muitas tentativas em pouco tempo. Espere um minuto e tente de novo.",
+      error: "Algo deu errado. Tente de novo em instantes.",
+    },
+  },
+  shop: {
+    title: "Loja",
+    lead: "Cosméticos para o seu nome, o seu avatar e as suas reações. O que você compra é seu para sempre.",
+    loadFailed: "Não foi possível carregar a loja agora.",
+    empty: "A loja está vazia agora.",
+    balancesLabel: "Seus saldos",
+    walletLink: "Ver a carteira",
+    groups: {
+      name_color: "Cores do nome",
+      name_gradient: "Degradês do nome",
+      avatar_frame: "Molduras do avatar",
+      reaction_pack: "Pacotes de reações",
+    },
+    /** The price is one; the person picks the currency when buying. */
+    price: (value: string) => `${value} de prata ou de ouro`,
+    previewLabel: (name: string) => `Pré-visualização de ${name}`,
+    buy: "Comprar",
+    buyLabel: (name: string) => `Comprar ${name}`,
+    confirmText: (name: string, price: string) => `Comprar ${name} por ${price}? Escolha como pagar.`,
+    payWith: { silver: "Pagar com prata", gold: "Pagar com ouro" },
+    buying: "Comprando…",
+    owned: "Comprado",
+    equipped: "Equipado",
+    equip: "Equipar",
+    equipLabel: (name: string) => `Equipar ${name}`,
+    unequip: "Desequipar",
+    unequipLabel: (name: string) => `Desequipar ${name}`,
+    insufficientLink: "Ir para a carteira",
   },
   turnstile: {
     failed: "Não foi possível concluir a verificação contra robôs.",
@@ -665,6 +828,31 @@ export const texts = {
     confirmBan: (nickname: string) => `Banir ${nickname}? A pessoa não volta até a sala acabar.`,
     confirmKickAction: "Remover",
     confirmBanAction: "Banir",
+  },
+  /** Sending gold to someone in the room. Amounts arrive already formatted ("1.000"). */
+  gifts: {
+    send: (nickname: string) => `Enviar ouro para ${nickname}`,
+    amountLabel: "Valor em ouro",
+    balance: (gold: string) => `Seu saldo: ${gold} de ouro`,
+    remainingToday: (gold: string) => `Hoje você ainda pode enviar ${gold} de ouro`,
+    walletLoading: "Carregando o seu saldo…",
+    walletError: "Não foi possível carregar o seu saldo.",
+    next: "Continuar",
+    confirmQuestion: (gold: string, nickname: string) => `Enviar ${gold} de ouro para ${nickname}?`,
+    confirm: "Confirmar envio",
+    sending: "Enviando…",
+    sent: (gold: string, nickname: string) => `Você enviou ${gold} de ouro para ${nickname}.`,
+    /** Seen by everyone in the room. */
+    notice: (from: string, gold: string, to: string) => `${from} enviou ${gold} de ouro para ${to}`,
+    invalidAmount: (max: string) => `Digite um valor inteiro de 1 a ${max}.`,
+    errors: {
+      insufficient_funds: "Você não tem ouro suficiente para este envio.",
+      daily_limit: "Este envio passa do seu limite de ouro enviado por dia.",
+      not_allowed: "Não dá para enviar ouro a esta pessoa.",
+      not_found: "Esta pessoa não está mais na sala.",
+      error: "Não foi possível enviar o ouro. Tente de novo.",
+      lost: "Não deu para confirmar o envio. Confira o extrato da sua carteira antes de tentar de novo.",
+    },
   },
   controls: {
     label: "Controles da sala",

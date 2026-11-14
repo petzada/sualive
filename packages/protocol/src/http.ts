@@ -62,6 +62,13 @@ export const apiErrorCodeSchema = z.enum([
   "plus_required",
   "billing_unavailable", // assinatura desligada neste ambiente
   "already_subscribed",
+  // Carteira, loja e presentes (entrega 3)
+  "insufficient_funds", // saldo menor que o valor
+  "daily_limit", // passaria do limite diário de envio de ouro
+  "recipient_not_found", // @nome inexistente ou sem o primeiro acesso concluído
+  "self_gift", // presente para a própria conta
+  "already_owned",
+  "not_owned",
 ]);
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 

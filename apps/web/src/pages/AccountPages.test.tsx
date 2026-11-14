@@ -1120,17 +1120,18 @@ describe("home page with accounts", () => {
     expect(footer.getByRole("link", { name: texts.nav.privacy }).getAttribute("href")).toBe("/privacidade");
   });
 
-  it("shows who is logged only the picture and the nickname, as a block of its own after the button", () => {
+  it("shows who is logged the picture and the nickname, then the wallet and the shop, as a block of its own after the button", () => {
     renderApp({ path: "/", account: logged(makeUser({ avatarUrl: "https://example.test/a.png" })) });
 
     const profile = within(account()).getByRole("link", { name: texts.nav.profile("Marina") });
     expect(profile.getAttribute("href")).toBe("/perfil");
     expect(profile.textContent).toBe("Marina");
     expect(profile.querySelector("img")?.getAttribute("src")).toBe("https://example.test/a.png");
-    // Nothing but the link: the "continue with your account" line is gone.
-    expect(account().children).toHaveLength(1);
+    // The link, then the ways to the wallet and the shop: the "continue with your account" line is gone.
+    expect(account().children).toHaveLength(2);
     expect(account().firstElementChild).toBe(profile);
-    expect(account().textContent).toBe("Marina");
+    expect(account().lastElementChild).toBe(screen.getByTestId("wallet-links"));
+    expect(account().textContent).toBe(`Marina${texts.nav.wallet}${texts.nav.shop}`);
     expect(document.body.textContent).not.toContain("Continue com sua conta");
     expect("continue" in texts.home.account).toBe(false);
     expect(account().textContent).not.toContain(texts.home.account.question);

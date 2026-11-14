@@ -2,7 +2,14 @@
  * Fake room client for the dev-only demo (`/demo`). Nothing here talks to a server or to WebRTC:
  * videos are animated canvases and every action just edits local state.
  */
-import { PLUS_VIDEOS_PER_PERSON, ROOM_MAX_PEOPLE, ROOM_MAX_VIDEOS, VIDEOS_PER_PERSON } from "@sualive/config";
+import {
+  GOLD_GIFT_DAILY_LIMIT,
+  PLUS_VIDEOS_PER_PERSON,
+  REACTIONS,
+  ROOM_MAX_PEOPLE,
+  ROOM_MAX_VIDEOS,
+  VIDEOS_PER_PERSON,
+} from "@sualive/config";
 import type { RoomTheme } from "@sualive/config";
 import type { DevicePreview, VideoKind } from "@sualive/media";
 import { useMemo, useState } from "react";
@@ -71,24 +78,67 @@ function fakePreview(): DevicePreview {
   };
 }
 
-/** Who has an account among the others, to see pictures, handles and badges beside guests. */
-const ACCOUNTS: Record<number, Pick<ParticipantView, "handle" | "avatarUrl" | "badges">> = {
-  1: { handle: "caio", avatarUrl: demoAvatar(20), badges: ["plus", "early_supporter"] },
-  2: { handle: "bia_albuquerque", avatarUrl: null, badges: ["plus"] },
-  // Broken on purpose: the picture fails and the initial takes its place.
-  4: { handle: "jo", avatarUrl: "/demo-missing-avatar.png", badges: [] },
+type AccountFields = Pick<
+  ParticipantView,
+  "handle" | "avatarUrl" | "badges" | "cosmetics" | "canReceiveGold"
+>;
+
+const GUEST: AccountFields = {
+  handle: null,
+  avatarUrl: null,
+  badges: [],
+  cosmetics: null,
+  canReceiveGold: false,
 };
+
+/** Who has an account among the others, to see pictures, handles, badges and cosmetics beside guests. */
+const ACCOUNTS: Record<number, AccountFields> = {
+  1: {
+    handle: "caio",
+    avatarUrl: demoAvatar(20),
+    badges: ["plus", "early_supporter"],
+    cosmetics: {
+      name: { light: ["#6d28d9", "#db2777"], dark: ["#a78bfa", "#f472b6"] },
+      frame: { light: ["#b45309"], dark: ["#fbbf24"] },
+    },
+    canReceiveGold: true,
+  },
+  2: {
+    handle: "bia_albuquerque",
+    avatarUrl: null,
+    badges: ["plus"],
+    cosmetics: { name: { light: ["#047857"], dark: ["#34d399"] }, frame: null },
+    canReceiveGold: true,
+  },
+  // Broken on purpose: the picture fails and the initial takes its place.
+  4: {
+    handle: "jo",
+    avatarUrl: "/demo-missing-avatar.png",
+    badges: [],
+    cosmetics: null,
+    canReceiveGold: true,
+  },
+};
+
+/** Extra reactions of the viewer's equipped pack (logged-in demo only). */
+const DEMO_PACK_REACTIONS = ["🥳", "🔥", "💯"];
 
 function initialState(code: string, options: DemoOptions): RoomState {
   const count = Math.min(Math.max(options.people, 1), ROOM_MAX_PEOPLE);
   const account = options.account ?? null;
   const fixedHandle = code.startsWith("@") ? code.slice(1) : (options.fixedHandle ?? null);
-  const self: Pick<ParticipantView, "handle" | "avatarUrl" | "badges"> = account
-    ? { handle: account.handle, avatarUrl: account.avatarUrl, badges: account.plus ? ["plus"] : [] }
-    : { handle: null, avatarUrl: null, badges: [] };
+  const self: AccountFields = account
+    ? {
+        handle: account.handle,
+        avatarUrl: account.avatarUrl,
+        badges: account.plus ? ["plus"] : [],
+        cosmetics: { name: { light: ["#1d4ed8"], dark: ["#93c5fd"] }, frame: null },
+        canReceiveGold: true,
+      }
+    : GUEST;
   const participants: ParticipantView[] = Array.from({ length: count }, (_, index) => ({
     id: `p${index}`,
-    ...(index === 0 ? self : (ACCOUNTS[index] ?? { handle: null, avatarUrl: null, badges: [] })),
+    ...(index === 0 ? self : (ACCOUNTS[index] ?? GUEST)),
     nickname: index === 0 && account ? account.nickname : (NAMES[index] ?? `Pessoa ${index + 1}`),
     isSelf: index === 0,
     isOwner: options.isOwner ? index === 0 : index === 1,
@@ -143,6 +193,9 @@ function initialState(code: string, options: DemoOptions): RoomState {
         }))
       : [],
     reactions: [],
+    availableReactions: account ? [...REACTIONS, ...DEMO_PACK_REACTIONS] : [...REACTIONS],
+    canSendGold: inside && account !== null,
+    gifts: [],
     notice: options.notice,
     micMuted: true,
     handRaised: false,
@@ -213,6 +266,8 @@ export function createDemoClient(options: DemoOptions): RoomClient {
             }));
           },
           react(reaction) {
+            const allowed = options.account ? [...REACTIONS, ...DEMO_PACK_REACTIONS] : [...REACTIONS];
+            if (!allowed.includes(reaction)) return;
             const id = nextId("r");
             patch((current) => ({ reactions: [...current.reactions, { id, from: SELF_ID, reaction }] }));
             setTimeout(
@@ -280,6 +335,37 @@ export function createDemoClient(options: DemoOptions): RoomClient {
                 occupancy: { ...current.occupancy, participants: participants.length },
               };
             });
+          },
+          async sendGold(participantId, amount) {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            if (!Number.isInteger(amount) || amount < 1 || amount > GOLD_GIFT_DAILY_LIMIT) {
+              return { ok: false, reason: "error" };
+            }
+            // Same rule as the server: both with an account, never to oneself.
+            const target = ACCOUNTS[Number(participantId.slice(1))];
+            if (!options.account || participantId === SELF_ID || !target?.canReceiveGold) {
+              return { ok: false, reason: "not_allowed" };
+            }
+            const id = nextId("g");
+            patch((current) => {
+              const from = current.participants.find((participant) => participant.isSelf);
+              const to = current.participants.find((participant) => participant.id === participantId);
+              if (!from || !to) return {};
+              const gift = {
+                id,
+                fromId: from.id,
+                fromNickname: from.nickname,
+                toId: to.id,
+                toNickname: to.nickname,
+                amount,
+              };
+              return { gifts: [...current.gifts, gift] };
+            });
+            setTimeout(
+              () => patch((current) => ({ gifts: current.gifts.filter((gift) => gift.id !== id) })),
+              6000,
+            );
+            return { ok: true };
           },
           async copyLink() {
             patch(() => ({ notice: { kind: "linkCopied" } }));

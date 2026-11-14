@@ -5,3 +5,4 @@
 export * from "./http";
 export * from "./room";
 export * from "./account";
+export * from "./wallet";

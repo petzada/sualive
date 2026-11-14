@@ -9,7 +9,19 @@ const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
+const amountFormat = new Intl.NumberFormat("pt-BR");
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 1990 → "1.990": an amount of silver or gold, or a price of the shop. */
+export function formatAmount(amount: number): string {
+  return amountFormat.format(amount);
+}
+
+/** A movement of the statement with its sign: 300 → "+300", -1990 → "−1.990". */
+export function formatSignedAmount(amount: number): string {
+  return `${amount < 0 ? "−" : "+"}${amountFormat.format(Math.abs(amount))}`;
+}
 
 /** 1990 → "R$ 19,90" (with the non-breaking space the locale uses, so the price never wraps). */
 export function formatCents(cents: number): string {

@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { AccountClientProvider } from "../components/account/AccountClient";
 import { RoomClientProvider } from "../components/room/RoomClient";
+import { WalletClientProvider } from "../components/wallet/WalletClient";
 import type { PaymentStatus } from "../lib/account";
 import type { RoomNotice, RoomPhase } from "../lib/room";
 import { RoomScreen } from "../pages/RoomPage";
@@ -18,6 +19,7 @@ import { DEFAULT_DEMO_SESSION, readDemoSession, startDemoSession } from "./DemoS
 import type { DemoSession } from "./DemoShell";
 import { createDemoAccountClient, DEMO_ACCOUNT_LABELS, DEMO_ACCOUNTS, demoAvatar } from "./fakeAccount";
 import { createDemoClient } from "./fakeRoom";
+import { createDemoWalletClient } from "./fakeWallet";
 
 const PHASES: RoomPhase[] = [
   "loading",
@@ -177,6 +179,7 @@ export default function DemoPage() {
         payment: "paid",
         providers: true,
       }),
+      wallet: createDemoWalletClient({ logged }),
       room: createDemoClient({
         phase: PHASES.find((name) => name === read.get("fase")) ?? "lobby",
         isOwner: read.get("dono") === "1",
@@ -219,9 +222,11 @@ export default function DemoPage() {
 
   return (
     <AccountClientProvider client={clients.account}>
-      <RoomClientProvider client={clients.room}>
-        <RoomScreen key={query} code="demo234567" />
-      </RoomClientProvider>
+      <WalletClientProvider client={clients.wallet}>
+        <RoomClientProvider client={clients.room}>
+          <RoomScreen key={query} code="demo234567" />
+        </RoomClientProvider>
+      </WalletClientProvider>
     </AccountClientProvider>
   );
 }

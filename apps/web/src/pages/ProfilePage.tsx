@@ -18,6 +18,7 @@ import {
   PRIMARY_PILL,
   TEXT_LINK,
 } from "../components/account/styles";
+import { WalletLinks } from "../components/account/WalletLinks";
 import { formatDate } from "../components/format";
 import { Spinner } from "../components/icons";
 import { Avatar } from "../components/room/media";
@@ -332,6 +333,7 @@ export function ProfilePage() {
           >
             {user.plan.plus ? texts.profile.planLink : texts.profile.plusLink}
           </Link>
+          <WalletLinks />
         </div>
       </header>
 

@@ -1,6 +1,6 @@
 // Esquema do D1 (Drizzle). Migrations: `pnpm db:generate` grava em `migrations/`, aplicadas pelo
 // CI antes do código. Só adicionar (tabela, índice, coluna nula ou com default).
-import { EARLY_SUPPORTER_LIMIT } from "@sualive/config";
+import { EARLY_SUPPORTER_LIMIT, GOLD_GIFT_DAILY_LIMIT } from "@sualive/config";
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
@@ -175,4 +175,139 @@ export const billingEarlySupporters = sqliteTable(
       sql`${table.position} BETWEEN 1 AND ${sql.raw(String(EARLY_SUPPORTER_LIMIT))}`,
     ),
   ],
+);
+
+// ---------- Carteira, loja e presentes (entrega 3) ----------
+
+/**
+ * Saldos de prata e de ouro: uma linha por conta, criada na primeira movimentação. O CHECK impede
+ * saldo negativo: um débito maior que o saldo falha e desfaz o `batch` inteiro. Toda mudança de
+ * saldo vai junto com a linha correspondente em `wallet_ledger` (ver `src/wallet/ledger.ts`).
+ */
+export const wallets = sqliteTable(
+  "wallets",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    silver: integer("silver").notNull().default(0),
+    gold: integer("gold").notNull().default(0),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [check("wallets_non_negative", sql`${table.silver} >= 0 AND ${table.gold} >= 0`)],
+);
+
+/**
+ * Livro-razão: uma linha por movimento. `amount` é positivo (entrou) ou negativo (saiu), nunca
+ * zero. `reference` é única no banco: o mesmo fato (um webhook, um crédito mensal, uma compra)
+ * nunca é lançado duas vezes. A soma das linhas de uma conta numa moeda é o saldo dela.
+ */
+export const walletLedger = sqliteTable(
+  "wallet_ledger",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** `silver` ou `gold`. */
+    currency: text("currency").notNull(),
+    amount: integer("amount").notNull(),
+    /** Um de `ledgerReasonSchema` (`@sualive/protocol`). */
+    reason: text("reason").notNull(),
+    reference: text("reference").notNull().unique(),
+    /** A outra conta num presente. Fica nulo se ela for excluída. */
+    counterpartUserId: text("counterpart_user_id").references(() => users.id, { onDelete: "set null" }),
+    /** Item da loja numa compra. */
+    itemId: text("item_id"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("wallet_ledger_user_idx").on(table.userId, table.createdAt),
+    check("wallet_ledger_amount_check", sql`${table.amount} != 0`),
+    check("wallet_ledger_currency_check", sql`${table.currency} IN ('silver', 'gold')`),
+  ],
+);
+
+/**
+ * Ouro enviado por conta em cada dia de calendário (Brasília). O CHECK é o limite diário: o envio
+ * que passaria dele falha e desfaz o `batch`.
+ */
+export const goldGiftDaily = sqliteTable(
+  "gold_gift_daily",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** AAAA-MM-DD em Brasília. */
+    day: text("day").notNull(),
+    sent: integer("sent").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.day] }),
+    check(
+      "gold_gift_daily_limit",
+      sql`${table.sent} BETWEEN 0 AND ${sql.raw(String(GOLD_GIFT_DAILY_LIMIT))}`,
+    ),
+  ],
+);
+
+/**
+ * Compras de pacote de ouro por Pix único. Pendente até a Woovi confirmar; o crédito acontece no
+ * mesmo `batch` que marca a linha como paga. Ao excluir a conta, as pagas ficam anônimas (registro
+ * contábil) e as demais são apagadas.
+ */
+export const goldPurchases = sqliteTable(
+  "gold_purchases",
+  {
+    /** Identificador público (`paymentId` da API). */
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    packId: text("pack_id").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    gold: integer("gold").notNull(),
+    /** `pending`, `paid`, `expired` ou `failed`. */
+    status: text("status").notNull(),
+    /** `correlationID` da cobrança na Woovi. */
+    correlationId: text("correlation_id").notNull().unique(),
+    brCode: text("br_code"),
+    qrCodeImageUrl: text("qr_code_image_url"),
+    expiresAt: integer("expires_at"),
+    paidAt: integer("paid_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("gold_purchases_user_idx").on(table.userId, table.status)],
+);
+
+/** Catálogo da loja. Os itens iniciais entram pela migration; `data` é o JSON de `shopItemDataSchema`. */
+export const shopItems = sqliteTable(
+  "shop_items",
+  {
+    id: text("id").primaryKey(),
+    /** Um de SHOP_ITEM_KINDS. */
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    /** Preço único, em prata ou em ouro. */
+    price: integer("price").notNull(),
+    data: text("data").notNull(),
+    sort: integer("sort").notNull().default(0),
+    /** 0 = fora da vitrine (quem já comprou continua com o item). */
+    active: integer("active").notNull().default(1),
+  },
+  (table) => [check("shop_items_price_check", sql`${table.price} > 0`)],
+);
+
+/** Itens comprados (permanentes) e se estão equipados. */
+export const userItems = sqliteTable(
+  "user_items",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => shopItems.id),
+    equipped: integer("equipped").notNull().default(0),
+    acquiredAt: integer("acquired_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.itemId] })],
 );

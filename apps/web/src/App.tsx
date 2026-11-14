@@ -16,6 +16,8 @@ import { PlanPage } from "./pages/PlanPage";
 import { PlusPage } from "./pages/PlusPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { FixedRoomPage, RoomPage } from "./pages/RoomPage";
+import { ShopPage } from "./pages/ShopPage";
+import { WalletPage } from "./pages/WalletPage";
 import { WelcomePage } from "./pages/WelcomePage";
 
 /**
@@ -64,6 +66,8 @@ function AppRoutes() {
         <Route path={PATHS.plus} element={<PlusPage />} />
         <Route path={PATHS.welcome} element={<WelcomePage />} />
         <Route path={PATHS.plan} element={<PlanPage />} />
+        <Route path={PATHS.wallet} element={<WalletPage />} />
+        <Route path={PATHS.shop} element={<ShopPage />} />
         <Route path={PATHS.terms} element={<LegalPage kind="terms" />} />
         <Route path={PATHS.privacy} element={<LegalPage kind="privacy" />} />
         {DemoPage && (

@@ -7,6 +7,7 @@ import type {
   MediaSessionOptions,
   VideoKind,
 } from "@sualive/media";
+import { REACTIONS } from "@sualive/config";
 import type { ClientMessage, MeUser, Participant, ServerMessage } from "@sualive/protocol";
 import { vi, type Mock } from "vitest";
 import type { AccountSource, RoomDeps, SocketHandlers, SocketLike, StorageLike } from "../deps";
@@ -368,12 +369,14 @@ export function participant(id: string, overrides: Partial<Participant> = {}): P
     handle: null,
     avatarUrl: null,
     badges: [],
+    cosmetics: null,
+    canReceiveGold: false,
     ...overrides,
   };
 }
 
 /** Campos do `welcome` que valem para a sala e para a própria pessoa, com os valores padrão. */
 export const welcomeDefaults = {
-  room: { theme: "default", fixed: false, ownerHandle: null },
-  limits: { videosPerPerson: 1 },
-} as const;
+  room: { theme: "default" as const, fixed: false, ownerHandle: null },
+  limits: { videosPerPerson: 1, reactions: [...REACTIONS] as string[] },
+};

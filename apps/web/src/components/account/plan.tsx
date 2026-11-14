@@ -105,7 +105,7 @@ function PlanDetails({ plan }: { plan: Plan }) {
       {plan.cycle && (
         <>
           <dt className="text-muted">{texts.plan.details.cycle}</dt>
-          <dd>{texts.plus.cycles[plan.cycle].name}</dd>
+          <dd>{plan.cycle === "gift" ? texts.plan.details.giftCycle : texts.plus.cycles[plan.cycle].name}</dd>
         </>
       )}
       {dated && plan.periodEnd !== null && (

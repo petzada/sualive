@@ -1,6 +1,4 @@
 import { Button } from "@heroui/react";
-import { REACTIONS } from "@sualive/config";
-import type { Reaction } from "@sualive/config";
 import type { VideoKind } from "@sualive/media";
 import { useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
@@ -102,7 +100,7 @@ export function ControlBar({ state, actions, disabled = false }: ControlBarProps
   };
 
   /** One reaction per opening: the picker closes and the focus goes back to its button. */
-  const react = (reaction: Reaction) => {
+  const react = (reaction: string) => {
     actions.react(reaction);
     setReactionsOpen(false);
     reactionsButtonRef.current?.focus();
@@ -121,16 +119,16 @@ export function ControlBar({ state, actions, disabled = false }: ControlBarProps
           <div
             role="group"
             aria-label={texts.controls.reactions}
-            className="absolute bottom-full z-20 mb-3 flex gap-1 rounded-pill bg-canvas p-1 shadow-outline lg:mb-4"
+            className="absolute bottom-full z-20 mb-3 flex max-h-52 w-max max-w-[min(100%,22rem)] flex-wrap justify-center gap-1 overflow-y-auto rounded-nav bg-canvas p-1 shadow-outline lg:mb-4"
           >
-            {REACTIONS.map((reaction) => (
+            {state.availableReactions.map((reaction) => (
               <button
                 key={reaction}
                 type="button"
                 aria-label={texts.controls.react(reaction)}
                 disabled={disabled}
                 onClick={() => react(reaction)}
-                className="inline-flex size-11 cursor-pointer items-center justify-center rounded-button text-kicker hover:bg-mist"
+                className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-button text-kicker hover:bg-mist"
               >
                 {reaction}
               </button>

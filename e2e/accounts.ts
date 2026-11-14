@@ -21,6 +21,9 @@ interface AccountSeed {
   plus?: boolean;
   /** Versão dos termos aceita no primeiro acesso; sem ela, a atual (nenhuma faixa de aviso). */
   termsVersion?: string;
+  /** Saldos da carteira, gravados com a linha do livro-razão (como a prata de boas-vindas). */
+  silver?: number;
+  gold?: number;
 }
 
 /** Versão anterior dos termos: quem aceitou esta vê a faixa de aviso. */
@@ -35,6 +38,14 @@ const SEEDS = {
   leaver: { handle: "e2e_sair", nickname: "Sami" },
   termsCloser: { handle: "e2e_termos_x", nickname: "Teo", termsVersion: OLD_TERMS_VERSION },
   termsReader: { handle: "e2e_termos_link", nickname: "Lia", termsVersion: OLD_TERMS_VERSION },
+  // Entrega 3: quem compra na loja, quem envia ouro (por @nome e na sala) e quem recebe.
+  shopper: { handle: "e2e_loja", nickname: "Lola", silver: 300, gold: 500 },
+  giver: { handle: "e2e_envia", nickname: "Davi", silver: 300, gold: 3000 },
+  receiver: { handle: "e2e_recebe", nickname: "Rita", silver: 300 },
+  roomGiver: { handle: "e2e_sala_envia", nickname: "Caio", gold: 1000 },
+  roomReceiver: { handle: "e2e_sala_recebe", nickname: "Nara" },
+  plusGiver: { handle: "e2e_plus_envia", nickname: "Otto", gold: 2000 },
+  plusReceiver: { handle: "e2e_plus_recebe", nickname: "Iris" },
 } satisfies Record<string, AccountSeed>;
 
 export type AccountName = keyof typeof SEEDS;
@@ -75,6 +86,7 @@ export function seedSql(now = Date.now()): string {
   const statements: string[] = [];
   for (const name of Object.keys(SEEDS) as AccountName[]) {
     const { userId, handle, nickname, plus, token, termsVersion } = account(name);
+    const seed: AccountSeed = SEEDS[name];
     const onboardedAt = handle === null ? "NULL" : String(now);
     statements.push(
       `INSERT INTO users (id, handle, nickname, adult_confirmed_at, terms_accepted_at, terms_version, created_at)
@@ -84,6 +96,21 @@ export function seedSql(now = Date.now()): string {
        VALUES (${sqlText(base64UrlSha256(`account-session:${token}`))}, ${sqlText(userId)}, ${now},
          ${now + ACCOUNT_SESSION_TTL_SECONDS * 1000});`,
     );
+    const balances = { silver: seed.silver ?? 0, gold: seed.gold ?? 0 };
+    if (balances.silver > 0 || balances.gold > 0) {
+      statements.push(
+        `INSERT INTO wallets (user_id, silver, gold, updated_at)
+         VALUES (${sqlText(userId)}, ${balances.silver}, ${balances.gold}, ${now});`,
+      );
+      for (const currency of ["silver", "gold"] as const) {
+        if (balances[currency] === 0) continue;
+        statements.push(
+          `INSERT INTO wallet_ledger (id, user_id, currency, amount, reason, reference, created_at)
+           VALUES (${sqlText(`e2e-${name}-${currency}`)}, ${sqlText(userId)}, '${currency}', ${balances[currency]},
+             '${currency === "silver" ? "welcome" : "gold_purchase"}', ${sqlText(`e2e:${name}:${currency}`)}, ${now});`,
+        );
+      }
+    }
     if (plus) {
       statements.push(
         `INSERT INTO billing_subscriptions (user_id, cycle, status, period_end, created_at, updated_at)

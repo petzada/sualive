@@ -9,6 +9,8 @@ import { plus, webhooks } from "./billing/routes";
 import type { AppEnv } from "./env";
 import { roomPagePreview } from "./preview";
 import { rooms } from "./rooms";
+import { shop } from "./shop/routes";
+import { wallet } from "./wallet/routes";
 
 export const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -33,6 +35,8 @@ app.route("/api/me", me);
 app.route("/api/handles", handles);
 app.route("/api/plus", plus);
 app.route("/api/webhooks", webhooks);
+app.route("/api/wallet", wallet);
+app.route("/api/shop", shop);
 
 // Página da sala com a prévia do link (Open Graph). Passa pelo Worker por `run_worker_first`.
 app.get(`${ROOM_PATH_PREFIX}*`, (c) => roomPagePreview(c.req.raw, c.env));

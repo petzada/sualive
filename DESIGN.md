@@ -592,3 +592,19 @@ Todos os pares de texto dos temas novos passam de 4,5:1 nos dois modos (inclusiv
 | `brand-discord` / `on-brand-discord` | `#5865F2` / `#ffffff` | iguais | Só no botão "Entrar com Discord". |
 
 Cores de marca de terceiros só aparecem nos botões de login desses provedores, nunca como cor da interface.
+
+### Cosméticos da loja (entrega 3)
+
+Cor do nome, degradê do nome e moldura do avatar são itens do catálogo, guardados no banco, e não
+tokens: os valores chegam pela API e são aplicados só ao nome e ao contorno do avatar de quem os
+equipou. É a única exceção às regras "nenhuma cor fora dos tokens" e "sem gradiente".
+
+- Cada item traz o valor do tema claro e o do escuro (`light` e `dark`, 1 cor = lisa, 2 cores =
+  degradê). O componente aplica os dois como variáveis CSS e a folha de estilo escolhe pelo
+  `data-theme`; nenhum componente escolhe cor por tema no código.
+- Contraste conferido ao criar o item: cor e cada ponta do degradê do nome com pelo menos 4,5:1
+  sobre `canvas`, `mist` e `frost` nos dois temas; moldura com pelo menos 3:1.
+- O resto da interface da loja e da carteira usa só os tokens. As moedas são texto e ícone nas cores
+  de `ink` e `muted`; nada de dourado ou prateado fora dos itens do catálogo.
+- O degradê do nome é horizontal, da primeira cor para a segunda, sem animação.
+

@@ -2,9 +2,11 @@
  * Contrato entre a lógica do cliente da sala (`src/lib`) e as telas. As telas só conhecem
  * `useRoom`, `createRoom` e estes tipos: nada de WebSocket, fetch ou WebRTC em componente.
  */
-import type { Reaction, RoomTheme } from "@sualive/config";
+import type { RoomTheme } from "@sualive/config";
 import type { DevicePreview, MediaCapabilities, VideoKind } from "@sualive/media";
-import type { Badge, ChatMessage } from "@sualive/protocol";
+import type { Badge, ChatMessage, Cosmetics, GiftFailure } from "@sualive/protocol";
+
+export type { Cosmetics, GiftFailure };
 
 export type RoomPhase =
   | "loading" // consultando a sala
@@ -48,6 +50,10 @@ export interface ParticipantView {
   handle: string | null;
   avatarUrl: string | null;
   badges: Badge[];
+  /** Cosméticos equipados (cor ou degradê do nome, moldura do avatar); nulo para quem não tem conta. */
+  cosmetics: Cosmetics | null;
+  /** Tem conta: pode receber ouro pelo botão da sala. */
+  canReceiveGold: boolean;
   micMuted: boolean;
   handRaised: boolean;
   speaking: boolean;
@@ -63,8 +69,23 @@ export interface ReactionEvent {
   /** Único por reação, para animar e descartar. */
   id: string;
   from: string;
-  reaction: Reaction;
+  /** Uma das básicas ou de um pacote equipado por quem enviou. */
+  reaction: string;
 }
+
+/** Aviso de ouro enviado na sala (para todos). Apelidos do momento do envio. */
+export interface GiftEvent {
+  /** Único por aviso, para animar e descartar. */
+  id: string;
+  fromId: string;
+  fromNickname: string;
+  toId: string;
+  toNickname: string;
+  amount: number;
+}
+
+/** Resultado de `sendGold`: `lost` = sem resposta a tempo ou a conexão caiu (pode ter ido ou não). */
+export type SendGoldResult = { ok: true } | { ok: false; reason: GiftFailure | "lost" };
 
 export interface RoomState {
   phase: RoomPhase;
@@ -94,6 +115,15 @@ export interface RoomState {
   chat: ChatMessage[];
   /** Reações recentes; cada uma some sozinha depois de alguns segundos. */
   reactions: ReactionEvent[];
+  /**
+   * Reações que esta pessoa pode enviar: as básicas (`REACTIONS`) mais as dos pacotes equipados,
+   * como o servidor mandou no `welcome`. Antes dele, só as básicas.
+   */
+  availableReactions: string[];
+  /** A própria pessoa entrou com conta (primeiro acesso concluído): pode enviar ouro pela sala. */
+  canSendGold: boolean;
+  /** Avisos recentes de ouro enviado na sala; cada um some sozinho depois de alguns segundos. */
+  gifts: GiftEvent[];
   /** Aviso mais recente a mostrar (`null` sem aviso). */
   notice: RoomNotice | null;
   /** Microfone da própria pessoa. Entra-se sempre mudo. */
@@ -120,7 +150,8 @@ export interface RoomActions {
   /** Só na fase `replaced`: volta a usar esta aba (a outra é que passa a ser derrubada). */
   useThisTab(): void;
   sendChat(text: string): void;
-  react(reaction: Reaction): void;
+  /** Só envia reação que está em `availableReactions`. */
+  react(reaction: string): void;
   setHandRaised(raised: boolean): void;
   setMicMuted(muted: boolean): Promise<void>;
   /** Pede ao servidor e, se autorizado, captura e transmite. */
@@ -131,6 +162,13 @@ export interface RoomActions {
   setRoomTheme(theme: RoomTheme): void;
   /** Só o dono. */
   moderate(action: "mute" | "kick" | "ban", participantId: string): void;
+  /**
+   * Envia ouro a outra pessoa da sala (as duas com conta). Resolve com a resposta do servidor. Um
+   * envio por vez: o segundo, com o primeiro no ar, e um valor fora de 1..limite diário resolvem
+   * `error` sem enviar; fora da sala conectada resolve `lost`. Quando dá certo, o aviso chega a todos
+   * em `gifts`; a carteira não é atualizada aqui (use `useWallet().actions.refresh()`).
+   */
+  sendGold(participantId: string, amount: number): Promise<SendGoldResult>;
   copyLink(): Promise<void>;
   dismissNotice(): void;
 }

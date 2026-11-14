@@ -334,10 +334,12 @@ com saldo sempre correto.
 
 **Como o ouro e a prata entram**
 
-- Plus ativo e pago recebe 1.000 de ouro a cada 30 dias, inclusive no plano anual. Na estreia, creditar
-  os meses pagos desde a entrega 2. Plus recebido de presente **não** credita ouro.
+- Plus ativo e pago recebe 1.000 de ouro a cada 30 dias, inclusive no plano anual: cada pagamento
+  mensal rende 1 crédito e o anual rende 12, um a cada 30 dias a partir do pagamento. Na estreia,
+  creditar os meses pagos desde a entrega 2. Plus recebido de presente **não** credita ouro.
 - Pacotes por Pix único: R$ 9,90 dá 990 de ouro; R$ 19,90 dá 2.190; R$ 49,90 dá 5.990. O crédito
-  acontece só com a confirmação da Woovi, uma única vez por cobrança.
+  acontece só com a confirmação da Woovi, uma única vez por cobrança. A compra pede o CPF, como a
+  assinatura do Plus, e ele não é guardado.
 - 300 de prata de boas-vindas ao criar a conta **[padrão]**, uma vez; contas já existentes recebem na estreia.
 - Nenhuma moeda expira e não há teto de saldo.
 
@@ -352,9 +354,14 @@ com saldo sempre correto.
 **Presentes**
 
 - Enviar ouro a outra conta, pelo @nome ou clicando em alguém na sala, com aviso visível na sala.
-  Limite de 2.000 de ouro enviados por dia por conta. Prata não pode ser enviada.
+  Limite de 2.000 de ouro enviados por dia por conta; o dia é o de calendário, no horário de
+  Brasília. Prata não pode ser enviada.
 - Presentear 30 dias de Plus a **outra** conta por 1.990 de ouro. Se quem recebe já é Plus, os 30 dias
-  somam ao período atual.
+  somam ao período atual. Plus de presente não renova, não dá selo de apoiador inicial e não conta no
+  limite diário de envio de ouro. Quem está em atraso e recebe o presente perde os dias ganhos se as
+  novas tentativas de cobrança falharem. Enquanto o Plus de presente vale, a conta não assina o Plus
+  pago, e ele acaba sem aviso de vencimento.
+- Excluir a conta apaga as compras de ouro pendentes: um Pix pago depois da exclusão não gera crédito.
 - Moeda nunca vira dinheiro: não existe saque, reembolso em dinheiro nem conversão de ouro em prata.
 
 ### O que não fazer
@@ -489,13 +496,13 @@ e outros meios de pagamento.
 | Qualidade em conexão retransmitida | 720p, até 1,5 Mbps |
 | Sala vazia expira em | 5 minutos |
 | Plus mensal / anual | R$ 19,90 / R$ 159,90 |
-| Ouro mensal do Plus | 1.000 |
+| Ouro mensal do Plus | 1.000 a cada 30 dias; 12 créditos por pagamento anual |
 | Câmbio | 100 de ouro = R$ 1 |
 | Taxa da Woovi | R$ 0,85 fixos por transação, inclusive no Pix Automático |
 | Dólar adotado nos cálculos de custo | R$ 5,50 |
 | Pacotes de ouro | R$ 9,90 → 990; R$ 19,90 → 2.190; R$ 49,90 → 5.990 |
 | Prata de boas-vindas | 300 |
-| Limite de envio de ouro | 2.000 por dia por conta |
+| Limite de envio de ouro | 2.000 por dia de calendário (Brasília) por conta |
 | Presentear 30 dias de Plus | 1.990 de ouro |
 | Selo de apoiador inicial | 100 primeiros pagantes |
 | Avisos de saldo na sala no servidor | 10 e 2 minutos; tolerância de 3 minutos |

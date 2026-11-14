@@ -74,7 +74,7 @@ async function connect({
     participants: [self, ...others],
     chat: [],
     room,
-    limits: { videosPerPerson },
+    limits: { videosPerPerson, reactions: [...welcomeDefaults.limits.reactions] },
   });
   await flush();
 }
@@ -124,7 +124,7 @@ describe("sala de link fixo (@nome)", () => {
       participants: [participant("me", { isOwner: true })],
       chat: [],
       room: { theme: "ocean", fixed: true, ownerHandle: "ana" },
-      limits: { videosPerPerson: 1 },
+      limits: welcomeDefaults.limits,
     });
     await flush();
     expect(state()).toMatchObject({ phase: "connected", fixed: true, ownerHandle: "ana", theme: "ocean" });
