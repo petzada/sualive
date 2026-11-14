@@ -15,15 +15,17 @@ type CreateFailure = Extract<CreateRoomResult, { ok: false }>["reason"];
 interface CreateRoomProps {
   /** Extra classes for the block of the button, e.g. spacing. */
   className?: string;
-  /** Rendered close under the button, in the same block (the account line of the home page). */
+  /** Rendered close under the button, in the same block (the login line of the home page). */
   afterButton?: ReactNode;
+  /** Rendered after the block of the button, as the next block of the caller's column. */
+  below?: ReactNode;
 }
 
 /**
  * The "create room" button: passes the Turnstile check, creates the room and goes to its link.
  * Renders its pieces side by side with the caller's own, so the parent decides the spacing.
  */
-export function CreateRoom({ className = "", afterButton }: CreateRoomProps) {
+export function CreateRoom({ className = "", afterButton, below }: CreateRoomProps) {
   const { createRoom } = useRoomClient();
   const navigate = useNavigate();
   const [failure, setFailure] = useState<CreateFailure | null>(null);
@@ -66,6 +68,7 @@ export function CreateRoom({ className = "", afterButton }: CreateRoomProps) {
         </Button>
         {afterButton}
       </div>
+      {below}
 
       {failure && (
         <p role="alert" className="max-w-md text-body-sm font-medium text-notice">

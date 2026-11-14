@@ -18,7 +18,7 @@ import {
   ScreenOffIcon,
   SmileIcon,
 } from "../icons";
-import { AccountShortcuts } from "./AccountShortcuts";
+import { PlanShortcut, ProfileShortcut } from "./AccountShortcuts";
 
 interface ControlButtonProps {
   /** Accessible name and hint: says what pressing does now. */
@@ -57,7 +57,7 @@ function ControlButton({
         isDisabled={disabled}
         onPress={onPress}
         data-active={active ? "true" : undefined}
-        className={`h-11 min-w-10 shrink-0 rounded-button border-2 px-2 text-body-sm font-normal sm:min-w-11 sm:px-3 xl:px-4 ${
+        className={`h-12 w-full min-w-0 rounded-button border-2 px-2 text-body-sm font-normal md:h-11 md:w-auto md:min-w-11 md:shrink-0 md:px-3 xl:px-4 ${
           active ? "border-ink" : "border-transparent"
         }`}
       >
@@ -81,9 +81,10 @@ interface ControlBarProps {
 }
 
 /**
- * The actions of the room, centered, with the account shortcuts (plan pill and picture) at the
- * right of the same row. Leaving is not one of them: it lives in the header. Below `md` there is
- * no room to center against the whole row, so the actions are centered in what is left.
+ * The actions of the room. Leaving is not one of them: it lives in the header. From `md`: the
+ * actions centered in the row, the plan pill at its left end and the picture of the account at its
+ * right end. Phones: the row is only the actions, bigger and sharing the whole width equally (the
+ * plan and the picture go up to the header).
  */
 export function ControlBar({ state, actions, disabled = false }: ControlBarProps) {
   const [reactionsOpen, setReactionsOpen] = useState(false);
@@ -108,8 +109,13 @@ export function ControlBar({ state, actions, disabled = false }: ControlBarProps
   };
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 px-1 py-2 sm:gap-x-2 sm:px-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:py-3">
-      <span className="hidden md:block" />
+    <div
+      data-testid="control-bar"
+      className="grid grid-cols-1 items-center gap-x-2 px-2 py-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:px-4 lg:py-3"
+    >
+      <div className="hidden justify-self-start md:flex">
+        <PlanShortcut />
+      </div>
       <div className="relative flex min-w-0 justify-center">
         {reactionsOpen && (
           <div
@@ -135,7 +141,7 @@ export function ControlBar({ state, actions, disabled = false }: ControlBarProps
         <div
           role="toolbar"
           aria-label={texts.controls.label}
-          className="flex max-w-full items-center gap-1 overflow-x-auto p-1 sm:gap-2"
+          className="grid w-full auto-cols-fr grid-flow-col items-center gap-1.5 p-1 md:flex md:w-auto md:max-w-full md:gap-2 md:overflow-x-auto"
           onKeyDown={(event) => {
             if (event.key === "Escape") setReactionsOpen(false);
           }}
@@ -194,7 +200,9 @@ export function ControlBar({ state, actions, disabled = false }: ControlBarProps
           />
         </div>
       </div>
-      <AccountShortcuts className="justify-self-end" />
+      <div className="hidden justify-self-end md:flex">
+        <ProfileShortcut />
+      </div>
     </div>
   );
 }

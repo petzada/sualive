@@ -6,12 +6,12 @@ import { PeopleCards } from "../components/PeopleCards";
 import { texts } from "../texts";
 
 /**
- * Photos under the text, in the order they appear (three fit one row): file names inside
- * `apps/web/public/images`.
+ * Photos that open the page, above the title, in the order they appear (three fit one row): file
+ * names inside `apps/web/public/images`.
  */
 export const MANIFESTO_PHOTOS = ["manifesto-1.jpg", "manifesto-2.jpg", "manifesto-3.jpg"] as const;
 
-/** The manifesto: a reading column, the "create room" button, the photos, the age line and the legal links. */
+/** The manifesto: the photos, a reading column, the "create room" button, the age line and the legal links. */
 export function ManifestoPage() {
   useEffect(() => {
     const previous = document.title;
@@ -30,6 +30,9 @@ export function ManifestoPage() {
       </header>
 
       <main className="flex flex-1 flex-col gap-18 pt-14">
+        {/* The hero of the page: as far from the top as the title was; the title keeps its distance below. */}
+        <PeopleCards photos={MANIFESTO_PHOTOS} />
+
         <article className="mx-auto w-full max-w-2xl px-5">
           <h1 className="text-center font-display text-heading font-semibold text-balance sm:text-display-sm">
             {texts.manifesto.title}
@@ -51,8 +54,6 @@ export function ManifestoPage() {
             <CreateRoom />
           </div>
         </article>
-
-        <PeopleCards photos={MANIFESTO_PHOTOS} />
       </main>
 
       <p className="px-5 pt-18 pb-2 text-center text-compact text-muted">{texts.manifesto.ageNotice}</p>

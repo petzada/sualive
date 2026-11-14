@@ -150,26 +150,31 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
   }, [attempt]);
 
   /*
-   * Out of the flow of every screen: fixed at the top center of the window, above everything, and
-   * rendered on the body (a `transform` or `perspective` up the tree would otherwise capture a
-   * fixed element). With nothing demanded from the person the widget shows nothing, so the box has
-   * no height and no chrome; when Cloudflare demands an interaction it becomes a floating notice,
-   * and goes away when that ends.
+   * Out of the flow of every screen: covers the window, above everything (the highest z-index
+   * there is: headers, the video stage, popovers and hints stay below), and rendered on the body
+   * (a `transform` or `perspective` up the tree would otherwise capture a fixed element). With
+   * nothing demanded from the person the widget shows nothing and the layer lets every click
+   * through. When Cloudflare demands an interaction, the widget alone (no frame of ours) sits in
+   * the center of the window over a discreet veil that keeps the clicks off the page; both go
+   * away when that ends. The check is mandatory, so there is no way to dismiss it.
    */
   return createPortal(
     <div
-      data-testid="turnstile-toast"
+      data-testid="turnstile-overlay"
       data-interactive={interactive}
-      className="pointer-events-none fixed inset-x-0 top-4 z-[1000] flex justify-center px-4"
+      className={`fixed inset-0 z-[2147483647] flex items-center justify-center px-4 ${
+        interactive ? "bg-stage/40" : "pointer-events-none"
+      }`}
     >
+      {/*
+        300px: the least the widget needs. Cloudflare leaves the widget on screen after the
+        interaction ("success"), so it is kept out of sight whenever nothing is demanded.
+      */}
       <div
-        className={`pointer-events-auto max-w-full ${
-          interactive ? "rounded-nav bg-frost p-3 shadow-outline-soft" : ""
-        }`}
-      >
-        {/* 300px: the least the widget needs. */}
-        <div ref={containerRef} className="w-[300px] max-w-full empty:hidden" data-testid="turnstile" />
-      </div>
+        ref={containerRef}
+        className={`w-[300px] max-w-full empty:hidden ${interactive ? "" : "invisible"}`}
+        data-testid="turnstile"
+      />
     </div>,
     document.body,
   );

@@ -6,8 +6,8 @@ import type { useTurnstileAction } from "./useTurnstileAction";
 type TurnstileFieldProps = Pick<ReturnType<typeof useTurnstileAction>, "turnstileProps" | "failed" | "retry">;
 
 /**
- * The out-of-sight Turnstile check. Takes no room in the layout: the widget floats over the page
- * (and only when an interaction is demanded), and the only thing left in place is the failure
+ * The out-of-sight Turnstile check. Takes no room in the layout: the widget floats over the page,
+ * in the center of the window (and only when an interaction is demanded), and the only thing left in place is the failure
  * message with the way to ask for a new token.
  */
 export function TurnstileField({ turnstileProps, failed, retry }: TurnstileFieldProps) {

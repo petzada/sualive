@@ -98,15 +98,24 @@ describe("manifesto page", () => {
     await waitFor(() => expect(createRoom).toHaveBeenCalledWith(TEST_TOKEN));
   });
 
-  it("shows the three photos, with no name or city, after the button and before the age notice", () => {
+  it("opens with the three photos, with no name or city, between the name at the top and the title", () => {
     const { container } = renderManifesto();
 
     const photos = [...container.querySelectorAll("img")];
     expect(photos.map((photo) => photo.getAttribute("src"))).toEqual(
       MANIFESTO_PHOTOS.map((photo) => `/images/${photo}`),
     );
-    expect(isBefore(screen.getByRole("button", { name: texts.home.create }), photos[0]!)).toBe(true);
-    expect(isBefore(photos[2]!, screen.getByText(texts.manifesto.ageNotice))).toBe(true);
+    const title = screen.getByRole("heading", { level: 1, name: texts.manifesto.title });
+    expect(isBefore(screen.getByRole("link", { name: texts.home.title }), photos[0]!)).toBe(true);
+    expect(isBefore(photos[2]!, title)).toBe(true);
+    // The strip is the first block of the page's column; the reading column (title first) is the next.
+    const strip = photos[0]!.closest("[aria-hidden]")!;
+    const main = screen.getByRole("main");
+    expect(main.firstElementChild).toBe(strip);
+    expect(strip.nextElementSibling?.contains(title)).toBe(true);
+    expect(strip.nextElementSibling?.firstElementChild).toBe(title);
+    // Same distance from the top the title had, and the column's gap keeps the title apart.
+    for (const name of ["pt-14", "gap-18"]) expect(main.className.split(" ")).toContain(name);
     // The cards carry no text at all.
     expect(photos[0]!.closest("[aria-hidden]")?.textContent).toBe("");
   });
@@ -118,6 +127,10 @@ describe("manifesto page", () => {
 
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("[aria-hidden]")).toBeNull();
+    // The title takes the first place back.
+    expect(screen.getByRole("main").firstElementChild?.firstElementChild).toBe(
+      screen.getByRole("heading", { level: 1 }),
+    );
   });
 });
 
