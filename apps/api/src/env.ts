@@ -14,4 +14,12 @@ export type AppEnv = Env & {
   /** Chave de TURN da Cloudflare. Ausentes = só STUN (desenvolvimento e testes). */
   TURN_KEY_ID?: string;
   TURN_KEY_API_TOKEN?: string;
+  /** Login. Par ausente = aquele login fica desligado neste ambiente. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  DISCORD_CLIENT_ID?: string;
+  DISCORD_CLIENT_SECRET?: string;
+  /** Woovi. Sem os dois, a assinatura do Plus fica desligada neste ambiente. */
+  WOOVI_APP_ID?: string;
+  WOOVI_WEBHOOK_SECRET?: string;
 };

@@ -43,6 +43,15 @@ export const apiErrorCodeSchema = z.enum([
   "unauthorized", // sem sessão válida ou sem admissão na sala
   "not_found",
   "internal_error",
+  // Conta e Plus (entrega 2)
+  "onboarding_required", // logado, mas falta concluir o primeiro acesso
+  "handle_taken",
+  "handle_reserved",
+  "handle_change_too_soon",
+  "provider_unavailable", // login não configurado neste ambiente
+  "plus_required",
+  "billing_unavailable", // assinatura desligada neste ambiente
+  "already_subscribed",
 ]);
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 

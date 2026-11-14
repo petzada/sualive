@@ -31,6 +31,14 @@ const ERROR_STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   unauthorized: 401,
   not_found: 404,
   internal_error: 500,
+  onboarding_required: 403,
+  handle_taken: 409,
+  handle_reserved: 409,
+  handle_change_too_soon: 409,
+  provider_unavailable: 404,
+  plus_required: 403,
+  billing_unavailable: 503,
+  already_subscribed: 409,
 };
 
 function apiError(c: Ctx, error: ApiErrorCode): Response {

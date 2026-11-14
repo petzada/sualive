@@ -68,3 +68,72 @@ export const GUEST_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 /** Limite de requisições por IP nas rotas que criam sala ou entram em sala. */
 export const API_RATE_LIMIT_MAX = 20;
 export const API_RATE_LIMIT_WINDOW_SECONDS = 60;
+
+// ---------- Conta, perfil e Plus (entrega 2) ----------
+
+/** Idade mínima declarada para ter conta. */
+export const MINIMUM_AGE = 18;
+/** Versão dos termos de uso e da política de privacidade aceitos no primeiro acesso. */
+export const TERMS_VERSION = "2026-11-14";
+
+/** @nome: letras minúsculas, números e sublinhado. */
+export const HANDLE_MIN_LENGTH = 3;
+export const HANDLE_MAX_LENGTH = 20;
+export const HANDLE_PATTERN = "^[a-z0-9_]{3,20}$";
+/** Troca de @nome permitida a cada (dias). */
+export const HANDLE_CHANGE_INTERVAL_DAYS = 30;
+/** @nomes que ninguém pode escolher (rotas e termos do produto). */
+export const RESERVED_HANDLES = [
+  "admin",
+  "api",
+  "s",
+  "sualive",
+  "suporte",
+  "ajuda",
+  "plus",
+  "conta",
+  "perfil",
+  "termos",
+  "privacidade",
+  "entrar",
+  "sair",
+  "loja",
+  "carteira",
+  "salas",
+  "demo",
+] as const;
+
+/** Validade da sessão de quem tem conta (s). */
+export const ACCOUNT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/** Plus: preços em centavos e duração de cada ciclo em dias. */
+export const PLUS_MONTHLY_PRICE_CENTS = 1990;
+export const PLUS_ANNUAL_PRICE_CENTS = 15920;
+export const PLUS_MONTHLY_PERIOD_DAYS = 30;
+export const PLUS_ANNUAL_PERIOD_DAYS = 365;
+/** Pix Automático: novas tentativas depois de uma cobrança falhar, dentro da janela (dias). */
+export const PLUS_RETRY_ATTEMPTS = 3;
+export const PLUS_RETRY_WINDOW_DAYS = 7;
+/** Avisar antes de o plano anual vencer (dias). */
+export const PLUS_ANNUAL_EXPIRY_NOTICE_DAYS = 7;
+/** Selo de apoiador inicial: os primeiros pagantes do Plus. */
+export const EARLY_SUPPORTER_LIMIT = 100;
+/** Depois que o Plus acaba, o link fixo fica reservado por (dias). */
+export const FIXED_LINK_RESERVE_DAYS = 30;
+
+/** Vídeos simultâneos por pessoa com Plus. */
+export const PLUS_VIDEOS_PER_PERSON = 2;
+/** Qualidade Plus em sala direta: 1080p, 60 fps, até 5 Mbps. */
+export const PLUS_VIDEO_QUALITY: VideoQuality = {
+  width: 1920,
+  height: 1080,
+  frameRate: 60,
+  maxBitrate: 5_000_000,
+};
+
+/** Temas prontos de sala (o dono Plus escolhe um). O primeiro é o padrão de toda sala. */
+export const ROOM_THEMES = ["default", "ocean", "forest", "sunset", "lavender", "graphite"] as const;
+export type RoomTheme = (typeof ROOM_THEMES)[number];
+
+/** Prefixo da rota da sala de link fixo no front: `/@<nome>`. */
+export const FIXED_ROOM_PATH_PREFIX = "/@";
