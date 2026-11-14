@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { ROOM_MAX_PEOPLE } from "@sualive/config";
 import type { CreateRoom } from "./lib/room";
 import { installTurnstileStub, renderApp, TEST_TOKEN } from "./test/room";
 import { texts } from "./texts";
@@ -42,7 +43,7 @@ describe("App", () => {
     expect(lines[0]?.parentElement?.tagName).toBe("P");
   });
 
-  it("orders the home page: name, sub-headline, button, hint and Turnstile at the end", () => {
+  it("orders the home page: name, sub-headline, button and hint, then the manifesto card", () => {
     renderAt("/");
 
     const main = screen.getByRole("main");
@@ -52,12 +53,27 @@ describe("App", () => {
       screen.getByText(texts.home.tagline[1]),
       createButton(),
       screen.getByText(texts.home.hint),
-      screen.getByRole("group", { name: texts.turnstile.label }),
+      screen.getByRole("link", { name: texts.home.manifesto.action }),
     ];
     order.slice(1).forEach((element, index) => expect(isBefore(order[index]!, element)).toBe(true));
-    // Nothing after the Turnstile: the page ends there.
+    // The card closes the page, with its title and description beside the link.
     expect(main.lastElementChild?.contains(order.at(-1)!)).toBe(true);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(texts.home.manifesto.title);
+    expect(screen.getByText(texts.home.manifesto.description)).toBeTruthy();
+    expect(main.textContent).not.toContain(String(ROOM_MAX_PEOPLE));
     expect(main.textContent).not.toContain("IP");
+  });
+
+  it("keeps the Turnstile out of sight: no label, no reserved space, shown only if interaction is required", async () => {
+    const { api } = installTurnstileStub();
+    renderAt("/");
+
+    await waitFor(() => expect(api.render).toHaveBeenCalled());
+    expect(api.render.mock.calls[0]?.[1].appearance).toBe("interaction-only");
+    const container = screen.getByTestId("turnstile");
+    expect(container.getAttribute("role")).toBeNull();
+    expect(container.className).toContain("empty:hidden");
+    expect(container.className).not.toContain("min-h");
   });
 
   it("creates a room with the Turnstile token and goes to its link", async () => {

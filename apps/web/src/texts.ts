@@ -22,7 +22,6 @@ export const texts = {
     backHome: "Voltar ao início",
   },
   turnstile: {
-    label: "Verificação contra robôs",
     failed: "Não foi possível concluir a verificação contra robôs.",
     retry: "Tentar a verificação de novo",
     checking: "Verificando…",
@@ -33,7 +32,12 @@ export const texts = {
     tagline: ["Compartilhe sua tela em dois cliques.", "Sem cadastro e sem anúncio."],
     create: "Criar sala",
     creating: "Criando a sala…",
-    hint: `Voz, tela, webcam e chat. Até ${ROOM_MAX_PEOPLE} pessoas.`,
+    hint: "Voz, tela, webcam e chat.",
+    manifesto: {
+      title: "Nosso manifesto",
+      description: "Conheça a plataforma",
+      action: "Saber mais",
+    },
     errors: {
       turnstileFailed:
         "A verificação contra robôs não passou. Refaça a verificação e tente criar a sala de novo.",

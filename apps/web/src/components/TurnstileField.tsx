@@ -5,7 +5,7 @@ import type { useTurnstileAction } from "./useTurnstileAction";
 
 type TurnstileFieldProps = Pick<ReturnType<typeof useTurnstileAction>, "turnstileProps" | "failed" | "retry">;
 
-/** The Turnstile widget plus the failure message and the way to ask for a new token. */
+/** The out-of-sight Turnstile check; shows only the failure message and the way to ask for a new token. */
 export function TurnstileField({ turnstileProps, failed, retry }: TurnstileFieldProps) {
   return (
     <div className="flex w-full flex-col items-center gap-2">
