@@ -195,7 +195,7 @@ export function PeopleList({
                   className="size-11 shrink-0 rounded-button"
                   onPress={() => toggle({ id: participant.id, kind: "gold" })}
                 >
-                  <CoinIcon />
+                  <CoinIcon filled />
                 </Button>
               )}
               {canModerate && (

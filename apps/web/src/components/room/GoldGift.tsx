@@ -174,7 +174,7 @@ export function GiftNotices({ gifts }: { gifts: GiftEvent[] }) {
           className="flex items-center gap-2 rounded-nav bg-canvas px-3 py-1.5 text-body-sm shadow-outline-soft"
         >
           <span className="inline-flex shrink-0 text-muted">
-            <CoinIcon />
+            <CoinIcon filled />
           </span>
           <span className="min-w-0 wrap-anywhere">
             {texts.gifts.notice(gift.fromNickname, formatGold(gift.amount), gift.toNickname)}
