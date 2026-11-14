@@ -1,0 +1,13 @@
+# Copie para `.dev.vars` (ignorado pelo git) para rodar `wrangler dev` e o teste de fumaça local.
+# Só valores de TESTE, públicos: nunca coloque segredo real aqui.
+
+# Chave secreta de teste do Turnstile que sempre passa (documentação da Cloudflare). Combina com a
+# sitekey de teste 1x00000000000000000000AA no front, que gera o token XXXX.DUMMY.TOKEN.XXXX.
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# Assina o cookie de sessão de quem não tem conta. Valor de exemplo, claramente falso.
+SESSION_SECRET=exemplo-falso-nao-use-em-producao-0000000000000000
+
+# Sem TURN_KEY_ID e TURN_KEY_API_TOKEN, GET /api/rooms/:code/ice devolve só o STUN público.
+# TURN_KEY_ID=
+# TURN_KEY_API_TOKEN=

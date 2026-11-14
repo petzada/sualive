@@ -46,7 +46,7 @@ pnpm --filter @sualive/api dev     # Worker no simulador do Wrangler (wrangler d
 | `pnpm test` | Testes (Vitest) |
 | `pnpm test:related` | Só os testes ligados ao que mudou desde `origin/main` |
 | `pnpm test:ci` | Suíte completa, como no CI |
-| `pnpm e2e` | Teste de fumaça no navegador (entra na entrega 1) |
+| `pnpm e2e` | Teste de fumaça com Playwright (Chromium, mídia falsa) contra o Worker no simulador do Wrangler; faz o build antes. Na primeira vez: `pnpm --filter @sualive/e2e exec playwright install --only-shell chromium` |
 | `pnpm build` | Build do front e verificação do bundle do Worker |
 | `pnpm format` | Formata o repositório com o Prettier |
 
@@ -57,7 +57,8 @@ Para o Worker servir o front localmente, rode `pnpm build` antes do `dev` da API
 - **pre-commit**, só nos arquivos em stage: Prettier (corrige e volta ao stage) e ESLint.
 - **pre-push**, para no primeiro erro: `pnpm typecheck` e `pnpm test:related`.
 
-O resto (lint, typecheck e testes completos, build) roda no CI.
+O resto (lint, typecheck e testes completos, build, teste de fumaça) roda no CI. O `pnpm e2e` não entra
+nos hooks: rode-o sob demanda quando mexer na sala.
 
 ## CI, deploy e ambientes
 
@@ -67,7 +68,7 @@ O resto (lint, typecheck e testes completos, build) roda no CI.
 | Homologação | `sualive-staging` | `sualive-staging` |
 
 - **Pull request** (`.github/workflows/ci.yml`): formatação, lint, typecheck, testes e build, no check
-  `verificar`. Não usa segredo.
+  `verificar`, e o teste de fumaça no navegador, no check `e2e`. Não usa segredo.
 - **Merge na main** (`.github/workflows/deploy.yml`): publica primeiro a homologação — build, migrations
   do D1, deploy do Worker e verificação (`scripts/smoke.mjs` espera `GET /api/health` responder com o
   commit publicado e confere a página inicial). Só se a homologação passar, repete a sequência em

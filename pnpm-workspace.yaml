@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - e2e
 minimumReleaseAgeExclude:
   - "@cloudflare/workers-types@5.20261114.1"
   - "@eslint/config-array@0.23.6"
@@ -8,6 +9,9 @@ minimumReleaseAgeExclude:
   - jsdom@31.0.1
   - miniflare@5.20261113.0-beta
   - wrangler@4.162.0
+  - "@playwright/test@1.65.1"
+  - playwright-core@1.65.1
+  - playwright@1.65.1
 allowBuilds:
   esbuild: true
   lefthook: true

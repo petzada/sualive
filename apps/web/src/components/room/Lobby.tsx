@@ -1,0 +1,223 @@
+import { Button } from "@heroui/react";
+import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH } from "@sualive/config";
+import type { DevicePreview } from "@sualive/media";
+import { useEffect, useId, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import type { RoomActions, RoomState } from "../../lib/room";
+import { Spinner } from "../icons";
+import { texts } from "../../texts";
+import { IpNotice } from "../IpNotice";
+import { TurnstileField } from "../TurnstileField";
+import { useTurnstileAction } from "../useTurnstileAction";
+import { StreamVideo } from "./media";
+import { NoticeBanner } from "./NoticeBanner";
+
+/** Convenience only: the last nickname typed in this browser. */
+export const NICKNAME_STORAGE_KEY = "sualive:nickname";
+
+function readStoredNickname(): string {
+  try {
+    return localStorage.getItem(NICKNAME_STORAGE_KEY)?.slice(0, NICKNAME_MAX_LENGTH) ?? "";
+  } catch {
+    return ""; // storage blocked: the field just starts empty
+  }
+}
+
+function storeNickname(nickname: string) {
+  try {
+    localStorage.setItem(NICKNAME_STORAGE_KEY, nickname);
+  } catch {
+    // storage blocked: nothing to remember
+  }
+}
+
+function nicknameError(nickname: string): string | null {
+  const { length } = nickname;
+  if (length < NICKNAME_MIN_LENGTH) return texts.lobby.nicknameTooShort;
+  if (length > NICKNAME_MAX_LENGTH) return texts.lobby.nicknameTooLong;
+  return null;
+}
+
+function MicrophoneMeter({ preview }: { preview: DevicePreview }) {
+  const [level, setLevel] = useState(0);
+
+  useEffect(() => preview.onMicrophoneLevel(setLevel), [preview]);
+
+  const clamped = Math.min(1, Math.max(0, level));
+  return (
+    <div
+      role="meter"
+      aria-label={texts.lobby.micLevelLabel}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamped * 100)}
+      className="h-2 w-full overflow-hidden rounded-button bg-control"
+    >
+      <div
+        className="h-full origin-left rounded-button bg-ink transition-transform duration-100 motion-reduce:transition-none"
+        style={{ transform: `scaleX(${clamped})` }}
+      />
+    </div>
+  );
+}
+
+type PreviewRequest = "idle" | "starting" | "done";
+
+function DevicePreviewCard({ state, actions }: LobbyProps) {
+  const [request, setRequest] = useState<PreviewRequest>("idle");
+  const { preview } = state;
+
+  const start = async () => {
+    setRequest("starting");
+    try {
+      await actions.startPreview();
+    } catch {
+      // A denied permission is not an error here: the card says what is unavailable.
+    }
+    setRequest("done");
+  };
+
+  return (
+    <section aria-label={texts.lobby.previewTitle} className="flex w-full flex-col gap-3">
+      <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-card bg-mist">
+        {preview?.cameraStream ? (
+          <StreamVideo
+            stream={preview.cameraStream}
+            muted
+            mirrored
+            label={texts.lobby.previewCameraLabel}
+            className="size-full object-cover"
+          />
+        ) : preview ? (
+          <p className="px-6 text-center text-body-sm text-muted">{texts.lobby.previewNoCamera}</p>
+        ) : request === "done" ? (
+          <p className="px-6 text-center text-body-sm text-muted">{texts.lobby.previewUnavailable}</p>
+        ) : (
+          <div className="flex flex-col items-center gap-3 px-6 text-center">
+            <p className="max-w-xs text-body-sm text-muted">{texts.lobby.previewIntro}</p>
+            <Button
+              variant="outline"
+              className="min-h-11 rounded-button border-outline bg-canvas px-5 text-body-sm"
+              isDisabled={request === "starting"}
+              onPress={() => void start()}
+            >
+              {request === "starting" && <Spinner />}
+              {request === "starting" ? texts.lobby.previewStarting : texts.lobby.previewStart}
+            </Button>
+          </div>
+        )}
+      </div>
+      {preview &&
+        (preview.hasMicrophone ? (
+          <div className="flex items-center gap-3 px-1 text-body-sm text-muted">
+            <span className="shrink-0">{texts.lobby.micLevelLabel}</span>
+            <MicrophoneMeter preview={preview} />
+          </div>
+        ) : (
+          <p className="px-1 text-body-sm text-muted">{texts.lobby.previewNoMicrophone}</p>
+        ))}
+    </section>
+  );
+}
+
+interface LobbyProps {
+  state: RoomState;
+  actions: RoomActions;
+}
+
+/** Shown for `lobby` and `joining`, so the form keeps its place while the person enters. */
+export function Lobby({ state, actions }: LobbyProps) {
+  const [nickname, setNickname] = useState(readStoredNickname);
+  const [showError, setShowError] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
+  const hintId = useId();
+  const errorId = useId();
+
+  const trimmed = nickname.trim();
+  const error = nicknameError(trimmed);
+
+  const turnstile = useTurnstileAction((turnstileToken) =>
+    actions.join({ nickname: trimmed, turnstileToken }),
+  );
+  const joining = state.phase === "joining" || turnstile.status !== "idle";
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (error) {
+      setShowError(true);
+      inputRef.current?.focus();
+      return;
+    }
+    storeNickname(trimmed);
+    turnstile.trigger();
+  };
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center gap-6 px-5 py-10">
+      <NoticeBanner notice={state.notice} onDismiss={actions.dismissNotice} />
+      <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
+        <DevicePreviewCard state={state} actions={actions} />
+
+        <form noValidate onSubmit={submit} className="flex flex-col gap-gap">
+          <div className="flex flex-col gap-2">
+            <h1 className="font-display text-heading font-semibold">{texts.lobby.title}</h1>
+            <p className="text-body-sm text-muted">
+              {texts.lobby.occupancy(state.occupancy.participants, state.occupancy.capacity)}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label htmlFor={inputId} className="text-body-sm font-medium">
+              {texts.lobby.nicknameLabel}
+            </label>
+            <input
+              ref={inputRef}
+              id={inputId}
+              type="text"
+              name="nickname"
+              autoComplete="nickname"
+              maxLength={NICKNAME_MAX_LENGTH}
+              value={nickname}
+              placeholder={texts.lobby.nicknamePlaceholder}
+              disabled={joining}
+              aria-invalid={showError && error ? true : undefined}
+              aria-describedby={showError && error ? errorId : hintId}
+              onChange={(event) => setNickname(event.target.value)}
+              className="min-h-12 w-full rounded-field bg-canvas px-5 text-body shadow-outline outline-offset-2 placeholder:text-muted disabled:bg-mist"
+            />
+            {showError && error ? (
+              <p id={errorId} role="alert" className="px-1 text-body-sm font-medium text-notice">
+                {error}
+              </p>
+            ) : (
+              <p id={hintId} className="px-1 text-body-sm text-muted">
+                {texts.lobby.nicknameHint}
+              </p>
+            )}
+          </div>
+
+          <IpNotice />
+          <TurnstileField {...turnstile} />
+
+          <div className="flex flex-col gap-2">
+            <Button
+              type="submit"
+              variant="primary"
+              className="min-h-12 w-full rounded-button px-7 text-body font-medium"
+              isDisabled={joining}
+            >
+              {joining && <Spinner />}
+              {turnstile.status === "waiting"
+                ? texts.turnstile.checking
+                : joining
+                  ? texts.lobby.joining
+                  : texts.lobby.join}
+            </Button>
+            <p className="text-center text-body-sm text-muted">{texts.lobby.mutedHint}</p>
+          </div>
+        </form>
+      </div>
+    </main>
+  );
+}

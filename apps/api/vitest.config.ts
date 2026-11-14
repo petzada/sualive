@@ -9,7 +9,15 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
-      miniflare: { compatibilityDate: TEST_COMPATIBILITY_DATE },
+      miniflare: {
+        compatibilityDate: TEST_COMPATIBILITY_DATE,
+        // Segredos só de teste (valores falsos). O Turnstile e a API de TURN são simulados nos
+        // testes com um `fetch` falso: nenhuma chamada sai para a rede.
+        bindings: {
+          TURNSTILE_SECRET_KEY: "segredo-falso-do-turnstile-para-testes",
+          SESSION_SECRET: "segredo-falso-da-sessao-para-testes-0000000000",
+        },
+      },
     }),
   ],
 });
