@@ -74,6 +74,20 @@ export function formatProtectedRoomTime(gold: number): string {
   return formatDuration(protectedRoomMinutes(gold));
 }
 
+const MINUTE_MS = 60 * 1000;
+
+/** Whole hours and minutes of a duration, rounded to the minute: 4_980_000 → { hours: 1, minutes: 23 }. */
+export function splitDuration(ms: number): { hours: number; minutes: number } {
+  const total = Math.max(0, Math.round(ms / MINUTE_MS));
+  return { hours: Math.floor(total / 60), minutes: total % 60 };
+}
+
+/** A countdown in minutes and seconds, rounded up to the second: 89_500 → "1:30"; never below "0:00". */
+export function formatCountdown(ms: number): string {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 // ---------- CPF ----------
 
 export const CPF_LENGTH = 11;
