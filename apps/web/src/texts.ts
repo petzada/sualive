@@ -8,7 +8,6 @@ import {
   MINIMUM_AGE,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
-  PLUS_ANNUAL_PERIOD_DAYS,
   PLUS_RETRY_ATTEMPTS,
   PLUS_RETRY_WINDOW_DAYS,
   PLUS_VIDEO_QUALITY,
@@ -34,6 +33,13 @@ const ROOM_THEME_NAMES: Record<RoomTheme, string> = {
   lavender: "Lavanda",
   graphite: "Grafite",
 };
+
+/**
+ * Days of the money-back guarantee shown on the plan cards. Not a parameter of `@sualive/config`
+ * yet: nothing on the server reads it.
+ */
+const PLUS_GUARANTEE_DAYS = 7;
+const PLUS_GUARANTEE = `Garantia de ${PLUS_GUARANTEE_DAYS} dias`;
 
 const PLUS_QUALITY = `${PLUS_VIDEO_QUALITY.height}p a ${PLUS_VIDEO_QUALITY.frameRate} fps`;
 
@@ -181,6 +187,7 @@ export const texts = {
   common: {
     you: "você",
     close: "Fechar",
+    back: "Voltar",
     cancel: "Cancelar",
     backHome: "Voltar ao início",
     loading: "Carregando…",
@@ -195,6 +202,8 @@ export const texts = {
   nav: {
     label: "Conta",
     home: "Ir para o início",
+    /** In the footer of the pages that have no name of the product at the top. */
+    homeShort: "Início",
     login: "Entrar",
     plus: "Plus",
     profile: (nickname: string) => `Perfil de ${nickname}`,
@@ -315,22 +324,21 @@ export const texts = {
       monthly: {
         name: "Mensal",
         per: "por mês",
-        /** One entry per line: the break between them is part of the copy. */
-        how: [
-          "Pix Automático: um QR Code autoriza a recorrência e já paga o primeiro mês. Depois renova sozinho todo mês, até você cancelar.",
-        ],
+        /** One entry per bullet of the card. */
+        how: ["Pix Automático", "Cobrança recorrente", PLUS_GUARANTEE],
         choose: "Assinar o mensal",
       },
       annual: {
         name: "Anual",
         per: "por ano",
-        how: [`Pix único: paga uma vez e vale ${PLUS_ANNUAL_PERIOD_DAYS} dias.`, "Não renova sozinho."],
+        how: ["Pix QR Code", "Cobrança única", PLUS_GUARANTEE],
         choose: "Assinar o anual",
       },
     },
-    /** On the annual card: how much less than twelve months of the monthly plan. */
+    /** Beside the name of the annual plan: how much less than twelve months of the monthly plan. */
     annualDiscount: (percent: number) => `${percent}% de desconto`,
-    paymentsNote: `Os pagamentos são processados por provedores externos e nenhum dado fica com a plataforma ${APP_NAME}.`,
+    /** Always under the plan cards, centered. */
+    paymentsNote: `O pagamento é processado por provedor externo e os dados não são armazenados pela plataforma ${APP_NAME}.`,
     /** For who already has the Plus: the offer page points to the page of the plan. */
     current: { text: "Você já tem o Plus.", link: "Ver o meu plano" },
     loginToSubscribe: "Você entra na sua conta antes de pagar.",
@@ -363,8 +371,8 @@ export const texts = {
       title: (cycle: string) => `Assinar o Plus ${cycle}`,
       cpfLabel: "CPF",
       cpfPlaceholder: "000.000.000-00",
-      cpfWhy:
-        "O CPF é exigido para gerar a cobrança por Pix. Nós não guardamos o CPF: ele só passa pelo nosso servidor a caminho da Woovi, que processa o Pix.",
+      /** The only line under the field. */
+      cpfWhy: "O CPF é exigido pelo provedor para gerar a cobrança por Pix.",
       cpfInvalid: "CPF inválido. Confira os números.",
       submit: "Gerar o QR Code",
       submitting: "Gerando a cobrança…",
@@ -444,11 +452,8 @@ export const texts = {
     create: "Criar sala",
     creating: "Criando a sala…",
     hint: "Voz, tela, webcam e chat.",
-    /**
-     * Visitor: plain line right under the create button, only the last word is the link.
-     * Logged: `continue` on a line of its own, above the picture and the nickname.
-     */
-    account: { question: "Já tem conta?", login: "Entrar", continue: "Continue com sua conta" },
+    /** Visitor: plain line right under the create button, only the last word is the link. */
+    account: { question: "Já tem conta?", login: "Entrar" },
     manifesto: {
       title: "Nosso manifesto",
       description: "Conheça a plataforma",
@@ -485,8 +490,6 @@ export const texts = {
     /** Shown only while the nickname is outside the accepted length. */
     nicknameInvalid: `De ${NICKNAME_MIN_LENGTH} a ${NICKNAME_MAX_LENGTH} caracteres.`,
     previewTitle: "Prévia de câmera e microfone",
-    /** Under the button of the test, inside the card. */
-    previewOptional: "Opcional",
     previewStart: "Testar câmera e microfone",
     previewStarting: "Pedindo permissão…",
     previewCameraLabel: "Prévia da sua câmera",
@@ -506,6 +509,8 @@ export const texts = {
     reconnecting: "A conexão caiu. Reconectando…",
     codeLabel: "Código da sala:",
     fixedLabel: "Sala de link fixo de",
+    /** Between the name of the product and the room, in the header: "sualive / abc123". */
+    breadcrumbSeparator: "/",
     roomTheme: {
       open: "Tema da sala",
       label: "Tema da sala, para todos",
@@ -606,7 +611,8 @@ export const texts = {
     copyLink: "Copiar o link da sala",
     copyShort: "Copiar link",
     leave: "Sair da sala",
-    leaveShort: "Sair",
+    /** Asked before leaving; the answers are `confirm` and the common "cancel". */
+    leaveConfirm: { question: "Quer realmente sair da sala?", confirm: "Sair" },
     /** At the right of the actions: both open in another tab, so the call goes on. */
     accountLabel: "Conta e plano",
     profile: "Abrir o seu perfil em outra aba",

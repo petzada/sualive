@@ -1,7 +1,6 @@
 import {
   HANDLE_CHANGE_INTERVAL_DAYS,
   MINIMUM_AGE,
-  PLUS_ANNUAL_PERIOD_DAYS,
   PLUS_ANNUAL_PRICE_CENTS,
   PLUS_MONTHLY_PRICE_CENTS,
   TERMS_VERSION,
@@ -679,16 +678,25 @@ describe("plan", () => {
     expect(JSON.stringify(texts)).not.toMatch(/R\$|159,90|19,90/);
   });
 
-  it("breaks the description of the annual plan in two lines", () => {
+  it("describes each plan as a bulleted list, with exactly its three items", () => {
     renderApp({ path: "/plus" });
-    const first = within(screen.getByTestId("cycle-annual")).getByText(
-      `Pix único: paga uma vez e vale ${PLUS_ANNUAL_PERIOD_DAYS} dias.`,
-    );
-    const second = within(screen.getByTestId("cycle-annual")).getByText("Não renova sozinho.");
-    expect(first.nextElementSibling).toBe(second);
-    expect(first.className).toContain("block");
-    expect(second.className).toContain("block");
-    expect(first.parentElement?.children).toHaveLength(2);
+    const expected = {
+      monthly: ["Pix Automático", "Cobrança recorrente", "Garantia de 7 dias"],
+      annual: ["Pix QR Code", "Cobrança única", "Garantia de 7 dias"],
+    };
+    for (const cycle of ["monthly", "annual"] as const) {
+      const list = within(screen.getByTestId(`cycle-${cycle}`)).getByRole("list");
+      expect(list.tagName).toBe("UL");
+      expect(list.className.split(" ")).toContain("list-disc");
+      expect(
+        within(list)
+          .getAllByRole("listitem")
+          .map((item) => item.textContent),
+      ).toEqual(expected[cycle]);
+      expect(texts.plus.cycles[cycle].how).toEqual(expected[cycle]);
+    }
+    // The long explanations are gone.
+    expect(document.body.textContent).not.toMatch(/autoriza a recorrência|Não renova sozinho|Pix único/);
   });
 
   it("works out the annual discount from the two prices, rounded down", () => {
@@ -713,9 +721,15 @@ describe("plan", () => {
     expect(badge.className).toContain("text-canvas");
     expect(within(screen.getByTestId("cycle-monthly")).queryByTestId("annual-discount")).toBeNull();
     expect(screen.getAllByTestId("annual-discount")).toHaveLength(1);
+    // Beside the name of the plan, on its line: not pushed to the right corner of the card.
+    const name = within(screen.getByTestId("cycle-annual")).getByRole("heading", { level: 3 });
+    expect(name.textContent).toBe(texts.plus.cycles.annual.name);
+    expect(name.nextElementSibling).toBe(badge);
+    expect(name.parentElement?.className.split(" ")).toContain("items-center");
+    expect(name.parentElement?.className).not.toMatch(/justify-(between|end)/);
   });
 
-  it("puts each subscribe button inside its card, below the description", () => {
+  it("puts each subscribe button inside its card, below the description, centered", () => {
     renderApp({ path: "/plus", account: logged() });
     for (const cycle of ["monthly", "annual"] as const) {
       const card = screen.getByTestId(`cycle-${cycle}`);
@@ -723,6 +737,8 @@ describe("plan", () => {
       const description = within(card).getByText(texts.plus.cycles[cycle].how.at(-1)!);
       expect(description.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(card.lastElementChild).toBe(button);
+      expect(button.className.split(" ")).toContain("self-center");
+      expect(button.className).not.toContain("self-start");
     }
     // Nowhere else on the page.
     expect(screen.getAllByRole("button", { name: /^Assinar/ })).toHaveLength(2);
@@ -747,15 +763,16 @@ describe("plan", () => {
     expect(cpfInput()).toBeTruthy();
   });
 
-  it("says who processes the payments, and has no way to pay, while billing is off", () => {
+  it("says how the payment is processed, and has no way to pay, while billing is off", () => {
     renderApp({ path: "/plus", account: makeAccountState({ user: makeUser(), billingEnabled: false }) });
 
     expect(screen.queryByTestId("billing-disabled")).toBeNull();
     expect(document.body.textContent).not.toMatch(/não está disponível|Em breve/);
     const note = screen.getByTestId("payments-note");
     expect(note.textContent).toBe(
-      "Os pagamentos são processados por provedores externos e nenhum dado fica com a plataforma sualive.",
+      "O pagamento é processado por provedor externo e os dados não são armazenados pela plataforma sualive.",
     );
+    expect(document.body.textContent).not.toContain("provedores externos");
     // Same plain style as the line of the first subscribers, both centered.
     const early = screen.getByText(texts.plus.earlySupporter);
     expect(note.className).toBe(early.className);
@@ -770,10 +787,49 @@ describe("plan", () => {
     expect(screen.queryByRole("button", { name: texts.plus.cycles.annual.choose })).toBeNull();
   });
 
-  it("keeps that line out of the page while billing is on", () => {
-    renderApp({ path: "/plus", account: logged() });
-    expect(screen.queryByTestId("payments-note")).toBeNull();
+  it("shows that line under the cards with billing on too, for a visitor and for who is logged", () => {
+    for (const account of [makeAccountState(), logged()]) {
+      const view = renderApp({ path: "/plus", account });
+      expect(screen.getByRole("button", { name: texts.plus.cycles.monthly.choose })).toBeTruthy();
+      const note = screen.getByTestId("payments-note");
+      expect(note.textContent).toBe(texts.plus.paymentsNote);
+      expect(note.className).toContain("text-center");
+      const cards = screen.getByTestId("cycle-annual").parentElement!;
+      expect(cards.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(note.closest("main")?.lastElementChild).toBe(note);
+      // The line of the first subscribers stays, centered too.
+      expect(screen.getByText(texts.plus.earlySupporter).className).toBe(note.className);
+      view.unmount();
+    }
   });
+
+  it.each(["monthly", "annual"] as const)(
+    "shows on the CPF step of the %s plan only the amount, the field and why the CPF is asked",
+    (cycle) => {
+      renderApp({ path: "/plus", account: logged() });
+      fireEvent.click(screen.getByRole("button", { name: texts.plus.cycles[cycle].choose }));
+
+      const step = screen.getByRole("region", {
+        name: texts.plus.checkout.title(texts.plus.status.cycle[cycle]),
+      });
+      // The amount in big type, as on the card, and right under it the form with the field.
+      const amount = within(step).getByTestId("checkout-amount");
+      const price = cycle === "monthly" ? PLUS_MONTHLY_PRICE_CENTS : PLUS_ANNUAL_PRICE_CENTS;
+      expect(amount.textContent?.replace(/\s/g, " ")).toBe(`${money(price)}${texts.plus.cycles[cycle].per}`);
+      expect(amount.firstElementChild?.className.split(" ")).toContain("text-heading");
+      expect(amount.nextElementSibling).toBe(cpfInput().closest("form"));
+      // Under the field, only this line.
+      const why = within(step).getByText("O CPF é exigido pelo provedor para gerar a cobrança por Pix.");
+      expect(texts.plus.checkout.cpfWhy).toBe(why.textContent);
+      expect(cpfInput().nextElementSibling).toBe(why);
+      expect(cpfInput().getAttribute("aria-describedby")).toBe(why.id);
+      // How each plan is charged is explained only on the cards, and they are not on this step.
+      expect(step.textContent).not.toMatch(/Pix Automático|autoriza|recorr|renova|Garantia|guardamos|Woovi/i);
+      for (const line of texts.plus.cycles[cycle].how) expect(step.textContent).not.toContain(line);
+      expect(screen.queryByTestId("cycle-monthly")).toBeNull();
+      expect(screen.queryByTestId("payments-note")).toBeNull();
+    },
+  );
 
   const periodEnd = Date.now() + 40 * DAY_MS;
   const plans: Array<[string, Plan]> = [
@@ -874,7 +930,10 @@ describe("plan", () => {
     );
     expect(payment.getByText(money(checkout.amountCents))).toBeTruthy();
     expect(payment.getByText(texts.plus.checkout.expiresAt)).toBeTruthy();
-    expect(accountActions.watchPlusPayment).toHaveBeenCalledWith(checkout.paymentId, expect.any(Function));
+    // O acompanhamento começa num efeito, depois de a tela do pagamento aparecer.
+    await waitFor(() =>
+      expect(accountActions.watchPlusPayment).toHaveBeenCalledWith(checkout.paymentId, expect.any(Function)),
+    );
 
     fireEvent.click(payment.getByRole("button", { name: texts.common.copy }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(checkout.brCode));
@@ -1016,20 +1075,19 @@ describe("home page with accounts", () => {
     expect(footer.getByRole("link", { name: texts.nav.privacy }).getAttribute("href")).toBe("/privacidade");
   });
 
-  it("invites who is logged to continue, in two lines, as a block of its own after the button", () => {
+  it("shows who is logged only the picture and the nickname, as a block of its own after the button", () => {
     renderApp({ path: "/", account: logged(makeUser({ avatarUrl: "https://example.test/a.png" })) });
 
     const profile = within(account()).getByRole("link", { name: texts.nav.profile("Marina") });
     expect(profile.getAttribute("href")).toBe("/perfil");
     expect(profile.textContent).toBe("Marina");
     expect(profile.querySelector("img")?.getAttribute("src")).toBe("https://example.test/a.png");
-    // Two lines: the text first, then the picture with the nickname.
-    expect(texts.home.account.continue).toBe("Continue com sua conta");
-    expect(account().textContent).toBe(`${texts.home.account.continue}Marina`);
-    const line = within(account()).getByText(texts.home.account.continue);
-    expect(line.tagName).toBe("P");
-    expect(line.nextElementSibling).toBe(profile);
-    expect(account().className.split(" ")).toContain("flex-col");
+    // Nothing but the link: the "continue with your account" line is gone.
+    expect(account().children).toHaveLength(1);
+    expect(account().firstElementChild).toBe(profile);
+    expect(account().textContent).toBe("Marina");
+    expect(document.body.textContent).not.toContain("Continue com sua conta");
+    expect("continue" in texts.home.account).toBe(false);
     expect(account().textContent).not.toContain(texts.home.account.question);
     // Not glued to the button anymore: it left the button's block and is the next block of the
     // column, so the column's own gap separates them, as it does the other blocks.

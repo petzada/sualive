@@ -36,11 +36,11 @@ function PlanContent({ user, actions }: { user: MeUser; actions: AccountActions 
  */
 export function PlanPage() {
   const { user, fallback, actions } = useAccountGate();
-  if (!user) return <PageShell>{fallback}</PageShell>;
+  if (!user) return <PageShell top="back">{fallback}</PageShell>;
   if (!user.plan.plus) return <Navigate to={PATHS.plus} replace />;
 
   return (
-    <PageShell>
+    <PageShell top="back">
       <PlanContent user={user} actions={actions} />
     </PageShell>
   );

@@ -1,9 +1,9 @@
 import type { MeUser } from "@sualive/protocol";
 import type { ReactNode } from "react";
-import { Link, Navigate, useLocation } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import type { AccountActions, AccountState } from "../../lib/account";
 import { texts } from "../../texts";
-import { Spinner } from "../icons";
+import { BackIcon, Spinner } from "../icons";
 import { Avatar } from "../room/media";
 import { useAccountClient } from "./AccountClient";
 import { loginPath, onboardingPath, PATHS } from "./paths";
@@ -39,8 +39,42 @@ export function AccountAccess() {
   );
 }
 
-/** Minimal footer: the two legal pages. */
-export function SiteFooter() {
+/**
+ * `true` when this tab has an earlier page of the app to go back to. The router numbers the entries
+ * it creates in the history of the tab (`idx` in `history.state`): the first page loaded in a tab
+ * (new tab, typed address, outside link, return from a full-page redirect such as the login) is 0,
+ * and every navigation inside the app adds one. Going back and forward moves along the same numbers.
+ */
+export function useHasPreviousPage(): boolean {
+  // Read again on every navigation; the router has already written the entry when this renders.
+  useLocation();
+  const state: unknown = window.history.state;
+  if (typeof state !== "object" || state === null || !("idx" in state)) return false;
+  return typeof state.idx === "number" && state.idx > 0;
+}
+
+/**
+ * The browser's "back", inside the app: only the arrow, outlined, at the top left. Absent when
+ * there is no earlier page of the app in this tab (see `useHasPreviousPage`).
+ */
+export function BackButton() {
+  const navigate = useNavigate();
+  if (!useHasPreviousPage()) return null;
+
+  return (
+    <button
+      type="button"
+      aria-label={texts.common.back}
+      onClick={() => void navigate(-1)}
+      className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-button border border-outline text-ink"
+    >
+      <BackIcon />
+    </button>
+  );
+}
+
+/** Minimal footer: the two legal pages and, with `home`, a way to the home page before them. */
+export function SiteFooter({ home = false }: { home?: boolean }) {
   const link =
     "inline-flex min-h-11 items-center rounded-link px-2 underline-offset-2 hover:text-ink hover:underline";
   return (
@@ -48,6 +82,11 @@ export function SiteFooter() {
       aria-label={texts.nav.footerLabel}
       className="flex shrink-0 justify-center gap-3 px-5 pb-4 text-compact text-muted"
     >
+      {home && (
+        <Link to={PATHS.home} className={link}>
+          {texts.nav.homeShort}
+        </Link>
+      )}
       <Link to={PATHS.terms} className={link}>
         {texts.nav.terms}
       </Link>
@@ -62,27 +101,40 @@ const WIDTHS = { narrow: "max-w-md", regular: "max-w-2xl", wide: "max-w-4xl" };
 
 interface PageShellProps {
   width?: keyof typeof WIDTHS;
+  /**
+   * What goes above the content. `site`: name of the product at the left and the account at the
+   * right. `back`: no name and no account, only the back button at the top left (when there is a
+   * page to go back to); the way home is then in the footer.
+   */
+  top?: "site" | "back";
   children: ReactNode;
 }
 
-/** Frame of the pages outside the room: name at the top left, account at the right, legal footer. */
-export function PageShell({ width = "regular", children }: PageShellProps) {
+/** Frame of the pages outside the room: the top row (see `top`), the content and the legal footer. */
+export function PageShell({ width = "regular", top = "site", children }: PageShellProps) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 py-1.5">
-        <Link
-          to={PATHS.home}
-          aria-label={texts.nav.home}
-          className="inline-flex min-h-11 items-center rounded-link font-display text-title font-semibold"
-        >
-          {texts.home.title}
-        </Link>
-        <AccountAccess />
-      </header>
+      {top === "site" ? (
+        <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 py-1.5">
+          <Link
+            to={PATHS.home}
+            aria-label={texts.nav.home}
+            className="inline-flex min-h-11 items-center rounded-link font-display text-title font-semibold"
+          >
+            {texts.home.title}
+          </Link>
+          <AccountAccess />
+        </header>
+      ) : (
+        // Always as tall as the button, so the titles do not move when it comes or goes.
+        <div className="flex min-h-14 shrink-0 items-center px-5 py-1.5" data-testid="page-top">
+          <BackButton />
+        </div>
+      )}
       <main className={`mx-auto flex w-full flex-1 flex-col gap-10 px-5 pt-8 pb-16 ${WIDTHS[width]}`}>
         {children}
       </main>
-      <SiteFooter />
+      <SiteFooter home={top === "back"} />
     </div>
   );
 }

@@ -354,6 +354,11 @@ describe("room theme", () => {
     expect(root.getAttribute(ROOM_THEME_ATTRIBUTE)).toBe("sunset");
 
     fireEvent.click(screen.getByRole("button", { name: texts.controls.leave }));
+    fireEvent.click(
+      within(screen.getByTestId("leave-confirm")).getByRole("button", {
+        name: texts.controls.leaveConfirm.confirm,
+      }),
+    );
     await screen.findByRole("button", { name: texts.home.create });
     expect(root.hasAttribute(ROOM_THEME_ATTRIBUTE)).toBe(false);
   });

@@ -170,7 +170,7 @@ describe("account shortcuts of the room", () => {
     expect(theme.parentElement).toBe(leave.parentElement);
     // Only on a phone: from `md` the header loses them (they are in the row of the actions).
     expect(classes(shortcuts())).toContain("md:hidden");
-    // Same size: 44px round. The leave button only grows, with its word, from `md`.
+    // Same size: 44px round, in every width; the leave button is only its icon.
     for (const name of ["h-11", "w-11", "rounded-button"]) {
       expect(classes(headerPill())).toContain(name);
       expect(classes(headerPhoto()!)).toContain(name);
@@ -179,8 +179,10 @@ describe("account shortcuts of the room", () => {
       expect(classes(button)).toContain("size-11");
       expect(classes(button)).toContain("rounded-button");
     }
-    for (const name of ["px-0", "md:w-auto", "md:px-3"]) expect(classes(leave)).toContain(name);
-    expect(classes(within(leave).getByText(texts.controls.leaveShort))).toEqual(["hidden", "md:inline"]);
+    expect(leave.textContent).toBe("");
+    expect(leave.querySelector("svg")).toBeTruthy();
+    expect(leave.className).not.toMatch(/md:w-auto|md:px-/);
+    expect("leaveShort" in texts.controls).toBe(false);
     // The pill is only its glyph here; its name stays in the accessible label.
     expect(headerPill().textContent).toBe("");
     expect(headerPill().querySelector("svg")).toBeTruthy();

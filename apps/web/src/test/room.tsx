@@ -14,34 +14,51 @@ import { makeAccountActions, makeAccountState } from "./account";
 export const TEST_TOKEN = "test-turnstile-token";
 
 /**
- * Replaces the Turnstile script: the widget "passes" as soon as it renders. Call it with
- * `{ pass: false }` to keep the token pending and drive the callbacks by hand.
+ * Replaces the Turnstile script. Like the real one in the `execute` mode, rendering asks for
+ * nothing; the widget "passes" when `execute` is called (`render` alone passes only for a widget
+ * that is not in that mode). Call it with `{ pass: false }` to keep the token pending and drive
+ * the callbacks by hand. Every rendered widget gets its own id ("widget-1", "widget-2"…) and the
+ * callbacks are always those of the last one.
  */
 export function installTurnstileStub({ pass = true } = {}) {
   const callbacks: {
     token?: (token: string) => void;
-    error?: () => boolean;
+    error?: (code?: string) => boolean;
     expired?: () => void;
+    timeout?: () => void;
+    unsupported?: () => void;
     /** Cloudflare demands an interaction from the person. */
     beforeInteractive?: () => void;
     /** The interaction is over. */
     afterInteractive?: () => void;
   } = {};
+  /** Widgets rendered and not removed yet. */
+  const live = new Set<string>();
+  let rendered = 0;
   const api = {
     render: vi.fn<TurnstileApi["render"]>((_container, options) => {
       callbacks.token = options.callback;
       callbacks.error = options["error-callback"];
       callbacks.expired = options["expired-callback"];
+      callbacks.timeout = options["timeout-callback"];
+      callbacks.unsupported = options["unsupported-callback"];
       callbacks.beforeInteractive = options["before-interactive-callback"];
       callbacks.afterInteractive = options["after-interactive-callback"];
-      if (pass) options.callback(TEST_TOKEN);
-      return "widget-1";
+      const id = `widget-${++rendered}`;
+      live.add(id);
+      if (pass && (options.execution as string) !== "execute") options.callback(TEST_TOKEN);
+      return id;
+    }),
+    execute: vi.fn<TurnstileApi["execute"]>(() => {
+      if (pass) callbacks.token?.(TEST_TOKEN);
     }),
     reset: vi.fn<TurnstileApi["reset"]>(),
-    remove: vi.fn<TurnstileApi["remove"]>(),
+    remove: vi.fn<TurnstileApi["remove"]>((id) => {
+      live.delete(id);
+    }),
   };
   window.turnstile = api;
-  return { api, callbacks };
+  return { api, callbacks, live };
 }
 
 export function makeParticipant(overrides: Partial<ParticipantView> = {}): ParticipantView {

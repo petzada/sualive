@@ -92,7 +92,8 @@ function Cycles({ onChoose }: CyclesProps) {
           const copy = texts.plus.cycles[cycle];
           return (
             <li key={cycle} data-testid={`cycle-${cycle}`} className={`flex flex-col gap-3 ${CARD}`}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              {/* The discount sits beside the name of the plan, on its line. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <h3 className="font-display text-title font-semibold">{copy.name}</h3>
                 {cycle === "annual" && ANNUAL_DISCOUNT > 0 && (
                   <span
@@ -107,17 +108,15 @@ function Cycles({ onChoose }: CyclesProps) {
                 <span className="font-display text-heading font-semibold">{formatCents(PRICES[cycle])}</span>
                 <span className="text-body-sm text-muted">{copy.per}</span>
               </p>
-              <p className="flex-1 text-body-sm">
+              <ul className="flex flex-1 list-disc flex-col gap-1 pl-5 text-body-sm">
                 {copy.how.map((line) => (
-                  <span key={line} className="block">
-                    {line}
-                  </span>
+                  <li key={line}>{line}</li>
                 ))}
-              </p>
+              </ul>
               {onChoose && (
                 <Button
                   variant="primary"
-                  className={`self-start ${PRIMARY_PILL}`}
+                  className={`self-center ${PRIMARY_PILL}`}
                   onPress={() => onChoose(cycle)}
                 >
                   {copy.choose}
@@ -180,9 +179,10 @@ function TaxIdForm({ cycle, actions, onBack, onCheckout }: TaxIdFormProps) {
       <h2 id={titleId} className="font-display text-kicker font-semibold">
         {texts.plus.checkout.title(texts.plus.status.cycle[cycle])}
       </h2>
-      <p>
-        <span className="font-semibold">{formatCents(PRICES[cycle])}</span> {texts.plus.cycles[cycle].per}.{" "}
-        <span className="text-body-sm text-muted">{texts.plus.cycles[cycle].how.join(" ")}</span>
+      {/* The amount as big as on the card; how each plan is charged is explained only there. */}
+      <p className="flex items-baseline gap-2" data-testid="checkout-amount">
+        <span className="font-display text-heading font-semibold">{formatCents(PRICES[cycle])}</span>
+        <span className="text-body-sm text-muted">{texts.plus.cycles[cycle].per}</span>
       </p>
 
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-2">
@@ -417,13 +417,13 @@ function PlusContent({ user, state, actions }: PlusContentProps) {
       {step.kind === "choose" && (
         <>
           <Cycles onChoose={canSubscribe ? choose : null} />
-          {!state.billingEnabled ? (
-            <p data-testid="payments-note" className={NOTE}>
-              {texts.plus.paymentsNote}
-            </p>
-          ) : (
-            !user && <p className="text-body-sm text-muted">{texts.plus.loginToSubscribe}</p>
+          {state.billingEnabled && !user && (
+            <p className="text-body-sm text-muted">{texts.plus.loginToSubscribe}</p>
           )}
+          {/* Always there, with billing on or off. */}
+          <p data-testid="payments-note" className={NOTE}>
+            {texts.plus.paymentsNote}
+          </p>
         </>
       )}
     </>
@@ -435,7 +435,7 @@ export function PlusPage() {
   const { user, fallback, state, actions } = useAccountGate({ anonymous: "allow" });
 
   return (
-    <PageShell width="wide">
+    <PageShell width="wide" top="back">
       {fallback ?? <PlusContent user={user} state={state} actions={actions} />}
     </PageShell>
   );

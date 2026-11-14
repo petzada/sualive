@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Popover } from "@heroui/react";
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { RoomActions, RoomState } from "../../lib/room";
@@ -20,6 +20,52 @@ const TABS: PanelTab[] = ["chat", "people"];
 
 /** Header buttons (theme, leave): neutral, unlike the filled actions of the bar below. */
 const NEUTRAL_PILL = "shrink-0 rounded-button bg-canvas text-ink shadow-outline-soft";
+
+/** Answers of the leave confirmation: same pills as the ones that confirm removing or banning. */
+const ANSWER_PILL = "min-h-11 rounded-button px-4 text-body-sm";
+
+/**
+ * Leaving ends the call for the person, so the button only asks: a small dialog under it, with the
+ * focus on "cancel". Escape, a click outside or "cancel" close it and give the focus back to the
+ * button; only "leave" leaves.
+ */
+function LeaveButton({ onLeave }: { onLeave: () => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover isOpen={open} onOpenChange={setOpen}>
+      <Hint text={texts.controls.leave} placement="bottom">
+        <Button isIconOnly aria-label={texts.controls.leave} className={`size-11 ${NEUTRAL_PILL}`}>
+          <LeaveIcon />
+        </Button>
+      </Hint>
+      <Popover.Content
+        placement="bottom end"
+        offset={8}
+        className="w-72 max-w-[calc(100vw-1rem)] rounded-nav bg-canvas text-ink shadow-outline"
+      >
+        <Popover.Dialog className="flex flex-col gap-4 p-4" data-testid="leave-confirm">
+          <Popover.Heading className="text-body-sm font-medium">
+            {texts.controls.leaveConfirm.question}
+          </Popover.Heading>
+          <div className="flex flex-wrap gap-2">
+            <Button className={`${ANSWER_PILL} bg-ink text-canvas`} onPress={onLeave}>
+              {texts.controls.leaveConfirm.confirm}
+            </Button>
+            <Button
+              variant="outline"
+              className={`${ANSWER_PILL} border-outline`}
+              autoFocus
+              onPress={() => setOpen(false)}
+            >
+              {texts.common.cancel}
+            </Button>
+          </div>
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
+  );
+}
 
 interface RoomViewProps {
   state: RoomState;
@@ -66,57 +112,53 @@ export function RoomView({ state, actions, onLeave }: RoomViewProps) {
   return (
     <div className="flex h-dvh flex-col bg-mist">
       {/*
-        Phones: the name of the product at the left with the room under it, and the buttons (plan,
-        picture, theme, leave) at the right. From `md`: the name of the product centered, and the
-        room beside the theme and leave buttons; from `lg` that side is as wide as the people and
-        chat panel below it, so the room starts at the panel's left edge. Who is speaking and the
-        reconnecting message take a row of their own below `lg` (always reserved, so the stage does
-        not jump when someone starts to speak) and the free left side from `lg`.
+        At the left, starting at the left edge of the stage below (same side padding as `main`): the
+        name of the product and, right beside it, the room in gray, as a breadcrumb. At the right,
+        the buttons (on a phone also the plan and the picture; then the theme and leaving). Who is
+        speaking and the reconnecting message take a row of their own below `lg` (always reserved,
+        so the stage does not jump when someone starts to speak) and the free middle from `lg`.
       */}
-      <header className="grid min-h-11 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-4 pt-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-        <h1 className="col-start-1 row-start-1 font-display text-title font-semibold md:col-start-2 md:text-center">
-          {texts.home.title}
-        </h1>
-        {/* Phones: its two children are placed in the grid by themselves. From `md`: one cell at the right. */}
-        <div
-          data-testid="room-header-side"
-          className="contents md:col-start-3 md:row-start-1 md:flex md:min-w-0 md:items-center md:justify-end md:gap-3 lg:w-88 lg:justify-between lg:justify-self-end"
-        >
-          <p
-            className="col-start-1 row-start-2 min-w-0 truncate text-compact font-medium md:text-body-sm"
-            data-testid="room-code"
-          >
-            {/* Fixed-link room: the @handle of its owner takes the place of the code. */}
-            <span className="sr-only">{fixedHandle ? texts.room.fixedLabel : texts.room.codeLabel} </span>
-            {fixedHandle ? texts.handle.display(fixedHandle) : state.code}
-          </p>
-          <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 items-center justify-end gap-1.5">
-            {/* Phones only: from `md` the plan and the picture are in the row of the actions. */}
-            <AccountShortcuts className="md:hidden" />
-            {canPickRoomTheme && <RoomThemePicker theme={state.theme} onChange={actions.setRoomTheme} />}
-            <Hint text={themeLabel} placement="bottom">
-              <Button
-                isIconOnly
-                aria-label={themeLabel}
-                className={`size-11 ${NEUTRAL_PILL}`}
-                onPress={toggleTheme}
-              >
-                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-              </Button>
-            </Hint>
-            <Hint text={texts.controls.leave} placement="bottom">
-              <Button
-                aria-label={texts.controls.leave}
-                className={`size-11 min-w-11 px-0 text-body-sm font-normal md:w-auto md:px-3 ${NEUTRAL_PILL}`}
-                onPress={onLeave}
-              >
-                <LeaveIcon />
-                <span className="hidden md:inline">{texts.controls.leaveShort}</span>
-              </Button>
-            </Hint>
+      <header className="grid min-h-11 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 pt-1 pr-4 pl-2 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:pl-4">
+        {/*
+          Where the room does not fit beside the name (a phone with all the buttons) it wraps to the
+          line below and loses the separator: each piece carries its separator in its own left
+          padding, and the padding of whatever starts a line falls outside this clipped box.
+        */}
+        <div className="col-start-1 row-start-1 min-w-0 overflow-hidden" data-testid="room-breadcrumb">
+          <div className="-ml-5 flex flex-wrap items-baseline">
+            <h1 className="pl-5 font-display text-title font-semibold">{texts.home.title}</h1>
+            <div className="relative flex max-w-full min-w-0 pl-5 text-compact text-muted md:text-body-sm">
+              <span aria-hidden="true" className="absolute left-0 w-5 text-center">
+                {texts.room.breadcrumbSeparator}
+              </span>
+              <p className="min-w-0 truncate" data-testid="room-code">
+                {/* Fixed-link room: the @handle of its owner takes the place of the code. */}
+                <span className="sr-only">{fixedHandle ? texts.room.fixedLabel : texts.room.codeLabel} </span>
+                {fixedHandle ? texts.handle.display(fixedHandle) : state.code}
+              </p>
+            </div>
           </div>
         </div>
-        <div className="col-span-2 row-start-3 flex min-h-5 min-w-0 items-center justify-center gap-3 md:col-span-3 md:row-start-2 lg:col-span-1 lg:col-start-1 lg:row-start-1 lg:min-h-0 lg:justify-start">
+        <div
+          data-testid="room-header-buttons"
+          className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-1.5 lg:col-start-3"
+        >
+          {/* Phones only: from `md` the plan and the picture are in the row of the actions. */}
+          <AccountShortcuts className="md:hidden" />
+          {canPickRoomTheme && <RoomThemePicker theme={state.theme} onChange={actions.setRoomTheme} />}
+          <Hint text={themeLabel} placement="bottom">
+            <Button
+              isIconOnly
+              aria-label={themeLabel}
+              className={`size-11 ${NEUTRAL_PILL}`}
+              onPress={toggleTheme}
+            >
+              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+            </Button>
+          </Hint>
+          <LeaveButton onLeave={onLeave} />
+        </div>
+        <div className="col-span-2 row-start-2 flex min-h-5 min-w-0 items-center justify-center gap-3 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:min-h-0 lg:justify-start">
           {speakers.length > 0 && (
             <span className="flex min-w-0 items-center gap-1.5 text-compact text-muted lg:hidden">
               <VoiceBars />

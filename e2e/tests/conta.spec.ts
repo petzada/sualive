@@ -351,7 +351,12 @@ test("assinante: link fixo com dono reconhecido, tema para todos e sala que não
 
   // Todos saem: a sala de link fixo continua aberta.
   for (const { page } of [late, guest, owner]) {
+    // Sair pede confirmação antes.
     await page.getByRole("button", { name: texts.controls.leave }).click();
+    await page
+      .getByTestId("leave-confirm")
+      .getByRole("button", { name: texts.controls.leaveConfirm.confirm, exact: true })
+      .click();
     await expect(page).toHaveURL("/");
   }
   await expect

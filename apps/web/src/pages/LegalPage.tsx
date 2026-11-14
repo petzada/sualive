@@ -13,7 +13,7 @@ export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
   const copy = texts.legal[kind];
 
   return (
-    <PageShell>
+    <PageShell top="back">
       <article className="flex flex-col gap-8">
         <header className="flex flex-col gap-3">
           <h1 className="font-display text-heading font-semibold">{copy.title}</h1>
