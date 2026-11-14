@@ -15,7 +15,14 @@ import {
 } from "@sualive/protocol";
 import { createAccountApi, type AccountApi, type AccountApiFailure, type AccountApiResult } from "./api";
 import type { AccountDeps } from "./deps";
-import type { AccountActions, AccountErrorReason, AccountResult, AccountState, PaymentStatus } from "./types";
+import type {
+  AccountActions,
+  AccountErrorReason,
+  AccountResult,
+  AccountState,
+  FixedRoomProtectedErrorReason,
+  PaymentStatus,
+} from "./types";
 import { watchPayment } from "./watch-payment";
 
 export { PAYMENT_POLL_BASE_DELAY_MS, PAYMENT_POLL_MAX_DELAY_MS } from "./watch-payment";
@@ -94,6 +101,7 @@ export class AccountStore {
       completeOnboarding: (input) => this.completeOnboarding(input),
       updateProfile: (input) => this.updateProfile(input),
       checkHandle: (handle) => this.checkHandle(handle),
+      setFixedRoomProtected: (value) => this.setFixedRoomProtected(value),
       markTermsSeen: () => this.markTermsSeen(),
       deleteAccount: () => this.deleteAccount(),
       startPlusCheckout: (input) => this.startPlusCheckout(input),
@@ -224,6 +232,18 @@ export class AccountStore {
     return this.run("profile", this.api.updateMe(body.data), (user) => {
       this.setUser(user);
     });
+  }
+
+  private async setFixedRoomProtected(
+    value: boolean,
+  ): Promise<AccountResult<void, FixedRoomProtectedErrorReason>> {
+    const result = await this.api.updateMe({ fixedRoomProtected: value });
+    if (result.ok) {
+      this.setUser(result.data);
+      return { ok: true, value: undefined };
+    }
+    if (result.error === "room_in_use") return { ok: false, reason: "roomInUse" };
+    return { ok: false, reason: this.failed(result.error, "fixed-room-protected") };
   }
 
   private checkHandle(handle: string) {

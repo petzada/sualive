@@ -8,15 +8,19 @@
  * do React desmonta e remonta na mesma passada, e assim nada é aberto duas vezes.
  */
 import {
+  AUTO_WATCH_MAX_PEOPLE,
   CHAT_HISTORY_SIZE,
   FIXED_ROOM_PATH_PREFIX,
   FREE_VIDEO_QUALITY,
+  MIC_RATE_WINDOW_MS,
   PLUS_VIDEO_QUALITY,
   REACTIONS,
+  RELAY_SCREEN_AUDIO_MAX_BITRATE,
   RELAY_VIDEO_QUALITY,
   ROOM_MAX_PEOPLE,
   VIDEOS_PER_PERSON,
   ROOM_PATH_PREFIX,
+  WATCHED_VIDEOS_PER_PERSON,
   type RoomTheme,
 } from "@sualive/config";
 import type { DevicePreview, MediaSession, PeerConnectionState, SignalData, VideoKind } from "@sualive/media";
@@ -31,6 +35,7 @@ import {
   type JoinRoomRequest,
   type MeUser,
   type Participant,
+  type RoomInfoResponse,
   type RoomSettings,
   type RoomVideo,
   type ServerMessage,
@@ -44,10 +49,12 @@ import type {
   JoinOptions,
   ParticipantView,
   RoomActions,
+  RoomEndReason,
   RoomNotice,
   RoomPhase,
   RoomState,
   SendGoldResult,
+  VideoBlockedReason,
   VideoView,
 } from "./types";
 
@@ -100,6 +107,24 @@ interface PendingGift {
   resolve: (result: SendGoldResult) => void;
 }
 
+/** Pedido de assistir um vídeo de outra pessoa, como o servidor respondeu. */
+interface WatchEntry {
+  state: "requesting" | "watching" | "blocked";
+  reason: VideoBlockedReason | null;
+  /** Pedido pela pessoa (`watchVideo`), não pela abertura automática: só ele vira aviso de limite. */
+  manual: boolean;
+}
+
+/**
+ * Última ação com limite de frequência enviada. O `error` `rate_limited` não diz a que se refere;
+ * o servidor responde em ordem, então vale a mais recente.
+ */
+type LimitedAction =
+  | { kind: "chat" }
+  | { kind: "reaction" }
+  | { kind: "hand"; previous: boolean }
+  | { kind: "mic"; muted: boolean };
+
 /** Cancelar o seletor de tela não é erro: a pessoa só desistiu. */
 function isScreenPickerCancel(kind: VideoKind, error: unknown): boolean {
   if (kind !== "screen" || typeof error !== "object" || error === null) return false;
@@ -112,6 +137,11 @@ function frameType(data: unknown): string {
   if (typeof data !== "object" || data === null) return typeof data;
   const type = (data as { type?: unknown }).type;
   return typeof type === "string" ? type.slice(0, 40) : "unknown";
+}
+
+/** Só os próprios e os que a pessoa assiste vão para o destaque. */
+function canFeature(video: VideoView): boolean {
+  return video.watch === "local" || video.watch === "watching";
 }
 
 /** `@nome` é a chave da sala de link fixo; o resto é código de sala comum. */
@@ -190,6 +220,32 @@ export class RoomClient {
   private pendingGift: PendingGift | null = null;
   private readonly giftTimers = new Set<ReturnType<typeof setTimeout>>();
 
+  // Sala (do `welcome` e de `room.updated`; a lotação também da consulta do lobby)
+  private capacity: number = ROOM_MAX_PEOPLE;
+  private roomProtected = false;
+  /** `GET .../ice` pediu só retransmissão numa sessão que nasceu sem: a próxima nasce com. */
+  private relayOnlyFromIce = false;
+  /** Quantos vídeos esta pessoa assiste ao mesmo tempo (do servidor). */
+  private maxWatched: number = WATCHED_VIDEOS_PER_PERSON;
+  /** Esta pessoa pode ter o próprio vídeo retransmitido (é Plus): decide o motivo dos bloqueios. */
+  private relayVideo = false;
+
+  // Vídeo sob demanda
+  /** videoId (de outra pessoa) → pedido de assistir em andamento ou aceito. */
+  private readonly watching = new Map<string, WatchEntry>();
+  /** Vídeos que a pessoa parou de assistir de propósito: não reabrem sozinhos. */
+  private readonly optedOut = new Set<string>();
+  /** Vídeos de outras pessoas já conhecidos (o que não está aqui é novo). */
+  private readonly knownVideos = new Set<string>();
+  /** videoId (próprio) → quem recebe e quem está bloqueado, como o servidor mandou. */
+  private readonly localViewers = new Map<string, { viewers: string[]; blocked: string[] }>();
+  /** peerId → último `relayed` enviado ao servidor (sem entrada = `false`). */
+  private readonly sentRelay = new Map<string, boolean>();
+
+  // Limites de frequência
+  private lastLimited: LimitedAction | null = null;
+  private micResendTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(
     readonly code: string,
     private readonly deps: RoomDeps,
@@ -204,10 +260,18 @@ export class RoomClient {
       fixed: false,
       ownerHandle: null,
       theme: "default",
+      protected: false,
+      maxVideos: null,
       maxOwnVideos: VIDEOS_PER_PERSON,
+      maxWatchedVideos: WATCHED_VIDEOS_PER_PERSON,
+      watchedCount: 0,
+      relayMeter: null,
+      protectedMeter: null,
+      endReason: null,
       accountNickname: null,
       selfId: null,
       isOwner: false,
+      isModerator: false,
       participants: [],
       videos: [],
       featuredVideoId: null,
@@ -229,14 +293,17 @@ export class RoomClient {
       join: (options) => this.join(options),
       leave: () => this.leave(),
       useThisTab: () => void this.useThisTab(),
-      sendChat: (text) => void this.send({ type: "chat.send", text }),
+      sendChat: (text) => this.sendChat(text),
       react: (reaction) => this.react(reaction),
       setHandRaised: (raised) => this.setHandRaised(raised),
       setMicMuted: (muted) => this.setMicMuted(muted),
       startVideo: (kind) => this.startVideo(kind),
       stopVideo: (videoId) => this.stopVideo(videoId),
+      watchVideo: (videoId) => this.watchVideo(videoId),
+      unwatchVideo: (videoId) => this.unwatchVideo(videoId),
       setFeaturedVideo: (videoId) => this.setFeaturedVideo(videoId),
       moderate: (action, participantId) => this.moderate(action, participantId),
+      setModerator: (participantId, moderator) => this.setModerator(participantId, moderator),
       sendGold: (participantId, amount) => this.sendGold(participantId, amount),
       copyLink: () => this.copyLink(),
       dismissNotice: () => this.update({ notice: null }),
@@ -332,20 +399,36 @@ export class RoomClient {
       this.finish("ended");
       return;
     }
-    this.update({
-      phase: "lobby",
-      occupancy: { participants: result.data.participants, capacity: result.data.capacity },
-      ...this.fixedFromInfo(result.data.fixed),
-    });
+    this.update({ phase: "lobby", ...this.fromInfo(result.data) });
   }
 
-  /** `GET /api/rooms/:key` diz se a sala é fixa; o @nome do dono é a própria chave. */
-  private fixedFromInfo(fixed: boolean): Pick<RoomState, "fixed" | "ownerHandle"> {
-    return { fixed, ownerHandle: fixed && isFixedKey(this.code) ? this.code.slice(1) : null };
+  /**
+   * `GET /api/rooms/:key`: lotação, sala fixa (o @nome do dono é a própria chave) e protegida.
+   */
+  private fromInfo(
+    info: RoomInfoResponse,
+  ): Pick<RoomState, "occupancy" | "fixed" | "ownerHandle" | "protected"> {
+    this.capacity = info.capacity;
+    return {
+      occupancy: { participants: info.participants, capacity: info.capacity },
+      fixed: info.fixed,
+      ownerHandle: info.fixed && isFixedKey(this.code) ? this.code.slice(1) : null,
+      protected: info.protected,
+    };
   }
 
-  private applyRoomSettings(room: RoomSettings): Pick<RoomState, "fixed" | "ownerHandle" | "theme"> {
-    return { fixed: room.fixed, ownerHandle: room.ownerHandle, theme: room.theme };
+  private applyRoomSettings(
+    room: RoomSettings,
+  ): Pick<RoomState, "fixed" | "ownerHandle" | "theme" | "protected" | "maxVideos"> {
+    this.capacity = room.capacity;
+    this.roomProtected = room.protected;
+    return {
+      fixed: room.fixed,
+      ownerHandle: room.ownerHandle,
+      theme: room.theme,
+      protected: room.protected,
+      maxVideos: room.maxVideos,
+    };
   }
 
   /** Atualiza a lotação mostrada no lobby (ou descobre que a sala acabou). */
@@ -356,10 +439,7 @@ export class RoomClient {
       this.finish("ended");
       return;
     }
-    this.update({
-      occupancy: { participants: result.data.participants, capacity: result.data.capacity },
-      ...this.fixedFromInfo(result.data.fixed),
-    });
+    this.update(this.fromInfo(result.data));
   }
 
   private onResume(): void {
@@ -506,14 +586,19 @@ export class RoomClient {
   }
 
   /** Encerra a sessão e vai para uma fase fora da sala. */
-  private finish(phase: RoomPhase): void {
+  private finish(phase: RoomPhase, endReason: RoomEndReason | null = null): void {
     this.endSession();
     if (phase === "ended") forgetOwnerToken(this.deps.storage, this.code);
     if (phase !== "lobby") this.stopPreview();
     this.update({
       phase,
+      endReason: phase === "ended" ? endReason : null,
       selfId: null,
       isOwner: false,
+      isModerator: false,
+      watchedCount: 0,
+      relayMeter: null,
+      protectedMeter: null,
       participants: [],
       videos: [],
       featuredVideoId: null,
@@ -558,6 +643,14 @@ export class RoomClient {
     this.localStreams.clear();
     this.videoOrder.clear();
     this.chosenFeatured = null;
+    this.watching.clear();
+    this.optedOut.clear();
+    this.knownVideos.clear();
+    this.localViewers.clear();
+    this.sentRelay.clear();
+    this.relayOnlyFromIce = false;
+    this.lastLimited = null;
+    this.clearMicResend();
     this.selfId = null;
     this.handRaised = false;
     this.sessionAccount = null;
@@ -693,7 +786,7 @@ export class RoomClient {
   private handle(message: ServerMessage): void {
     if (message.type === "welcome") return this.onWelcome(message);
     if (message.type === "removed") return this.finish(message.reason);
-    if (message.type === "room.ended") return this.finish("ended");
+    if (message.type === "room.ended") return this.finish("ended", message.reason ?? null);
     if (!this.welcomed) return;
     switch (message.type) {
       case "participant.joined":
@@ -729,9 +822,27 @@ export class RoomClient {
       case "force.muted":
         return this.onForceMuted();
       case "room.updated":
-        return this.update(this.applyRoomSettings(message.room));
+        this.update(this.applyRoomSettings(message.room));
+        return this.rebuild();
+      case "video.watch.state":
+        return this.onWatchState(message);
+      case "video.viewers":
+        return this.onViewers(message.videoId, message.viewers, message.blocked);
+      case "relay.meter":
+        return this.update({
+          relayMeter: { pairs: message.pairs, goldPerHour: message.goldPerHour, state: message.state },
+        });
+      case "protected.meter":
+        return this.update({
+          protectedMeter: {
+            state: message.state,
+            remainingMs: message.remainingMs,
+            goldPerHour: message.goldPerHour,
+            graceEndsAt: message.graceEndsAt ?? null,
+          },
+        });
       case "error":
-        if (message.code === "rate_limited") this.notify({ kind: "chatRateLimited" });
+        if (message.code === "rate_limited") this.onRateLimited();
         return;
       case "pong":
         return;
@@ -742,10 +853,16 @@ export class RoomClient {
     if (!this.inSession) return;
     const reconnecting = this.media !== null;
     if (this.media && this.selfId !== message.self) this.closeMedia();
+    // O servidor zera o que a pessoa assiste quando a conexão cai: pede de novo abaixo.
+    const watchedBefore = new Set(this.watching.keys());
+    this.watching.clear();
     this.welcomed = true;
     this.epoch += 1;
     this.reconnectAttempt = 0;
     this.selfId = message.self;
+    const roomSettings = this.applyRoomSettings(message.room);
+    this.maxWatched = message.limits.watchedVideos;
+    this.relayVideo = message.limits.relayVideo;
     this.participants = new Map(message.participants.map((p) => [p.id, p]));
     for (const id of [...this.peerMedia.keys()]) {
       if (!this.participants.has(id)) this.peerMedia.delete(id);
@@ -772,10 +889,16 @@ export class RoomClient {
     this.syncPeers();
     // O servidor recomeça todo mundo mudo; se o microfone está aberto, a lista precisa saber.
     if (this.micEnabled && !this.state.micMuted) this.send({ type: "mic.set", muted: false });
+    // E esquece quais pares são retransmitidos: reenvia o que a mídia sabe.
+    this.sentRelay.clear();
+    for (const [peerId, media] of this.peerMedia) {
+      if (this.participants.has(peerId)) this.sendRelay(peerId, media.relayed, true);
+    }
+    this.rewatchAfterWelcome(watchedBefore);
     this.rebuild({
       phase: "connected",
       chat: message.chat.slice(-CHAT_HISTORY_SIZE),
-      ...this.applyRoomSettings(message.room),
+      ...roomSettings,
       // O servidor decide quantos vídeos esta pessoa pode transmitir (depende do plano dela) e quais
       // reações ela pode enviar (as básicas mais as dos pacotes equipados).
       maxOwnVideos: message.limits.videosPerPerson,
@@ -788,15 +911,193 @@ export class RoomClient {
     this.participants.set(participant.id, participant);
     if (participant.id === this.selfId) this.handRaised = participant.handRaised;
     if (isNew) this.syncPeers();
+    this.reconcileVideos();
     this.rebuild();
   }
 
   private onParticipantLeft(id: string): void {
     if (!this.participants.delete(id)) return;
     this.peerMedia.delete(id);
+    this.sentRelay.delete(id);
     this.speaking.delete(id);
     this.syncPeers();
+    this.reconcileVideos();
     this.rebuild();
+  }
+
+  // ---------- Vídeo sob demanda ----------
+
+  /** A sala tem poucas pessoas: vídeo novo abre sozinho. */
+  private isSmallRoom(): boolean {
+    return this.participants.size <= AUTO_WATCH_MAX_PEOPLE;
+  }
+
+  /** Vídeos anunciados por outras pessoas, na ordem da lista de participantes. */
+  private remoteVideoIds(): string[] {
+    const ids: string[] = [];
+    for (const p of this.participants.values()) {
+      if (p.id === this.selfId) continue;
+      for (const video of p.videos) ids.push(video.id);
+    }
+    return ids;
+  }
+
+  /**
+   * Depois de cada `welcome` (entrada ou reconexão): numa sala pequena, pede todos os vídeos (os que
+   * a pessoa já assistia primeiro), menos os que ela parou de propósito; numa sala maior, só os que
+   * ela assistia antes da queda.
+   */
+  private rewatchAfterWelcome(watchedBefore: ReadonlySet<string>): void {
+    const remote = this.remoteVideoIds();
+    const present = new Set(remote);
+    this.knownVideos.clear();
+    for (const id of remote) this.knownVideos.add(id);
+    for (const id of [...this.optedOut]) if (!present.has(id)) this.optedOut.delete(id);
+    const before = remote.filter((id) => watchedBefore.has(id));
+    const candidates = this.isSmallRoom()
+      ? [...before, ...remote.filter((id) => !watchedBefore.has(id) && !this.optedOut.has(id))]
+      : before;
+    for (const id of candidates) this.requestWatch(id, false);
+  }
+
+  /**
+   * Depois de cada mudança na lista de pessoas: esquece o que sumiu (vídeo parado ou quem transmitia
+   * saiu) e, numa sala pequena, pede sozinho o vídeo novo de outra pessoa.
+   */
+  private reconcileVideos(): void {
+    const remote = this.remoteVideoIds();
+    const present = new Set(remote);
+    for (const id of [...this.watching.keys()]) {
+      if (present.has(id)) continue;
+      this.watching.delete(id);
+      this.remoteStreams.delete(id);
+    }
+    for (const id of [...this.optedOut]) if (!present.has(id)) this.optedOut.delete(id);
+    for (const id of [...this.knownVideos]) if (!present.has(id)) this.knownVideos.delete(id);
+    const self = this.selfId ? this.participants.get(this.selfId) : undefined;
+    const own = new Set(self?.videos.map((video) => video.id) ?? []);
+    for (const id of [...this.localViewers.keys()]) {
+      if (!own.has(id) && !this.localStreams.has(id)) this.localViewers.delete(id);
+    }
+    const small = this.isSmallRoom();
+    for (const id of remote) {
+      if (this.knownVideos.has(id)) continue;
+      this.knownVideos.add(id);
+      if (small && !this.optedOut.has(id)) this.requestWatch(id, false);
+    }
+  }
+
+  /**
+   * Pede para assistir. No limite de assistidos não envia (o pedido da pessoa vira aviso). `false`
+   * se não pediu.
+   */
+  private requestWatch(videoId: string, manual: boolean): boolean {
+    if (this.watching.has(videoId)) return true;
+    if (this.watching.size >= this.maxWatched) {
+      if (manual) this.notify({ kind: "watchLimit" });
+      return false;
+    }
+    if (!this.send({ type: "video.watch", videoId })) return false;
+    this.watching.set(videoId, { state: "requesting", reason: null, manual });
+    return true;
+  }
+
+  private watchVideo(videoId: string): void {
+    if (!this.isConnected() || !this.remoteVideoIds().includes(videoId)) return;
+    if (this.watching.has(videoId)) return;
+    this.optedOut.delete(videoId);
+    this.requestWatch(videoId, true);
+    this.rebuild();
+  }
+
+  private unwatchVideo(videoId: string): void {
+    if (!this.isConnected() || !this.watching.has(videoId)) return;
+    this.send({ type: "video.unwatch", videoId });
+    this.watching.delete(videoId);
+    this.remoteStreams.delete(videoId);
+    this.optedOut.add(videoId);
+    if (this.chosenFeatured === videoId) this.chosenFeatured = null;
+    this.rebuild();
+  }
+
+  private onWatchState(message: Extract<ServerMessage, { type: "video.watch.state" }>): void {
+    const { videoId } = message;
+    if (!this.remoteVideoIds().includes(videoId)) return; // vídeo que já sumiu (ou é próprio)
+    const entry = this.watching.get(videoId);
+    const manual = entry?.manual ?? false;
+    switch (message.state) {
+      case "watching":
+        this.watching.set(videoId, { state: "watching", reason: null, manual });
+        break;
+      case "blocked":
+        this.watching.set(videoId, {
+          state: "blocked",
+          reason: message.reason === "relay_no_gold" ? "relay_no_gold" : "relay_no_plus",
+          manual,
+        });
+        break;
+      case "denied":
+        this.watching.delete(videoId);
+        // A recusa da abertura automática não vira aviso: a pessoa não pediu.
+        if (message.reason === "watch_limit" && manual) this.notify({ kind: "watchLimit" });
+        break;
+      case "stopped":
+        this.watching.delete(videoId);
+        this.remoteStreams.delete(videoId);
+        break;
+    }
+    this.rebuild();
+  }
+
+  /** Só quem transmite recebe: a quem enviar o vídeo e quem está bloqueado por retransmissão. */
+  private onViewers(videoId: string, viewers: string[], blocked: string[]): void {
+    this.localViewers.set(videoId, { viewers: [...viewers], blocked: [...blocked] });
+    this.media?.setVideoViewers(videoId, viewers);
+    this.rebuild();
+  }
+
+  /** Avisa o servidor se o par é retransmitido; sem `force`, só quando muda. */
+  private sendRelay(peerId: string, relayed: boolean, force: boolean): void {
+    if (!force && (this.sentRelay.get(peerId) ?? false) === relayed) return;
+    if (this.send({ type: "peer.relay", peer: peerId, relayed })) this.sentRelay.set(peerId, relayed);
+  }
+
+  // ---------- Limites de frequência ----------
+
+  /**
+   * O servidor recusou uma mensagem por frequência. Chat → `chatRateLimited`; reação, mão e
+   * microfone → `rateLimited`, desfazendo o que foi mostrado antes da confirmação.
+   */
+  private onRateLimited(): void {
+    const last = this.lastLimited;
+    if (!last || last.kind === "chat") return this.notify({ kind: "chatRateLimited" });
+    const notice: RoomNotice = { kind: "rateLimited" };
+    if (last.kind === "hand") {
+      this.handRaised = last.previous;
+      this.update({ handRaised: last.previous, notice });
+      return this.rebuild();
+    }
+    if (last.kind === "mic") {
+      if (!last.muted) {
+        // Abrir o microfone foi recusado: fecha de novo, para não transmitir sem a lista mostrar.
+        this.media?.setMicrophoneMuted(true);
+        this.speaking.delete(this.selfId ?? "");
+        this.update({ micMuted: true, notice });
+        return this.rebuild();
+      }
+      // Fechar foi recusado: continua fechado aqui; a lista é corrigida quando a janela passar.
+      this.clearMicResend();
+      this.micResendTimer = setTimeout(() => {
+        this.micResendTimer = null;
+        if (this.isConnected() && this.state.micMuted) this.send({ type: "mic.set", muted: true });
+      }, MIC_RATE_WINDOW_MS);
+    }
+    this.notify(notice);
+  }
+
+  private clearMicResend(): void {
+    if (this.micResendTimer !== null) clearTimeout(this.micResendTimer);
+    this.micResendTimer = null;
   }
 
   private addReaction(from: string, reaction: string): void {
@@ -828,7 +1129,9 @@ export class RoomClient {
   // ---------- Mídia ----------
 
   private createMedia(selfId: string): void {
-    const media = this.deps.createMediaSession({
+    // Sala protegida: só retransmissão desde o início, para nenhum IP aparecer.
+    const relayOnly = this.roomProtected || this.relayOnlyFromIce;
+    const media: MediaSession = this.deps.createMediaSession({
       selfId,
       transport: {
         send: (to, data) => {
@@ -844,12 +1147,20 @@ export class RoomClient {
       getIceServers: async () => {
         const result = await this.api.getIceServers(this.code, this.lifetime.signal);
         if (!result.ok) throw new Error(`ice: ${result.error}`);
+        if (result.data.relayOnly && !relayOnly) {
+          // O servidor pede só retransmissão e esta sessão nasceu sem: não conecta assim; recria.
+          this.relayOnlyFromIce = true;
+          queueMicrotask(() => this.restartMedia(media));
+          throw new Error("ice: relay only");
+        }
         return result.data.iceServers;
       },
       // Única regra de plano aplicada pelo navegador: a qualidade do que a própria pessoa transmite
       // na sala direta. A retransmissão continua limitada para todos.
       quality: this.sessionAccount?.plan.plus ? PLUS_VIDEO_QUALITY : FREE_VIDEO_QUALITY,
       relayQuality: RELAY_VIDEO_QUALITY,
+      relayScreenAudioMaxBitrate: RELAY_SCREEN_AUDIO_MAX_BITRATE,
+      relayOnly,
     });
     this.media = media;
     this.mediaOff = [
@@ -860,6 +1171,9 @@ export class RoomClient {
           connection: status.state,
           relayed: status.relayed,
         });
+        if (this.welcomed && this.participants.has(status.peerId)) {
+          this.sendRelay(status.peerId, status.relayed, false);
+        }
         this.rebuild();
       }),
       media.on("remoteAudio", (peerId, stream) => {
@@ -883,6 +1197,27 @@ export class RoomClient {
     this.micEnabled = false;
     this.update({ micMuted: true });
     void this.enableMicrophone();
+  }
+
+  /**
+   * Troca a sessão de mídia por uma só de retransmissão (o servidor pediu e a sessão nasceu sem).
+   * Os vídeos próprios param; o microfone volta mudo.
+   */
+  private restartMedia(old: MediaSession): void {
+    const selfId = this.selfId;
+    if (this.disposed || this.media !== old || !selfId) return;
+    this.deps.report("room: relay-only ice for a session without it");
+    const micWasOpen = this.micEnabled && !this.state.micMuted;
+    for (const videoId of [...this.localStreams.keys()]) this.stopVideo(videoId);
+    this.closeMedia();
+    this.peerMedia.clear();
+    this.remoteStreams.clear();
+    this.sentRelay.clear();
+    this.createMedia(selfId);
+    this.syncPeers();
+    for (const [videoId, entry] of this.localViewers) this.media?.setVideoViewers(videoId, entry.viewers);
+    if (micWasOpen) this.send({ type: "mic.set", muted: true });
+    this.rebuild();
   }
 
   private peerMediaOf(peerId: string): PeerMedia {
@@ -936,10 +1271,14 @@ export class RoomClient {
     return !this.disposed && this.welcomed && this.state.phase === "connected";
   }
 
+  private sendChat(text: string): void {
+    if (this.send({ type: "chat.send", text })) this.lastLimited = { kind: "chat" };
+  }
+
   private react(reaction: string): void {
     // A lista é a que o servidor mandou; fora dela, ele só recusaria.
     if (!this.state.availableReactions.includes(reaction)) return;
-    this.send({ type: "reaction.send", reaction });
+    if (this.send({ type: "reaction.send", reaction })) this.lastLimited = { kind: "reaction" };
   }
 
   private sendGold(participantId: string, amount: number): Promise<SendGoldResult> {
@@ -972,6 +1311,7 @@ export class RoomClient {
   private setHandRaised(raised: boolean): void {
     if (!this.isConnected()) return;
     if (this.send({ type: "hand.set", raised })) {
+      this.lastLimited = { kind: "hand", previous: this.handRaised };
       this.handRaised = raised;
       this.update({ handRaised: raised });
       this.rebuild();
@@ -985,8 +1325,9 @@ export class RoomClient {
     if (this.media !== media) return;
     media.setMicrophoneMuted(muted);
     if (muted) this.speaking.delete(this.selfId ?? "");
+    this.clearMicResend();
     this.update({ micMuted: muted });
-    this.send({ type: "mic.set", muted });
+    if (this.send({ type: "mic.set", muted })) this.lastLimited = { kind: "mic", muted };
     this.rebuild();
   }
 
@@ -1073,6 +1414,7 @@ export class RoomClient {
     const granted = self?.videos.some((video) => video.id === videoId) ?? false;
     if (!granted && !this.localStreams.has(videoId)) return;
     this.media?.unpublishVideo(videoId);
+    this.localViewers.delete(videoId);
     if (!this.localStreams.delete(videoId)) this.cancelledVideos.add(videoId);
     if (self && granted) {
       this.participants.set(self.id, {
@@ -1085,7 +1427,8 @@ export class RoomClient {
   }
 
   private setFeaturedVideo(videoId: string): void {
-    if (!this.state.videos.some((video) => video.id === videoId)) return;
+    const video = this.state.videos.find((candidate) => candidate.id === videoId);
+    if (!video || !canFeature(video)) return;
     this.chosenFeatured = videoId;
     this.rebuild();
   }
@@ -1096,9 +1439,21 @@ export class RoomClient {
     this.send({ type: "room.setTheme", theme });
   }
 
+  /** Dono contra qualquer outra pessoa; moderador só contra participantes comuns. */
   private moderate(action: "mute" | "kick" | "ban", participantId: string): void {
+    if (!this.isConnected() || participantId === this.selfId) return;
+    const target = this.participants.get(participantId);
+    if (!target) return;
+    const allowed = this.state.isOwner || (this.state.isModerator && !target.isOwner && !target.isModerator);
+    if (allowed) this.send({ type: "moderate", action, target: participantId });
+  }
+
+  /** Só o dono; o papel muda quando o servidor confirma (`participant.updated`). */
+  private setModerator(participantId: string, moderator: boolean): void {
     if (!this.isConnected() || !this.state.isOwner || participantId === this.selfId) return;
-    this.send({ type: "moderate", action, target: participantId });
+    const target = this.participants.get(participantId);
+    if (!target || target.isOwner) return;
+    this.send({ type: "moderator.set", target: participantId, moderator });
   }
 
   private async copyLink(): Promise<void> {
@@ -1126,6 +1481,7 @@ export class RoomClient {
         nickname: p.nickname,
         isSelf,
         isOwner: p.isOwner,
+        isModerator: p.isModerator,
         handle: p.handle,
         avatarUrl: p.avatarUrl,
         badges: p.badges,
@@ -1140,13 +1496,7 @@ export class RoomClient {
       });
       for (const video of p.videos) {
         if (!this.videoOrder.has(video.id)) this.videoOrder.set(video.id, this.videoSeq++);
-        videos.push({
-          id: video.id,
-          kind: video.kind,
-          ownerId: p.id,
-          stream: (isSelf ? this.localStreams : this.remoteStreams).get(video.id) ?? null,
-          isLocal: isSelf,
-        });
+        videos.push(isSelf ? this.localVideoView(video, p.id) : this.remoteVideoView(video, p.id));
       }
     }
     videos.sort((a, b) => (this.videoOrder.get(a.id) ?? 0) - (this.videoOrder.get(b.id) ?? 0));
@@ -1158,15 +1508,55 @@ export class RoomClient {
     this.update({
       selfId,
       isOwner: self?.isOwner ?? false,
+      isModerator: self?.isModerator ?? false,
+      maxWatchedVideos: this.maxWatched,
+      watchedCount: this.watching.size,
       // O servidor marca quem entrou com conta; é o mesmo que a deixa enviar ouro.
       canSendGold: self?.canReceiveGold ?? false,
       handRaised: this.handRaised,
       participants,
       videos,
-      featuredVideoId: pickFeaturedVideo(videos, this.chosenFeatured),
+      featuredVideoId: pickFeaturedVideo(videos.filter(canFeature), this.chosenFeatured),
       localVideoIds: videos.filter((video) => video.isLocal).map((video) => video.id),
-      occupancy: { participants: participants.length, capacity: this.state.occupancy.capacity },
+      occupancy: { participants: participants.length, capacity: this.capacity },
       ...extra,
     });
+  }
+
+  private localVideoView(video: RoomVideo, ownerId: string): VideoView {
+    const entry = this.localViewers.get(video.id);
+    const inRoom = (id: string) => this.participants.has(id);
+    // O servidor bloqueia o par retransmitido de quem não é Plus, ou de quem é Plus sem ouro.
+    const reason: VideoBlockedReason = this.relayVideo ? "relay_no_gold" : "relay_no_plus";
+    return {
+      id: video.id,
+      kind: video.kind,
+      ownerId,
+      stream: this.localStreams.get(video.id) ?? null,
+      isLocal: true,
+      watch: "local",
+      blockedReason: null,
+      viewers: entry?.viewers.filter(inRoom) ?? [],
+      blockedViewers: (entry?.blocked.filter(inRoom) ?? []).map((participantId) => ({
+        participantId,
+        reason,
+      })),
+    };
+  }
+
+  private remoteVideoView(video: RoomVideo, ownerId: string): VideoView {
+    const entry = this.watching.get(video.id);
+    const watch = entry?.state ?? "idle";
+    return {
+      id: video.id,
+      kind: video.kind,
+      ownerId,
+      stream: watch === "watching" ? (this.remoteStreams.get(video.id) ?? null) : null,
+      isLocal: false,
+      watch,
+      blockedReason: entry?.state === "blocked" ? entry.reason : null,
+      viewers: [],
+      blockedViewers: [],
+    };
   }
 }

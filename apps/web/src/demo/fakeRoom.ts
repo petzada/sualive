@@ -3,18 +3,33 @@
  * videos are animated canvases and every action just edits local state.
  */
 import {
+  AUTO_WATCH_MAX_PEOPLE,
   GOLD_GIFT_DAILY_LIMIT,
   PLUS_VIDEOS_PER_PERSON,
+  PROTECTED_ROOM_GOLD_PER_HOUR,
+  PROTECTED_ROOM_GRACE_MS,
+  PROTECTED_ROOM_MAX_PEOPLE,
+  PROTECTED_ROOM_MAX_VIDEOS,
+  PROTECTED_ROOM_WARNING_MINUTES,
   REACTIONS,
+  RELAY_VIDEO_GOLD_PER_HOUR,
   ROOM_MAX_PEOPLE,
-  ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
+  WATCHED_VIDEOS_PER_PERSON,
 } from "@sualive/config";
 import type { RoomTheme } from "@sualive/config";
 import type { DevicePreview, VideoKind } from "@sualive/media";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { RoomClient } from "../components/room/RoomClient";
-import type { ParticipantView, RoomActions, RoomNotice, RoomPhase, RoomState, VideoView } from "../lib/room";
+import type {
+  ParticipantView,
+  ProtectedMeter,
+  RoomActions,
+  RoomNotice,
+  RoomPhase,
+  RoomState,
+  VideoView,
+} from "../lib/room";
 import { demoAvatar } from "./fakeAccount";
 
 export interface DemoOptions {
@@ -29,9 +44,26 @@ export interface DemoOptions {
   theme?: RoomTheme;
   /** The viewer is logged in: enters with the nickname of the profile. */
   account?: { nickname: string; handle: string | null; avatarUrl: string | null; plus: boolean } | null;
+  /** Protected room: 6 people at most, 2 videos, and the owner's balance meter running. */
+  protected?: boolean;
+  /** The viewer was promoted to moderator by the owner. */
+  moderator?: boolean;
 }
 
-const NAMES = ["Marina", "Caio", "Beatriz Albuquerque Lima", "Téo", "Jô", "Rafa"];
+const NAMES = [
+  "Marina",
+  "Caio",
+  "Beatriz Albuquerque Lima",
+  "Téo",
+  "Jô",
+  "Rafa",
+  "Lia",
+  "Davi",
+  "Nina",
+  "Otávio",
+  "Sol",
+  "Iara",
+];
 const SELF_ID = "p0";
 
 const streams = new Map<string, MediaStream>();
@@ -123,8 +155,30 @@ const ACCOUNTS: Record<number, AccountFields> = {
 /** Extra reactions of the viewer's equipped pack (logged-in demo only). */
 const DEMO_PACK_REACTIONS = ["🥳", "🔥", "💯"];
 
+/** Protected-room meter: a bit over the first balance warning, so it shows in seconds. */
+const DEMO_PROTECTED_START_MS = (PROTECTED_ROOM_WARNING_MINUTES[0] * 60 + 20) * 1000;
+/** The demo meter runs this many times faster than the clock. */
+const DEMO_METER_SPEED = 30;
+
+function protectedMeterAt(remainingMs: number, graceEndsAt: number | null): ProtectedMeter {
+  const warning = PROTECTED_ROOM_WARNING_MINUTES[0] * 60_000;
+  return {
+    state: remainingMs <= 0 ? "grace" : remainingMs <= warning ? "warning" : "ok",
+    remainingMs: Math.max(remainingMs, 0),
+    goldPerHour: PROTECTED_ROOM_GOLD_PER_HOUR,
+    graceEndsAt: remainingMs <= 0 ? graceEndsAt : null,
+  };
+}
+
+/** Watched videos of other people (what counts against the limit). */
+function watchedCountOf(videos: VideoView[]): number {
+  return videos.filter((video) => ["requesting", "watching", "blocked"].includes(video.watch)).length;
+}
+
 function initialState(code: string, options: DemoOptions): RoomState {
-  const count = Math.min(Math.max(options.people, 1), ROOM_MAX_PEOPLE);
+  const capacity = options.protected ? PROTECTED_ROOM_MAX_PEOPLE : ROOM_MAX_PEOPLE;
+  const count = Math.min(Math.max(options.people, 1), capacity);
+  const small = count <= AUTO_WATCH_MAX_PEOPLE;
   const account = options.account ?? null;
   const fixedHandle = code.startsWith("@") ? code.slice(1) : (options.fixedHandle ?? null);
   const self: AccountFields = account
@@ -142,6 +196,8 @@ function initialState(code: string, options: DemoOptions): RoomState {
     nickname: index === 0 && account ? account.nickname : (NAMES[index] ?? `Pessoa ${index + 1}`),
     isSelf: index === 0,
     isOwner: options.isOwner ? index === 0 : index === 1,
+    // Someone else is a moderator; the viewer too when the scene asks.
+    isModerator: index === 0 ? (options.moderator ?? false) : index === 2,
     micMuted: index % 2 === 0,
     handRaised: index === 3,
     speaking: index === 1,
@@ -149,17 +205,36 @@ function initialState(code: string, options: DemoOptions): RoomState {
     relayed: index === 2,
     audioStream: null,
   }));
+  const maxVideos = options.protected ? PROTECTED_ROOM_MAX_VIDEOS : count - 1;
   const videos: VideoView[] = Array.from(
-    { length: Math.min(options.videos, ROOM_MAX_VIDEOS, Math.max(count - 1, 0)) },
+    { length: Math.max(Math.min(options.videos, maxVideos, count - 1), 0) },
     (_, index) => {
       const kind: VideoKind = index === 0 ? "screen" : "camera";
       const ownerId = `p${index + 1}`;
+      // Small room: everything opens by itself, up to the limit. Bigger room: only the first one is
+      // watched, the second is blocked by an unpaid relay, the rest wait on the "Watch" card.
+      const watch: VideoView["watch"] = small
+        ? index < WATCHED_VIDEOS_PER_PERSON
+          ? "watching"
+          : "idle"
+        : index === 0
+          ? "watching"
+          : index === 1
+            ? "blocked"
+            : "idle";
       return {
         id: `v${index + 1}`,
         kind,
         ownerId,
-        stream: index === 3 ? null : canvasStream(`v${index + 1}`, `${kind} ${index + 1}`, 30 + index * 80),
+        stream:
+          watch !== "watching" || index === 3
+            ? null
+            : canvasStream(`v${index + 1}`, `${kind} ${index + 1}`, 30 + index * 80),
         isLocal: false,
+        watch,
+        blockedReason: watch === "blocked" ? "relay_no_plus" : null,
+        viewers: [],
+        blockedViewers: [],
       };
     },
   );
@@ -170,16 +245,24 @@ function initialState(code: string, options: DemoOptions): RoomState {
     fixed: fixedHandle !== null,
     ownerHandle: fixedHandle,
     theme: options.theme ?? "default",
+    protected: options.protected ?? false,
+    maxVideos: options.protected ? PROTECTED_ROOM_MAX_VIDEOS : null,
     maxOwnVideos: account?.plus ? PLUS_VIDEOS_PER_PERSON : VIDEOS_PER_PERSON,
+    maxWatchedVideos: WATCHED_VIDEOS_PER_PERSON,
+    watchedCount: inside ? watchedCountOf(videos) : 0,
+    relayMeter: null,
+    protectedMeter: inside && options.protected ? protectedMeterAt(DEMO_PROTECTED_START_MS, null) : null,
+    endReason: null,
     accountNickname: account?.nickname ?? null,
     code,
     link: `${window.location.origin}/${fixedHandle ? `@${fixedHandle}` : `s/${code}`}`,
-    occupancy: { participants: inside ? count : count - 1, capacity: ROOM_MAX_PEOPLE },
+    occupancy: { participants: inside ? count : count - 1, capacity },
     selfId: inside ? SELF_ID : null,
     isOwner: options.isOwner,
+    isModerator: inside && !options.isOwner && (options.moderator ?? false),
     participants: inside ? participants : [],
     videos: inside ? videos : [],
-    featuredVideoId: inside ? (videos[0]?.id ?? null) : null,
+    featuredVideoId: inside ? (videos.find((video) => video.watch === "watching")?.id ?? null) : null,
     chat: inside
       ? Array.from({ length: 14 }, (_, index) => ({
           id: `m${index}`,
@@ -214,9 +297,35 @@ export function createDemoClient(options: DemoOptions): RoomClient {
     useRoom(code) {
       const [state, setState] = useState(() => initialState(code, options));
 
+      // Protected room: the owner's balance runs out (faster than the clock), then the grace.
+      const meterRunning = state.protectedMeter !== null;
+      useEffect(() => {
+        if (!meterRunning) return;
+        const timer = setInterval(() => {
+          setState((current) => {
+            const meter = current.protectedMeter;
+            if (!meter) return current;
+            const remainingMs = meter.remainingMs - 1000 * DEMO_METER_SPEED;
+            const graceEndsAt = meter.graceEndsAt ?? Date.now() + PROTECTED_ROOM_GRACE_MS / DEMO_METER_SPEED;
+            if (meter.state === "grace" && Date.now() >= graceEndsAt) {
+              return { ...current, phase: "ended", endReason: "no_gold", protectedMeter: null };
+            }
+            return { ...current, protectedMeter: protectedMeterAt(remainingMs, graceEndsAt) };
+          });
+        }, 1000);
+        return () => clearInterval(timer);
+      }, [meterRunning]);
+
       const actions = useMemo<RoomActions>(() => {
         const patch = (change: (current: RoomState) => Partial<RoomState>) =>
           setState((current) => ({ ...current, ...change(current) }));
+        const patchVideo = (videoId: string, change: (video: VideoView) => Partial<VideoView>) =>
+          patch((current) => {
+            const videos = current.videos.map((video) =>
+              video.id === videoId ? { ...video, ...change(video) } : video,
+            );
+            return { videos, watchedCount: watchedCountOf(videos) };
+          });
         const patchSelf = (change: Partial<ParticipantView>) =>
           patch((current) => ({
             participants: current.participants.map((participant) =>
@@ -287,19 +396,41 @@ export function createDemoClient(options: DemoOptions): RoomClient {
             patch((current) => {
               if (current.localVideoIds.length >= current.maxOwnVideos)
                 return { notice: { kind: "videoPersonLimit" } };
-              if (current.videos.length >= ROOM_MAX_VIDEOS) return { notice: { kind: "videoRoomLimit" } };
+              if (current.maxVideos !== null && current.videos.length >= current.maxVideos) {
+                return { notice: { kind: "videoRoomLimit" } };
+              }
               const id = nextId("local");
+              // Two others watch; the one on a relayed connection is blocked until this person pays.
+              const others = current.participants.filter((participant) => !participant.isSelf);
+              const relayed = others.find((participant) => participant.relayed);
               const video: VideoView = {
                 id,
                 kind,
                 ownerId: SELF_ID,
                 stream: canvasStream(id, `meu vídeo (${kind})`, 150),
                 isLocal: true,
+                watch: "local",
+                blockedReason: null,
+                viewers: others
+                  .filter((participant) => !participant.relayed)
+                  .slice(0, 2)
+                  .map((participant) => participant.id),
+                blockedViewers: relayed
+                  ? [
+                      {
+                        participantId: relayed.id,
+                        reason: options.account?.plus ? "relay_no_gold" : "relay_no_plus",
+                      },
+                    ]
+                  : [],
               };
               return {
                 videos: [...current.videos, video],
                 localVideoIds: [...current.localVideoIds, id],
                 featuredVideoId: current.featuredVideoId ?? id,
+                relayMeter: options.account?.plus
+                  ? { pairs: 1, goldPerHour: RELAY_VIDEO_GOLD_PER_HOUR, state: "paying" }
+                  : current.relayMeter,
               };
             });
           },
@@ -314,8 +445,42 @@ export function createDemoClient(options: DemoOptions): RoomClient {
               };
             });
           },
+          watchVideo(videoId) {
+            patch((current) => {
+              if (current.watchedCount >= current.maxWatchedVideos) return { notice: { kind: "watchLimit" } };
+              const videos = current.videos.map((video) =>
+                video.id === videoId ? { ...video, watch: "requesting" as const } : video,
+              );
+              return { videos, watchedCount: watchedCountOf(videos) };
+            });
+            setTimeout(
+              () =>
+                patchVideo(videoId, (video) =>
+                  video.watch === "requesting"
+                    ? { watch: "watching", stream: canvasStream(video.id, `${video.kind} ${video.id}`, 300) }
+                    : {},
+                ),
+              700,
+            );
+          },
+          unwatchVideo(videoId) {
+            patchVideo(videoId, () => ({ watch: "idle", stream: null, blockedReason: null }));
+            patch((current) => ({
+              featuredVideoId:
+                current.featuredVideoId === videoId
+                  ? (current.videos.find((video) => video.watch === "watching" || video.isLocal)?.id ?? null)
+                  : current.featuredVideoId,
+            }));
+          },
           setFeaturedVideo(videoId) {
             patch(() => ({ featuredVideoId: videoId }));
+          },
+          setModerator(participantId, moderator) {
+            patch((current) => ({
+              participants: current.participants.map((participant) =>
+                participant.id === participantId ? { ...participant, isModerator: moderator } : participant,
+              ),
+            }));
           },
           moderate(action, participantId) {
             patch((current) => {

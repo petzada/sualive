@@ -182,6 +182,13 @@ export function createDemoAccountClient(options: DemoAccountOptions): AccountCli
           : { available: true },
       };
     },
+    async setFixedRoomProtected(value) {
+      await wait();
+      if (!state.user) return { ok: false, reason: "unauthorized" };
+      if (!state.user.plan.plus) return { ok: false, reason: "plusRequired" };
+      patchUser({ fixedRoomProtected: value });
+      return { ok: true, value: undefined };
+    },
     async deleteAccount() {
       await wait();
       setState({ ...state, status: "anonymous", user: null });
