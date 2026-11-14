@@ -83,3 +83,12 @@ export async function writeSession(c: Ctx, sid: string, nickname: string): Promi
 export function participantIdFor(code: string, sid: string): Promise<string> {
   return sha256(`participant:${code}:${sid}`);
 }
+
+/**
+ * Identificador público de quem entra logado: deriva da conta (não do cookie de convidado), então a
+ * mesma conta em dois navegadores é a mesma pessoa na sala. O `:account:` não colide com um
+ * identificador de sessão (que não tem dois-pontos).
+ */
+export function accountParticipantIdFor(key: string, userId: string): Promise<string> {
+  return sha256(`participant:${key}:account:${userId}`);
+}
