@@ -59,7 +59,7 @@ export function isBillingEnabled(env: AppEnv): boolean {
  * Cancela na Woovi (melhor esforço) a recorrência em vigor e as pendentes, para não haver cobrança
  * depois da exclusão. Apaga a assinatura e os checkouts não pagos; os pagamentos feitos ficam como
  * registro contábil anônimo (sem conta e sem QR Code); o selo de apoiador fica anônimo e a posição
- * continua ocupada. CPF nunca é guardado aqui.
+ * continua ocupada. As compras de ouro seguem a mesma regra dos pagamentos. CPF nunca é guardado aqui.
  */
 export async function deleteBillingData(env: AppEnv, userId: string): Promise<void> {
   const db = createDb(env.DB);
@@ -101,5 +101,11 @@ export async function deleteBillingData(env: AppEnv, userId: string): Promise<vo
       "UPDATE billing_payments SET user_id = NULL, br_code = NULL, qr_code_image_url = NULL WHERE user_id = ?1",
     ).bind(userId),
     env.DB.prepare("UPDATE billing_early_supporters SET user_id = NULL WHERE user_id = ?1").bind(userId),
+    // Compras de ouro: as pagas ficam como registro anônimo; as demais são apagadas. Carteira,
+    // extrato e limite diário saem em cascata com a conta.
+    env.DB.prepare("DELETE FROM gold_purchases WHERE user_id = ?1 AND status != 'paid'").bind(userId),
+    env.DB.prepare(
+      "UPDATE gold_purchases SET user_id = NULL, br_code = NULL, qr_code_image_url = NULL WHERE user_id = ?1",
+    ).bind(userId),
   ]);
 }

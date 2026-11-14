@@ -1,9 +1,12 @@
+import { captureException } from "@sentry/cloudflare";
 import { EARLY_SUPPORTER_LIMIT, PLUS_MONTHLY_PRICE_CENTS } from "@sualive/config";
 import type { PlusCycle } from "@sualive/protocol";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { billingPayments, billingSubscriptions, billingWebhookEvents } from "../db/schema";
 import type { AppEnv } from "../env";
+import { goldExpiredStatements, goldPaidStatements, goldPurchaseByCorrelation } from "../wallet/gold";
+import { creditPlusGold } from "../wallet/plus-gold";
 import { transition, type SubscriptionEvent } from "./state";
 import {
   grantEarlySupporter,
@@ -121,7 +124,9 @@ async function confirmPayment(
 
   const previous = await loadSubscription(env, payment.userId);
   const cycle = payment.cycle as PlusCycle;
-  const fresh = !previous || previous.status === "ended";
+  // Plano de presente não tem recorrência nem pedido de cancelamento: o pagamento assume a
+  // assinatura (a recorrência do mensal passa a ser a deste pagamento).
+  const fresh = !previous || previous.status === "ended" || previous.cycle === "gift";
   const extras: SubscriptionExtras = fresh
     ? {
         wooviCorrelationId: cycle === "monthly" ? payment.wooviSubscriptionCorrelationId : null,
@@ -151,17 +156,22 @@ async function planStatements(env: AppEnv, event: Exclude<BillingEvent, { kind: 
   switch (event.kind) {
     case "charge_paid": {
       const payment = await paymentByCorrelation(env, event.correlationId);
-      if (!payment) {
-        log("cobrança paga sem pagamento correspondente");
-        return [recordEvent(env, event.key, now)];
-      }
-      return confirmPayment(env, event.key, payment, null, now);
+      if (payment) return confirmPayment(env, event.key, payment, null, now);
+      // Não é do Plus: pode ser um pacote de ouro.
+      const purchase = await goldPurchaseByCorrelation(env, event.correlationId);
+      if (purchase) return goldPaidStatements(env, event.key, purchase, now);
+      log("cobrança paga sem pagamento correspondente");
+      return [recordEvent(env, event.key, now)];
     }
 
     case "charge_expired": {
       const payment = await paymentByCorrelation(env, event.correlationId);
+      if (!payment) {
+        const purchase = await goldPurchaseByCorrelation(env, event.correlationId);
+        return goldExpiredStatements(env, event.key, purchase, now);
+      }
       const statements = [recordEvent(env, event.key, now)];
-      if (payment?.status === "pending") {
+      if (payment.status === "pending") {
         statements.push(
           env.DB.prepare(
             "UPDATE billing_payments SET status = 'expired' WHERE id = ?1 AND status = 'pending'",
@@ -273,17 +283,39 @@ async function planStatements(env: AppEnv, event: Exclude<BillingEvent, { kind: 
   }
 }
 
+/** Conta dona do pagamento do Plus que o evento confirmou, se houver. */
+async function paidPlusOwner(env: AppEnv, event: BillingEvent): Promise<string | null> {
+  if (event.kind === "charge_paid") {
+    return (await paymentByCorrelation(env, event.correlationId))?.userId ?? null;
+  }
+  if (event.kind === "installment_paid") {
+    const payment =
+      (await paymentByInstallment(env, event.installmentId)) ??
+      (await paymentByCorrelation(env, event.recurrenceId));
+    return payment?.userId ?? null;
+  }
+  return null;
+}
+
 export async function applyBillingEvent(env: AppEnv, event: BillingEvent, now: number): Promise<ApplyResult> {
   if (event.kind === "ignored") return "ignored";
   if (await alreadyProcessed(env, event.key)) return "duplicate";
   const statements = await planStatements(env, event, now);
   try {
     await env.DB.batch(statements);
-    return "applied";
   } catch (error) {
     // Chave repetida (entrega simultânea do mesmo evento) é duplicata; qualquer outra falha
     // (inclusive a trava de concorrência) desfaz tudo e a Woovi reenvia depois.
     if (await alreadyProcessed(env, event.key)) return "duplicate";
     throw error;
   }
+  // Pagamento do Plus confirmado: credita o ouro já vencido (o primeiro crédito vence no
+  // pagamento). Falha aqui não desfaz o evento: a rotina diária credita o que faltar.
+  try {
+    const userId = await paidPlusOwner(env, event);
+    if (userId) await creditPlusGold(env, now, userId);
+  } catch (error) {
+    captureException(error);
+  }
+  return "applied";
 }

@@ -11,6 +11,7 @@ import type { UserRow } from "../auth/session";
 import { createDb } from "../db";
 import { oauthAccounts, users } from "../db/schema";
 import type { AppEnv } from "../env";
+import { welcomeStatements } from "../wallet/ledger";
 
 /** Apelido de quem não tem nome utilizável no provedor. */
 export const FALLBACK_NICKNAME = "Pessoa";
@@ -153,15 +154,18 @@ export async function findOrCreateUser(
     createdAt: now,
   };
   try {
-    // Lote do D1 é uma transação: a conta não fica sem o login, nem o login sem a conta.
-    await db.batch([
-      db.insert(users).values(user),
-      db.insert(oauthAccounts).values({
-        provider,
-        providerUserId: profile.providerUserId,
-        userId: user.id,
-        createdAt: now,
-      }),
+    // Lote do D1 é uma transação: a conta não fica sem o login, nem o login sem a conta, e a prata
+    // de boas-vindas (uma vez por conta: referência `welcome:<conta>`) entra junto com a conta.
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO users (id, handle, handle_changed_at, nickname, avatar_url, adult_confirmed_at,
+           terms_accepted_at, terms_version, terms_seen_version, email, room_theme, created_at)
+         VALUES (?1, NULL, NULL, ?2, ?3, NULL, NULL, NULL, NULL, ?4, ?5, ?6)`,
+      ).bind(user.id, user.nickname, user.avatarUrl, user.email, user.roomTheme, now),
+      env.DB.prepare(
+        "INSERT INTO oauth_accounts (provider, provider_user_id, user_id, created_at) VALUES (?1, ?2, ?3, ?4)",
+      ).bind(provider, profile.providerUserId, user.id, now),
+      ...welcomeStatements(env, user.id, now),
     ]);
     return user;
   } catch (error) {

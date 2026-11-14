@@ -4,6 +4,7 @@ import { asc, inArray, sql } from "drizzle-orm";
 import { createDb } from "../db";
 import { billingSubscriptions } from "../db/schema";
 import type { AppEnv } from "../env";
+import { creditPlusGold, type PlusGoldReport } from "../wallet/plus-gold";
 import { DAY_MS, transition, type SubscriptionState } from "./state";
 import { stateOf, writeSubscription, type SubscriptionExtras, type SubscriptionRow } from "./store";
 import { cancelRecurrence, getRecurrenceStatus } from "./woovi";
@@ -12,7 +13,9 @@ import { isBillingEnabled } from "./plan";
 /**
  * Rotina diária (cron). A Woovi não avisa cancelamento, então a rotina consulta cada recorrência
  * ativa, em atraso ou cancelada e corrige o estado local; encerra o que venceu (anual, cancelada,
- * atraso esgotado) e marca o aviso de vencimento do anual.
+ * atraso esgotado) e marca o aviso de vencimento do anual. Plus de presente (ciclo `gift`) não tem
+ * recorrência: nunca consulta a Woovi, só acaba no fim do período. Depois, credita o ouro do Plus
+ * pago que já venceu (`creditPlusGold`), inclusive o retroativo da estreia.
  *
  * Limites: no máximo MAX_ROWS_PER_RUN assinaturas por execução (as menos recentemente conferidas
  * primeiro, então o resto fica para o dia seguinte), em grupos de CONCURRENCY consultas
@@ -28,6 +31,7 @@ export interface DailyReport {
   checked: number;
   changed: number;
   failed: number;
+  plusGold: PlusGoldReport;
 }
 
 async function reconcile(env: AppEnv, row: SubscriptionRow, now: number): Promise<boolean> {
@@ -84,7 +88,12 @@ export async function runDailyBilling(env: AppEnv, now: number): Promise<DailyRe
     .orderBy(sql`${billingSubscriptions.checkedAt} IS NOT NULL`, asc(billingSubscriptions.checkedAt))
     .limit(MAX_ROWS_PER_RUN);
 
-  const report: DailyReport = { checked: 0, changed: 0, failed: 0 };
+  const report: DailyReport = {
+    checked: 0,
+    changed: 0,
+    failed: 0,
+    plusGold: { payments: 0, credited: 0, failed: 0 },
+  };
   for (let i = 0; i < rows.length; i += CONCURRENCY) {
     const results = await Promise.allSettled(
       rows.slice(i, i + CONCURRENCY).map((row) => reconcile(env, row, now)),
@@ -99,8 +108,15 @@ export async function runDailyBilling(env: AppEnv, now: number): Promise<DailyRe
       }
     }
   }
+  try {
+    report.plusGold = await creditPlusGold(env, now);
+  } catch (error) {
+    report.plusGold.failed++;
+    captureException(error);
+  }
   console.log(
-    `[billing] rotina diária: ${report.checked} conferidas, ${report.changed} mudaram, ${report.failed} falharam`,
+    `[billing] rotina diária: ${report.checked} conferidas, ${report.changed} mudaram, ${report.failed} falharam; ` +
+      `ouro do Plus: ${report.plusGold.credited} créditos, ${report.plusGold.failed} falhas`,
   );
   return report;
 }
