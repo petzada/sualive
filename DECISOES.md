@@ -358,7 +358,10 @@ com saldo sempre correto.
   Brasília. Prata não pode ser enviada.
 - Presentear 30 dias de Plus a **outra** conta por 1.990 de ouro. Se quem recebe já é Plus, os 30 dias
   somam ao período atual. Plus de presente não renova, não dá selo de apoiador inicial e não conta no
-  limite diário de envio de ouro.
+  limite diário de envio de ouro. Quem está em atraso e recebe o presente perde os dias ganhos se as
+  novas tentativas de cobrança falharem. Enquanto o Plus de presente vale, a conta não assina o Plus
+  pago, e ele acaba sem aviso de vencimento.
+- Excluir a conta apaga as compras de ouro pendentes: um Pix pago depois da exclusão não gera crédito.
 - Moeda nunca vira dinheiro: não existe saque, reembolso em dinheiro nem conversão de ouro em prata.
 
 ### O que não fazer
