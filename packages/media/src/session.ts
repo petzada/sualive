@@ -392,6 +392,13 @@ export function createMeshSession(
     pc.addEventListener(
       "negotiationneeded",
       async () => {
+        // Primeira negociação de um par novo: só a ponta não educada oferece. Se as duas oferecem
+        // juntas, a educada desfaz a oferta dela, que já leva o canal de dados, e o Chrome às vezes
+        // não consegue responder depois disso ("Failed to start SCTP transport") ou entra numa
+        // sequência de renegociações; a conexão ficava parada até o prazo de recriação. A
+        // educada responde à oferta da outra e, se ainda faltar algo dela, o navegador pede uma
+        // nova negociação ao voltar a `stable`. Ao recriar a conexão as duas voltam a oferecer.
+        if (peer.polite && peer.attempts === 0 && !pc.currentRemoteDescription) return;
         try {
           link.makingOffer = true;
           await pc.setLocalDescription();

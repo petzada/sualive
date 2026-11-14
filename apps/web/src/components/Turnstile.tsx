@@ -114,7 +114,8 @@ export function Turnstile({ onToken, onError, ref }: TurnstileProps) {
             return true; // handled here; keeps the widget from logging to the console
           },
           theme: "light",
-          language: "pt-BR",
+          // O widget só reconhece o código em minúsculas ("pt-BR" gera aviso e cai no fallback).
+          language: "pt-br",
           size: "flexible",
         });
         widgetIdRef.current = widgetId ?? null;
