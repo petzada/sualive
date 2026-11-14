@@ -3,8 +3,10 @@ import { ROOM_PATH_PREFIX } from "@sualive/config";
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
 import { DebugError } from "./components/DebugError";
+import { MANIFESTO_PATH } from "./components/ManifestoCard";
 import { ErrorPage } from "./pages/ErrorPage";
 import { HomePage } from "./pages/HomePage";
+import { ManifestoPage } from "./pages/ManifestoPage";
 import { RoomPage } from "./pages/RoomPage";
 
 /**
@@ -20,6 +22,7 @@ export function App() {
       <DebugError />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path={MANIFESTO_PATH} element={<ManifestoPage />} />
         <Route path={`${ROOM_PATH_PREFIX}:code`} element={<RoomPage />} />
         {DemoPage && (
           <Route

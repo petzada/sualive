@@ -1,8 +1,7 @@
 # Manifesto
 
-Especificação da página `/manifesto`, fechada com o dono do produto em 2026-11-14. A página **só é
-implementada depois da entrega 2**. Até lá, o botão "Saber mais" do cartão da tela inicial leva à página
-de não encontrado (decisão do dono).
+Especificação da página `/manifesto`, fechada com o dono do produto em 2026-11-14 e implementada em
+`apps/web/src/pages/ManifestoPage.tsx`. O botão "Saber mais" do cartão da tela inicial leva a ela.
 
 ## Texto final
 
@@ -88,12 +87,23 @@ componente.
   aparece. Nomes fictícios nunca vão ao ar.
 - As fotos ficam em `apps/web/public/images`.
 
-## Pendências antes de publicar
+## Como incluir as pessoas
+
+1. Coloque as fotos em `apps/web/public/images` (retrato ou quadrada; o cartão corta para caber).
+2. Preencha `MANIFESTO_PEOPLE` em `apps/web/src/texts.ts`, uma linha por pessoa:
+   `{ name: "Nome Sobrenome", city: "Cidade, UF", image: "arquivo.jpg" }`.
+
+Com a lista vazia a seção não aparece.
+
+## O que ainda falta
 
 - Três fotos e três nomes com cidade, de pessoas que autorizaram (dono do produto).
-- Termos de uso e política de privacidade publicados, para os links do rodapé. Sem eles, o rodapé sai só
-  com a linha da maioridade.
-- Denúncia existindo no produto. Sem ela, a frase "E quem vê algo errado pode denunciar." fica de fora.
+- Termos de uso e política de privacidade publicados: quando existirem, entram os dois links na segunda
+  linha do rodapé. Hoje o rodapé tem só a linha da maioridade.
+- Denúncia existindo no produto: quando existir, o último parágrafo ganha a frase "E quem vê algo errado
+  pode denunciar." Hoje ela está de fora.
+- Prévia do link de `/manifesto` nos aplicativos de mensagem (tags Open Graph, feitas pelo Worker em
+  `apps/api/src/preview.ts`). Hoje só o título da aba muda; a prévia é a genérica do site.
 - O dono disse que a maioridade fica no rodapé e nos termos, "sem pedir aceite no cadastro da conta".
   `DECISOES.md` (entrega 2) pede declaração de 18 anos e aceite no primeiro acesso. As duas regras
   conflitam e precisam ser conciliadas pelo dono antes da implementação.
