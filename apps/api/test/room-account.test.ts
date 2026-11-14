@@ -3,7 +3,6 @@ import {
   PLUS_VIDEOS_PER_PERSON,
   ROOM_EMPTY_TTL_MS,
   ROOM_MAX_PEOPLE,
-  ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
 } from "@sualive/config";
 import { apiErrorSchema, joinRoomResponseSchema, roomInfoResponseSchema, WS_CLOSE } from "@sualive/protocol";
@@ -228,15 +227,12 @@ describe("vídeos pelo plano de cada pessoa", () => {
     const { client: freeClient, welcome: freeWelcome } = await connect(code, free);
     expect(freeWelcome.limits.videosPerPerson).toBe(VIDEOS_PER_PERSON);
 
-    const plusVideos: string[] = [];
     for (let i = 0; i < PLUS_VIDEOS_PER_PERSON; i++) {
       plus.send({ type: "video.request", requestId: `p${i}`, kind: i % 2 ? "camera" : "screen" });
-      plusVideos.push((await plus.next("video.granted")).video.id);
+      await plus.next("video.granted");
     }
     plus.send({ type: "video.request", requestId: "p-extra", kind: "camera" });
     expect(await plus.next("video.denied")).toMatchObject({ requestId: "p-extra", reason: "person_limit" });
-    // Libera o teto da sala para os demais.
-    for (const videoId of plusVideos) plus.send({ type: "video.stop", videoId });
 
     for (const client of [ownerClient, freeClient]) {
       for (let i = 0; i < VIDEOS_PER_PERSON; i++) {
@@ -248,7 +244,7 @@ describe("vídeos pelo plano de cada pessoa", () => {
     }
   });
 
-  it(`o teto de ${ROOM_MAX_VIDEOS} vídeos da sala continua com assinantes`, async () => {
+  it("sem teto de vídeos na sala direta, também com assinantes", async () => {
     const { code } = await createRoom();
     const clients: TestClient[] = [];
     for (let i = 0; i < 3; i++) {
@@ -261,7 +257,7 @@ describe("vídeos pelo plano de cada pessoa", () => {
       await client.next("video.granted");
     }
     c.send({ type: "video.request", requestId: "r5", kind: "camera" });
-    expect(await c.next("video.denied")).toMatchObject({ requestId: "r5", reason: "room_limit" });
+    expect(await c.next("video.granted")).toMatchObject({ requestId: "r5" });
   });
 
   it("o plano vale na próxima conexão (consultado no servidor ao conectar)", async () => {

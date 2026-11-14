@@ -119,7 +119,7 @@ me.patch("/", async (c) => {
   const body = updateMeRequestSchema.safeParse(await readJson(c));
   if (!body.success) return apiError(c, "invalid_request");
   if (!isOnboarded(user)) return apiError(c, "onboarding_required");
-  const { nickname, handle, roomTheme } = body.data;
+  const { nickname, handle, roomTheme, fixedRoomProtected } = body.data;
 
   const now = Date.now();
   const changes: Partial<typeof users.$inferInsert> = {};
@@ -138,6 +138,18 @@ me.patch("/", async (c) => {
     const { plan } = await getPlanStatus(c.env, user.id);
     if (!plan.plus) return apiError(c, "plus_required");
     changes.roomTheme = roomTheme;
+  }
+
+  if (fixedRoomProtected !== undefined) {
+    // Sala protegida no link fixo: só Plus, e o tipo só muda com a sala vazia (conferido no
+    // Durable Object da sala; ele também não troca o tipo de uma sala ocupada).
+    const { plan } = await getPlanStatus(c.env, user.id);
+    if (!plan.plus) return apiError(c, "plus_required");
+    if ((user.fixedRoomProtected === 1) !== fixedRoomProtected) {
+      const room = c.env.ROOM.get(c.env.ROOM.idFromName(`@${user.handle}`));
+      if ((await room.info()).participants > 0) return apiError(c, "room_in_use");
+      changes.fixedRoomProtected = fixedRoomProtected ? 1 : 0;
+    }
   }
 
   if (Object.keys(changes).length > 0) {
