@@ -267,7 +267,11 @@ describe("GET /api/rooms/:code/ice", () => {
     const [url, init] = fetchSpy.mock.calls.at(-1)!;
     expect(url).toBe(`${TURN_API_BASE}/id-da-chave/credentials/generate-ice-servers`);
     expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer token-secreto-da-chave");
-    expect(JSON.parse(init?.body as string)).toEqual({ ttl: TURN_CREDENTIAL_TTL_SECONDS });
+    const sent = JSON.parse(init?.body as string) as { ttl: number; customIdentifier: string };
+    expect(sent.ttl).toBe(TURN_CREDENTIAL_TTL_SECONDS);
+    // Identificador por sessão, sem dado pessoal em claro.
+    expect(sent.customIdentifier).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    expect(sent.customIdentifier).not.toContain(guest.participantId);
   });
 
   it("sem cookie, com cookie adulterado ou sem admissão responde `unauthorized`", async () => {

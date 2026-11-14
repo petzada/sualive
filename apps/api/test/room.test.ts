@@ -4,7 +4,6 @@ import {
   CHAT_RATE_WINDOW_MS,
   ROOM_EMPTY_TTL_MS,
   ROOM_MAX_PEOPLE,
-  ROOM_MAX_VIDEOS,
   VIDEOS_PER_PERSON,
 } from "@sualive/config";
 import { apiErrorSchema, roomInfoResponseSchema, WS_CLOSE } from "@sualive/protocol";
@@ -99,14 +98,10 @@ describe("limite de pessoas", () => {
 });
 
 describe("limite de vídeos", () => {
-  it(`${VIDEOS_PER_PERSON} por pessoa e ${ROOM_MAX_VIDEOS} na sala; o seguinte é recusado; parar e sair liberam`, async () => {
-    // Quem enche o teto da sala, mais duas pessoas para as vagas liberadas.
-    const filling = Math.ceil(ROOM_MAX_VIDEOS / VIDEOS_PER_PERSON);
-    const { people } = await roomWith(filling + 2);
+  it(`${VIDEOS_PER_PERSON} por pessoa, sem teto na sala direta; parar libera a vaga da pessoa`, async () => {
+    const { people } = await roomWith(4);
     const clients = people.map((p) => p.client);
     const [a, b] = clients as [TestClient, TestClient];
-    const spare = clients[filling]!;
-    const last = clients[filling + 1]!;
 
     a.send({ type: "video.request", requestId: "r1", kind: "camera" });
     const granted = await a.next("video.granted");
@@ -122,30 +117,20 @@ describe("limite de vídeos", () => {
     a.send({ type: "video.request", requestId: "r2", kind: "screen" });
     expect(await a.next("video.denied")).toMatchObject({ requestId: "r2", reason: "person_limit" });
 
-    // Os demais completam o teto da sala.
+    // Todos transmitem o máximo deles: a sala direta não tem teto (era 4 antes da entrega 4).
     let total = VIDEOS_PER_PERSON;
-    for (const client of clients.slice(1, filling)) {
-      for (let i = 0; i < VIDEOS_PER_PERSON && total < ROOM_MAX_VIDEOS; i++, total++) {
+    for (const client of clients.slice(1)) {
+      for (let i = 0; i < VIDEOS_PER_PERSON; i++, total++) {
         client.send({ type: "video.request", requestId: `r${total}`, kind: "screen" });
         await client.next("video.granted");
       }
     }
-    expect(total).toBe(ROOM_MAX_VIDEOS);
-    spare.send({ type: "video.request", requestId: "r-room", kind: "camera" });
-    expect(await spare.next("video.denied")).toMatchObject({ requestId: "r-room", reason: "room_limit" });
+    expect(total).toBe(4 * VIDEOS_PER_PERSON);
 
-    // Parar libera uma vaga.
+    // Parar libera uma vaga da própria pessoa.
     a.send({ type: "video.stop", videoId: granted.video.id });
-    spare.send({ type: "video.request", requestId: "r-free", kind: "camera" });
-    await spare.next("video.granted");
-    last.send({ type: "video.request", requestId: "r-full", kind: "camera" });
-    expect(await last.next("video.denied")).toMatchObject({ reason: "room_limit" });
-
-    // Sair libera os vídeos de quem saiu.
-    b.close();
-    await last.next("participant.left");
-    last.send({ type: "video.request", requestId: "r-left", kind: "camera" });
-    await last.next("video.granted");
+    a.send({ type: "video.request", requestId: "r-free", kind: "camera" });
+    await a.next("video.granted");
   });
 
   it("parar vídeo que não é seu responde not_found", async () => {
@@ -304,7 +289,8 @@ describe("chat", () => {
       async (_, state) => (await state.storage.list({ prefix: "chat:" })).size,
     );
     expect(stored).toBe(CHAT_HISTORY_SIZE);
-  });
+    // 205 mensagens com storage: leva mais que o prazo padrão com a suíte inteira rodando.
+  }, 20_000);
 
   it("mensagem inválida responde invalid_message sem derrubar a conexão", async () => {
     const { people } = await roomWith(1);
