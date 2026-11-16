@@ -6,6 +6,7 @@ import {
   plusPaymentStatusSchema,
 } from "@sualive/protocol";
 import { Hono, type Context } from "hono";
+import { sameOriginOnly } from "../auth/csrf";
 import { getViewer, type Viewer } from "../auth/viewer";
 import type { AppEnv } from "../env";
 import { apiError } from "../errors";
@@ -37,6 +38,9 @@ async function readJson(c: Ctx): Promise<unknown> {
 
 /** `/api/plus/*`: checkout, consulta de pagamento e cancelamento. */
 export const plus = new Hono<Env>();
+
+// Checkout e cancelamento mudam estado com o cookie de conta: só a própria origem pode chamar.
+plus.use(sameOriginOnly);
 
 plus.post("/checkout", async (c) => {
   const viewer = await requireSubscriber(c);

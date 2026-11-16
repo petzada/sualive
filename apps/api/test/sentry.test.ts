@@ -3,6 +3,7 @@ import { captureException } from "@sentry/cloudflare";
 import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../src/app";
+import { sentryOptions } from "../src/sentry";
 
 vi.mock("@sentry/cloudflare", async (importOriginal) => ({
   ...(await importOriginal<typeof Sentry>()),
@@ -11,6 +12,15 @@ vi.mock("@sentry/cloudflare", async (importOriginal) => ({
 
 afterEach(() => {
   vi.mocked(captureException).mockClear();
+});
+
+describe("sentryOptions", () => {
+  it("não coleta o corpo das requisições (CPF) nem o IP de quem chamou", () => {
+    const options = sentryOptions({ ...env, SENTRY_DSN: "https://chave@o0.ingest.sentry.io/0" });
+
+    expect(options.enabled).toBe(true);
+    expect(options.dataCollection).toEqual({ httpBodies: [], userInfo: false });
+  });
 });
 
 describe("erros não tratados", () => {

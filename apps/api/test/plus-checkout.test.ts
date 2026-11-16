@@ -230,6 +230,32 @@ describe("POST /api/plus/cancel", () => {
   });
 });
 
+describe("CSRF em /api/plus", () => {
+  const forged = (path: string, body: unknown, headers: Record<string, string>) =>
+    request(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+      // Sem preflight: é o que uma página de outra origem consegue mandar.
+      headers: { "Content-Type": "text/plain", ...headers },
+    });
+
+  it("recusa checkout e cancelamento vindos de outra origem, do mesmo site ou sem cabeçalho", async () => {
+    loginAs(await createUser());
+    const body = { cycle: "annual", taxId: VALID_CPF };
+    for (const headers of [
+      { "Sec-Fetch-Site": "same-site", Origin: "https://outro.example.workers.dev" },
+      { "Sec-Fetch-Site": "cross-site" },
+      { Origin: "https://evil.test" },
+      {},
+    ]) {
+      expect((await forged("/api/plus/checkout", body, headers)).status).toBe(400);
+      expect((await forged("/api/plus/cancel", {}, headers)).status).toBe(400);
+    }
+    // Nada chegou à Woovi.
+    expect(woovi.calls).toEqual([]);
+  });
+});
+
 describe("deleteBillingData", () => {
   it("cancela a recorrência na Woovi, apaga a assinatura e não deixa CPF", async () => {
     const userId = await createUser();

@@ -176,7 +176,12 @@ export function request(path: string, init: RequestInit = {}, overrides: Partial
 export function postJson(path: string, body: unknown, overrides: Partial<AppEnv> = {}) {
   return request(
     path,
-    { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } },
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+      // O navegador manda este cabeçalho em todo POST da própria origem.
+      headers: { "Content-Type": "application/json", "Sec-Fetch-Site": "same-origin" },
+    },
     overrides,
   );
 }
