@@ -125,8 +125,8 @@ const CONTACT_EMAIL = "contato@sualive.com.br";
  * Prometido no texto e ainda NÃO implementado (pendência de uma próxima entrega):
  * - caixa de entrada do `contato@sualive.com.br`, que depende do domínio (fim do MVP).
  *
- * Os preços em ouro da retransmissão de vídeo e da sala protegida são provisórios até a medição de
- * custo (DECISOES.md, "Parâmetros"): quando mudarem em `@sualive/config`, `TERMS_VERSION` muda junto.
+ * Os preços em ouro da retransmissão de vídeo e da sala protegida saem da medição de custo
+ * (DECISOES.md, "Parâmetros"): quando mudarem em `@sualive/config`, `TERMS_VERSION` muda junto.
  */
 const TERMS_SECTIONS: LegalSection[] = [
   {
@@ -170,7 +170,7 @@ const TERMS_SECTIONS: LegalSection[] = [
       `A sala protegida custa ${PROTECTED_ROOM_PRICE}, debitado por minuto do ouro do dono. O preço cobre a voz e o vídeo de todos na sala. Antes de confirmar, o dono vê o preço e quanto tempo o saldo dele cobre.`,
       `O dono é avisado quando o saldo cobre ${PROTECTED_ROOM_WARNINGS} minutos. Quando o saldo zera, a sala espera ${PROTECTED_ROOM_GRACE_MINUTES} minutos; sem recarga nesse tempo, ela é encerrada para todos e não vira sala direta. O saldo nunca fica negativo.`,
       "O ouro gasto nos minutos já usados, de sala protegida ou de vídeo em retransmissão, não volta.",
-      "Os preços em ouro do vídeo em retransmissão e da sala protegida são provisórios, até concluirmos a medição do custo, e podem mudar. Quando mudarem, a versão destes Termos de Uso muda junto.",
+      "Os preços em ouro do vídeo em retransmissão e da sala protegida acompanham o custo da retransmissão e podem mudar. Quando mudarem, a versão destes Termos de Uso muda junto.",
     ],
   },
   {

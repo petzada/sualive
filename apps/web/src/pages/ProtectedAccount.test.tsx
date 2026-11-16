@@ -357,7 +357,8 @@ describe("the new Plus", () => {
     const block = screen.getByTestId("plus-gold").textContent ?? "";
     expect(block).toContain(`${gold(PLUS_GOLD_AMOUNT)} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias`);
     expect(block).toContain(`cerca de ${formatProtectedRoomTime(PLUS_GOLD_AMOUNT)} de sala protegida`);
-    expect(formatProtectedRoomTime(PLUS_GOLD_AMOUNT)).toBe("1 h");
+    // A franquia em tempo acompanha o preço da sala protegida: nunca um número escrito à mão.
+    expect(block).toContain(formatProtectedRoomTime(PLUS_GOLD_AMOUNT));
   });
 
   it("promises no free hours, courtesy or trial", () => {
@@ -378,7 +379,7 @@ describe("the new Plus", () => {
     expect(items).toContain(`Qualidade acima de ${freeShort}, até 4K e ${PLUS_VIDEO_QUALITY.frameRate} fps`);
     expect(items).toContain("Vídeo em retransmissão e sala protegida, pagos em ouro");
     expect(items).toContain(
-      `${gold(PLUS_GOLD_AMOUNT)} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias: cerca de 1 h de sala protegida`,
+      `${gold(PLUS_GOLD_AMOUNT)} a cada ${PLUS_GOLD_INTERVAL_DAYS} dias: cerca de ${formatProtectedRoomTime(PLUS_GOLD_AMOUNT)} de sala protegida`,
     );
   });
 
@@ -437,7 +438,7 @@ describe("legal texts of the fourth delivery", () => {
     expect(room).toMatch(/encerrada para todos e não vira sala direta/);
     expect(room).toMatch(/O ouro gasto nos minutos já usados.*não volta/);
     expect(room).toMatch(
-      /preços em ouro.*são provisórios.*podem mudar.*a versão destes Termos de Uso muda junto/,
+      /preços em ouro.*acompanham o custo da retransmissão.*podem mudar.*a versão destes Termos de Uso muda junto/,
     );
   });
 

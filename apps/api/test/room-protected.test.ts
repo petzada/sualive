@@ -234,7 +234,7 @@ describe("cobrança da sala protegida", () => {
     expect(first).toEqual({
       type: "protected.meter",
       state: "ok",
-      remainingMs: (1000 * 3_600_000) / PROTECTED_ROOM_GOLD_PER_HOUR,
+      remainingMs: Math.floor((1000 * 3_600_000) / PROTECTED_ROOM_GOLD_PER_HOUR),
       goldPerHour: PROTECTED_ROOM_GOLD_PER_HOUR,
     });
     await ownerClient.next("protected.meter");

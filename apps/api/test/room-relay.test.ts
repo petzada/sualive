@@ -127,16 +127,17 @@ describe("decisão de vídeo por par retransmitido", () => {
     expect((await streamer.client.next("relay.meter")).pairs).toBe(1);
     expect((await streamer.client.next("relay.meter")).pairs).toBe(2);
 
-    // 2 pares × 4 minutos × 45 de ouro por hora = 6 de ouro.
+    // 2 pares × 4 minutos ao preço por hora: só o ouro inteiro é debitado; a fração fica para depois.
+    const expected = Math.floor((RELAY_VIDEO_GOLD_PER_HOUR * 2 * 4) / 60);
     for (let minute = 0; minute < 4; minute++) {
       clock.advance(METER_INTERVAL_MS);
       expect(await runAlarm(code)).toBe(true);
     }
     const debits = (await ledgerRows(user.userId)).filter((row) => row.reason === "relay_video");
-    expect(debits.reduce((sum, row) => sum - row.amount, 0)).toBe((RELAY_VIDEO_GOLD_PER_HOUR * 2 * 4) / 60);
+    expect(debits.reduce((sum, row) => sum - row.amount, 0)).toBe(expected);
     expect(new Set(debits.map((row) => row.reference)).size).toBe(debits.length);
     const wallet = await expectConsistent(user.userId);
-    expect(wallet.gold).toBe(100 - 6);
+    expect(wallet.gold).toBe(100 - expected);
     const meter = streamer.client.messages.filter((m) => m.type === "relay.meter");
     expect(meter.at(-1)).toMatchObject({ state: "paying", pairs: 2 });
   });
@@ -148,7 +149,7 @@ describe("decisão de vídeo por par retransmitido", () => {
     await watchRelayed(viewer, streamer, videoId, "viewer");
     expect((await streamer.client.next("relay.meter")).pairs).toBe(1);
 
-    // 40 minutos pagos: 30 de ouro.
+    // 40 minutos pagos de um par: só o ouro inteiro é debitado.
     clock.advance(40 * METER_INTERVAL_MS);
     await runAlarm(code);
     viewer.client.send({ type: "peer.relay", peer: streamer.id, relayed: false });
@@ -157,7 +158,8 @@ describe("decisão de vídeo por par retransmitido", () => {
     expect(meters.at(-1)).toMatchObject({ state: "paying", pairs: 0 });
     clock.advance(40 * METER_INTERVAL_MS);
     await runAlarm(code);
-    expect((await expectConsistent(user.userId)).gold).toBe(70);
+    const paid = Math.floor((RELAY_VIDEO_GOLD_PER_HOUR * 40) / 60);
+    expect((await expectConsistent(user.userId)).gold).toBe(100 - paid);
   });
 
   it("o ouro acaba no meio: os pares pagos passam a bloqueados e quem transmite é avisado", async () => {

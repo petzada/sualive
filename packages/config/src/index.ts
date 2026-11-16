@@ -76,7 +76,7 @@ export const MINIMUM_AGE = 18;
  * outra mudança no mesmo dia ganha um sufixo (".2", ".3"). Quem tem conta e ainda não viu esta versão
  * recebe a faixa de aviso (vale o uso continuado).
  */
-export const TERMS_VERSION = "2026-11-14.4";
+export const TERMS_VERSION = "2026-11-16";
 /** Data da versão atual dos termos (AAAA-MM-DD), para mostrar. */
 export const TERMS_DATE = TERMS_VERSION.slice(0, 10);
 
@@ -204,11 +204,13 @@ export const PROTECTED_ROOM_MAX_PEOPLE = 6;
 export const PROTECTED_ROOM_MAX_VIDEOS = 2;
 
 /**
- * Preços do que gasta banda nossa, em ouro por hora, debitados por minuto. PROVISÓRIOS até a
- * medição de custo da entrega 4 (regra: pior caso medido × 2); os finais dependem do dono.
+ * Preços do que gasta banda nossa, em ouro por hora, debitados por minuto. Saem da medição de
+ * custo de 16/11/2026 (docs/medicao-custo-retransmissao.md) pela regra do DECISOES.md: pior caso
+ * medido × 2 ÷ R$ 0,0082. O do par foi medido; o da sala protegida é extrapolado para 6 pessoas
+ * e 2 vídeos, e deve ser medido de novo com uso real.
  */
-export const RELAY_VIDEO_GOLD_PER_HOUR = 45;
-export const PROTECTED_ROOM_GOLD_PER_HOUR = 500;
+export const RELAY_VIDEO_GOLD_PER_HOUR = 50;
+export const PROTECTED_ROOM_GOLD_PER_HOUR = 570;
 /** De quanto em quanto tempo a sala cobra (ms). */
 export const METER_INTERVAL_MS = 60_000;
 /** Avisos ao dono da sala protegida, em minutos de saldo que restam. */
