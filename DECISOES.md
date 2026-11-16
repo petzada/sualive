@@ -484,7 +484,12 @@ em ouro. Entram junto o moderador, os limites de frequência e o registro de ace
 - Em homologação, medir os GB que a Cloudflare cobra por: um par de vídeo retransmitido numa ponta e nas
   duas; uma sala protegida de 6 pessoas com 2 vídeos assistidos por todos.
 - Preço final em ouro por hora = custo medido do pior caso × 2 ÷ R$ 0,0082. O dono aprova os valores
-  finais; até lá valem os provisórios de "Parâmetros".
+  finais.
+- Medição de 16/11/2026 (`docs/medicao-custo-retransmissao.md`): um par de vídeo retransmitido gasta
+  0,746 GB por hora no pior caso, e a Cloudflare cobra cada sentido uma vez só, mesmo com as duas
+  pontas em retransmissão. Preços aprovados pelo dono: 50 de ouro por hora por par e 570 por hora na
+  sala protegida. O da sala protegida é extrapolado (6 pessoas, 2 vídeos) e será medido de novo com
+  usuários reais.
 
 **Moderador, limites de frequência e registro de acesso**
 
@@ -571,8 +576,8 @@ idiomas e outros meios de pagamento.
 | Câmbio de face | 100 de ouro = R$ 1 |
 | Rendimento do ouro usado nos preços | 100 de ouro = R$ 0,82 |
 | Regra de preço do que gasta banda | pior caso medido × 2 |
-| Vídeo retransmitido, por par assistido | 45 de ouro por hora **[provisório, a medir]** |
-| Sala protegida | 500 de ouro por hora **[provisório, a medir]** |
+| Vídeo retransmitido, por par assistido | 50 de ouro por hora (medido em 16/11/2026) |
+| Sala protegida | 570 de ouro por hora (extrapolado da medição de 16/11/2026; medir de novo com uso real) |
 | Taxa da Woovi | R$ 0,85 fixos por transação, inclusive no Pix Automático |
 | Custo da banda (Cloudflare) | US$ 0,05 por GB de saída; 1.000 GB grátis por mês, somando TURN e SFU |
 | Dólar adotado nos cálculos de custo | R$ 5,50 |
