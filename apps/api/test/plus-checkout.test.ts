@@ -242,12 +242,13 @@ describe("CSRF em /api/plus", () => {
   it("recusa checkout e cancelamento vindos de outra origem, do mesmo site ou sem cabeçalho", async () => {
     loginAs(await createUser());
     const body = { cycle: "annual", taxId: VALID_CPF };
-    for (const headers of [
+    const attempts: Record<string, string>[] = [
       { "Sec-Fetch-Site": "same-site", Origin: "https://outro.example.workers.dev" },
       { "Sec-Fetch-Site": "cross-site" },
       { Origin: "https://evil.test" },
       {},
-    ]) {
+    ];
+    for (const headers of attempts) {
       expect((await forged("/api/plus/checkout", body, headers)).status).toBe(400);
       expect((await forged("/api/plus/cancel", {}, headers)).status).toBe(400);
     }
