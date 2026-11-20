@@ -55,7 +55,8 @@ Para o Worker servir o front localmente, rode `pnpm build` antes do `dev` da API
 ## Hooks locais (lefthook)
 
 - **pre-commit**, só nos arquivos em stage: Prettier (corrige e volta ao stage) e ESLint.
-- **pre-push**, para no primeiro erro: `pnpm typecheck` e `pnpm test:related`.
+- **pre-push**: só `pnpm typecheck` (incremental). Os testes ligados ao diff (`pnpm test:related`) rodam
+  antes de abrir o PR.
 
 O resto (lint, typecheck e testes completos, build, teste de fumaça) roda no CI. O `pnpm e2e` não entra
 nos hooks: rode-o sob demanda quando mexer na sala.
@@ -67,9 +68,11 @@ nos hooks: rode-o sob demanda quando mexer na sala.
 | Produção | `sualive` | `sualive` |
 | Homologação | `sualive-staging` | `sualive-staging` |
 
-- **Pull request** (`.github/workflows/ci.yml`): formatação, lint, typecheck, testes e build, no check
-  `verificar`, e o teste de fumaça no navegador, no check `e2e`. Não usa segredo.
-- **Merge na main** (`.github/workflows/deploy.yml`): publica primeiro a homologação — build, migrations
+- **Pull request** (`.github/workflows/ci.yml`): formatação, lint, typecheck e build, no check
+  `verificar`; testes, no check `testes`; e o teste de fumaça no navegador, no check `e2e`. Não usa
+  segredo.
+- **Merge na main** (`.github/workflows/deploy.yml`): roda o mesmo CI e, só com ele verde, publica primeiro
+  a homologação — build, migrations
   do D1, deploy do Worker e verificação (`scripts/smoke.mjs` espera `GET /api/health` responder com o
   commit publicado e confere a página inicial). Só se a homologação passar, repete a sequência em
   produção.

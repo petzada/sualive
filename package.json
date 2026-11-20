@@ -2,7 +2,7 @@
   "name": "sualive",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.16.0",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=22"
   },
@@ -15,7 +15,7 @@
     "e2e": "turbo run e2e --concurrency=1",
     "build": "turbo run build",
     "format": "prettier --write .",
-    "prepare": "node -e \"if (require('fs').existsSync('.git')) require('child_process').execSync('lefthook install', { stdio: 'inherit' })\""
+    "prepare": "node -e \"try{if(require('fs').statSync('.git').isDirectory())require('child_process').execSync('lefthook install',{stdio:'inherit'})}catch{}\""
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
