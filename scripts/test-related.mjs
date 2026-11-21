@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Testes ligados ao diff, para o pre-push.
+// Testes ligados ao diff, rodados antes de abrir o PR (`pnpm test:related`). Não entra nos hooks.
 //
 // `turbo run test:related --affected` escolhe os pacotes afetados pelo diff contra a base, mas o
 // `vitest related` de cada pacote só roda alguma coisa se receber os arquivos alterados. Este script

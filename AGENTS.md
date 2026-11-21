@@ -10,8 +10,6 @@ não invente regra. Responda e escreva commits em português.
   constrói, mesmo que apareça numa entrega futura. Leia "O que não fazer" da entrega antes de começar.
 - Itens marcados **[padrão]** podem ser implementados como estão; se parecerem errados, pergunte antes de
   mudar.
-- Antes de usar uma API de biblioteca, confira a documentação da versão instalada (veja o lockfile). Não
-  confie na memória.
 - Dependência nova: última versão estável, travada no lockfile.
 
 ## Estrutura do monorepo
@@ -37,7 +35,7 @@ Os mesmos nomes na raiz e em todos os pacotes. Use-os em vez de inventar comando
 | `pnpm typecheck` | `tsc --noEmit` em todos os pacotes (turbo, com cache) |
 | `pnpm lint` | ESLint sem informação de tipos |
 | `pnpm test` | Vitest (`--run`), suítes em série |
-| `pnpm test:related` | Só os testes ligados ao diff contra `origin/main` (o pre-push usa este) |
+| `pnpm test:related` | Só os testes dos pacotes afetados pelo diff contra `origin/main` (`--affected --concurrency=1`); rode antes de abrir o PR |
 | `pnpm test:ci` | Suíte completa, como no CI |
 | `pnpm e2e` | Teste de fumaça com Playwright (`e2e/`): build, Worker no simulador do Wrangler e Chromium com mídia falsa. Só sob demanda e no CI, nunca nos hooks |
 | `pnpm build` | Build do front e verificação do bundle do Worker (`wrangler deploy --dry-run`) |
@@ -45,6 +43,8 @@ Os mesmos nomes na raiz e em todos os pacotes. Use-os em vez de inventar comando
 Vitest sempre com `--run`; nunca em modo watch. Um job pesado por vez (não rode lint e testes juntos).
 
 ## Regras do código
+
+- Antes de usar uma API de biblioteca, confira a documentação da versão instalada (veja o lockfile); não confie na memória.
 
 - **O servidor decide, o cliente obedece.** Limites de pessoas e de vídeos, papéis, plano e saldo são
   verificados no Durable Object ou no Worker. Única exceção: a qualidade na sala direta, aplicada pelo
@@ -91,21 +91,25 @@ o produto faz hoje. Sempre com esses nomes, com as maiúsculas, onde forem citad
 Ficam em `apps/api/migrations` e são aplicadas pelo CI antes do deploy do código, em homologação e depois
 em produção. Seguem **expand/contract**:
 
-- **Expand** (pode ir em qualquer PR): só adiciona — tabela, índice, coluna nula ou com default.
-- **Contract** (remover, renomear, mudar tipo): em PR separado, depois que nenhum código no ar usa mais a
-  estrutura antiga.
+- **Expand** (pode ir em qualquer PR, sem perguntar): só adiciona — tabela, índice, coluna nula ou com
+  default.
+- **Contract** (remover, renomear, mudar tipo) em dois tempos: num PR posterior, só depois que o deploy sem
+  uso da estrutura antiga estiver no ar com a verificação verde, e com snapshot do D1 (Time Travel ou
+  export) antes de qualquer drop.
 - Problema em produção: reverta o código, nunca o banco.
 
-## Fluxo de git
+## Fluxo autônomo
 
-- Uma branch por alteração, a partir de `origin/main` atualizado (`git fetch` antes). **Nunca** commit na
-  `main`.
-- Conventional Commits em português (`feat: …`, `fix: …`, `chore: …`, `docs: …`).
-- Enquanto trabalha: commit e push da branch (`git push -u origin <branch>`), sem abrir PR. Push sem PR não
-  roda CI.
-- Um PR único por entrega, aberto quando o trabalho está pronto; merge por squash.
-- Os hooks do lefthook rodam no commit (prettier e eslint nos arquivos em stage) e no push (typecheck e
-  testes relacionados). Nunca `--no-verify`, nunca `LEFTHOOK=0`, nunca force-push.
+- Branch de feature a partir de `origin/main` atualizado (`git fetch` antes). **Nunca** commit ou push na
+  `main`. Conventional Commits em português (`feat: …`, `fix: …`, `chore: …`, `docs: …`).
+- Commit e push da branch a cada parte pronta. Um PR único por entrega.
+- Ao terminar: `pnpm test:related`, `pnpm lint` e `pnpm build` (um por vez); abre o PR pronto (não
+  rascunho), acompanha o CI e corrige tudo o que falhar num push só.
+- CI verde e baixo risco: merge por squash sem perguntar. Risco (login e sessão, pagamento, saldo e
+  livro-razão, dados de usuário, infra/CI, deleção, migration contract): pergunte antes do merge.
+- Verificação pós-deploy falhou: corrija pra frente; se o app quebrou, reverta o código (nunca o banco).
+- Hooks do lefthook: no commit, prettier e eslint nos arquivos em stage; no push, só o typecheck
+  incremental. Nunca `--no-verify`, nunca `LEFTHOOK=0`, nunca force-push.
 
 ## Ambientes, CI e deploy
 
@@ -114,9 +118,9 @@ em produção. Seguem **expand/contract**:
 | Produção | `sualive` | `sualive` | nível de cima do `wrangler.jsonc` |
 | Homologação | `sualive-staging` | `sualive-staging` | `--env staging`; usa o ambiente de teste da Woovi (entrega 2) |
 
-- **PR** (`.github/workflows/ci.yml`): check `verificar` (prettier, lint, typecheck, testes e build) e
-  check `e2e` (teste de fumaça com Playwright). Sem segredo.
-- **Merge na main** (`.github/workflows/deploy.yml`): homologação (build → migrations do D1 → deploy →
+- **PR** (`.github/workflows/ci.yml`): check `verificar` (prettier, lint, typecheck e build), check
+  `testes` (Vitest completo) e check `e2e` (teste de fumaça com Playwright). Sem segredo.
+- **Merge na main** (`.github/workflows/deploy.yml`): o mesmo CI completo e, só com ele verde, homologação (build → migrations do D1 → deploy →
   verificação com `scripts/smoke.mjs`) e, só se ela passar, produção na mesma ordem. A verificação espera
   `GET /api/health` responder `status: "ok"` com o commit publicado e `GET /` devolver HTML.
 - Deploy só pelo CI. Nunca `wrangler deploy` da máquina.

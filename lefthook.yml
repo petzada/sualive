@@ -14,14 +14,9 @@ pre-commit:
       # Sem informação de tipos (os tipos ficam no pre-push e no CI).
       run: pnpm exec eslint --cache --cache-location node_modules/.cache/eslint/ --no-warn-ignored {staged_files}
 
-# Diff contra origin/main. Para no primeiro erro. Meta: < 2 min.
+# Só o typecheck incremental (cache do turbo + um tsbuildinfo por pacote). Meta: < 1 min.
+# Os testes ligados ao diff (`pnpm test:related`) rodam antes de abrir o PR, não aqui.
 pre-push:
-  piped: true
   jobs:
-    - name: 1_typecheck
-      # Incremental: o turbo reaproveita o cache dos pacotes que não mudaram.
+    - name: typecheck
       run: pnpm typecheck
-    - name: 2_related
-      env:
-        TURBO_SCM_BASE: origin/main
-      run: pnpm test:related

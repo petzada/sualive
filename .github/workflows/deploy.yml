@@ -1,7 +1,9 @@
 name: Deploy
 
-# Merge na main publica homologação, verifica e só então publica produção.
+# Merge na main: CI completo (ci.yml) → homologação → produção.
 # Em cada ambiente: build → migrations do D1 → deploy do Worker → verificação.
+# O build é refeito por ambiente de propósito: as variáveis VITE_* (Turnstile, Web Analytics,
+# ambiente) entram no bundle do front em tempo de build e são diferentes em cada um.
 on:
   push:
     branches: [main]
@@ -18,8 +20,13 @@ env:
   WRANGLER_SEND_METRICS: "false"
 
 jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
   staging:
     name: homologação
+    needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -70,6 +77,10 @@ jobs:
         env:
           BASE_URL: ${{ vars.STAGING_URL }}
         run: node scripts/smoke.mjs "${BASE_URL}" "${GITHUB_SHA}"
+
+      - name: Avisar falha
+        if: failure()
+        run: echo "::error::Deploy de homologação falhou; produção não foi publicada. Corrija pra frente (reverta o código, nunca o banco)."
 
   production:
     name: produção
@@ -125,3 +136,7 @@ jobs:
         env:
           BASE_URL: ${{ vars.PRODUCTION_URL }}
         run: node scripts/smoke.mjs "${BASE_URL}" "${GITHUB_SHA}"
+
+      - name: Avisar falha
+        if: failure()
+        run: echo "::error::Deploy de produção falhou. Corrija pra frente; se o app quebrou, reverta o código (nunca o banco)."

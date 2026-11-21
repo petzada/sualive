@@ -1,13 +1,14 @@
 name: CI
 
-# Só em PR. O deploy (merge na main) está em deploy.yml.
+# Em PR e, na main, chamado pelo deploy.yml antes de publicar (o deploy só sai com o CI verde).
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -29,11 +30,28 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
-      - name: Testes
-        run: pnpm test:ci
       # Sem segredo: sem DSN, sem token do Sentry, sem envio de sourcemaps.
       - name: Build
         run: pnpm build
+      - name: Avisar falha
+        if: failure()
+        run: echo "::error::verificar falhou (formatação, lint, typecheck ou build). Veja os passos acima."
+
+  testes:
+    name: testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Testes
+        run: pnpm test:ci
+      - name: Avisar falha
+        if: failure()
+        run: echo "::error::testes falharam. Rode \`pnpm test\` localmente para reproduzir."
 
   # Teste de fumaça: o Worker no simulador do Wrangler e dois ou mais Chromium com mídia falsa.
   # Sem segredo: a chave do Turnstile é a de teste pública (apps/api/.dev.vars.example).
@@ -74,3 +92,6 @@ jobs:
             e2e/playwright-report/
             e2e/test-results/
           retention-days: 7
+      - name: Avisar falha
+        if: failure()
+        run: echo "::error::teste de fumaça falhou. Relatório e traces no artefato playwright-report."
