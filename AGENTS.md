@@ -44,6 +44,8 @@ Vitest sempre com `--run`; nunca em modo watch. Um job pesado por vez (não rode
 
 ## Regras do código
 
+- Antes de usar uma API de biblioteca, confira a documentação da versão instalada (veja o lockfile); não confie na memória.
+
 - **O servidor decide, o cliente obedece.** Limites de pessoas e de vídeos, papéis, plano e saldo são
   verificados no Durable Object ou no Worker. Única exceção: a qualidade na sala direta, aplicada pelo
   navegador de quem transmite. Nunca confie em valor enviado pelo navegador para plano, saldo, papel,
