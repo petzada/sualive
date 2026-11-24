@@ -10,7 +10,6 @@ página provisória. Ainda não há funcionalidade de produto.
 | [DECISOES.md](DECISOES.md) | Especificação de implementação, dividida em entregas |
 | [DESIGN.md](DESIGN.md) | Tokens, paleta e padrões visuais |
 | [AGENTS.md](AGENTS.md) | Convenções para agentes de código (resumo de `DECISOES.md`) |
-| [PROMPT-ORQUESTRADOR.md](PROMPT-ORQUESTRADOR.md) | Instrução para o agente que orquestra cada entrega |
 | [SEGREDOS.md](SEGREDOS.md) | Nomes das credenciais de cada entrega e onde consegui-las |
 
 ## Requisitos
@@ -34,7 +33,7 @@ Não há banco local nem Docker: o Worker roda no simulador do Wrangler.
 ## Comandos
 
 ```bash
-pnpm install                       # dependências (instala também os hooks do lefthook)
+pnpm install                       # dependências
 pnpm --filter @sualive/web dev     # front em modo de desenvolvimento (Vite)
 pnpm --filter @sualive/api dev     # Worker no simulador do Wrangler (wrangler dev), com D1 e Durable Object locais
 ```
@@ -52,14 +51,8 @@ pnpm --filter @sualive/api dev     # Worker no simulador do Wrangler (wrangler d
 
 Para o Worker servir o front localmente, rode `pnpm build` antes do `dev` da API (ele lê `apps/web/dist`).
 
-## Hooks locais (lefthook)
-
-- **pre-commit**, só nos arquivos em stage: Prettier (corrige e volta ao stage) e ESLint.
-- **pre-push**: só `pnpm typecheck` (incremental). Os testes ligados ao diff (`pnpm test:related`) rodam
-  antes de abrir o PR.
-
-O resto (lint, typecheck e testes completos, build, teste de fumaça) roda no CI. O `pnpm e2e` não entra
-nos hooks: rode-o sob demanda quando mexer na sala.
+O lint, typecheck e testes completos, o build e o teste de fumaça rodam no CI. O `pnpm e2e` roda sob
+demanda quando mexer na sala.
 
 ## CI, deploy e ambientes
 

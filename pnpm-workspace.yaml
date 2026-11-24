@@ -14,5 +14,4 @@ minimumReleaseAgeExclude:
   - playwright@1.65.1
 allowBuilds:
   esbuild: true
-  lefthook: true
   workerd: true

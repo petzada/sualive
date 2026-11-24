@@ -1,16 +1,7 @@
-# Instruções para agentes de código
+# sualive
 
 Resumo operacional de [DECISOES.md](DECISOES.md), que é a fonte de verdade do **que** construir. A
-aparência está em [DESIGN.md](DESIGN.md). Em caso de dúvida ou de conflito entre regras, pare e pergunte;
-não invente regra. Responda e escreva commits em português.
-
-## Como trabalhar
-
-- Uma entrega por vez, na ordem de `DECISOES.md`. O que não está no escopo da entrega em andamento não se
-  constrói, mesmo que apareça numa entrega futura. Leia "O que não fazer" da entrega antes de começar.
-- Itens marcados **[padrão]** podem ser implementados como estão; se parecerem errados, pergunte antes de
-  mudar.
-- Dependência nova: última versão estável, travada no lockfile.
+aparência está em [DESIGN.md](DESIGN.md).
 
 ## Estrutura do monorepo
 
@@ -28,19 +19,19 @@ pnpm 12 + turbo, Node 22.
 
 ## Scripts padronizados
 
-Os mesmos nomes na raiz e em todos os pacotes. Use-os em vez de inventar comandos.
+Os mesmos nomes na raiz e em todos os pacotes.
 
 | Script | O que faz |
 |---|---|
 | `pnpm typecheck` | `tsc --noEmit` em todos os pacotes (turbo, com cache) |
 | `pnpm lint` | ESLint sem informação de tipos |
 | `pnpm test` | Vitest (`--run`), suítes em série |
-| `pnpm test:related` | Só os testes dos pacotes afetados pelo diff contra `origin/main` (`--affected --concurrency=1`); rode antes de abrir o PR |
+| `pnpm test:related` | Só os testes dos pacotes afetados pelo diff contra `origin/main` (`--affected --concurrency=1`) |
 | `pnpm test:ci` | Suíte completa, como no CI |
-| `pnpm e2e` | Teste de fumaça com Playwright (`e2e/`): build, Worker no simulador do Wrangler e Chromium com mídia falsa. Só sob demanda e no CI, nunca nos hooks |
+| `pnpm e2e` | Teste de fumaça com Playwright (`e2e/`): build, Worker no simulador do Wrangler e Chromium com mídia falsa. Só sob demanda e no CI |
 | `pnpm build` | Build do front e verificação do bundle do Worker (`wrangler deploy --dry-run`) |
 
-Vitest sempre com `--run`; nunca em modo watch. Um job pesado por vez (não rode lint e testes juntos).
+Vitest sempre com `--run`.
 
 ## Regras do código
 
@@ -91,25 +82,12 @@ o produto faz hoje. Sempre com esses nomes, com as maiúsculas, onde forem citad
 Ficam em `apps/api/migrations` e são aplicadas pelo CI antes do deploy do código, em homologação e depois
 em produção. Seguem **expand/contract**:
 
-- **Expand** (pode ir em qualquer PR, sem perguntar): só adiciona — tabela, índice, coluna nula ou com
+- **Expand** (pode ir em qualquer PR): só adiciona — tabela, índice, coluna nula ou com
   default.
 - **Contract** (remover, renomear, mudar tipo) em dois tempos: num PR posterior, só depois que o deploy sem
   uso da estrutura antiga estiver no ar com a verificação verde, e com snapshot do D1 (Time Travel ou
   export) antes de qualquer drop.
 - Problema em produção: reverta o código, nunca o banco.
-
-## Fluxo autônomo
-
-- Branch de feature a partir de `origin/main` atualizado (`git fetch` antes). **Nunca** commit ou push na
-  `main`. Conventional Commits em português (`feat: …`, `fix: …`, `chore: …`, `docs: …`).
-- Commit e push da branch a cada parte pronta. Um PR único por entrega.
-- Ao terminar: `pnpm test:related`, `pnpm lint` e `pnpm build` (um por vez); abre o PR pronto (não
-  rascunho), acompanha o CI e corrige tudo o que falhar num push só.
-- CI verde e baixo risco: merge por squash sem perguntar. Risco (login e sessão, pagamento, saldo e
-  livro-razão, dados de usuário, infra/CI, deleção, migration contract): pergunte antes do merge.
-- Verificação pós-deploy falhou: corrija pra frente; se o app quebrou, reverta o código (nunca o banco).
-- Hooks do lefthook: no commit, prettier e eslint nos arquivos em stage; no push, só o typecheck
-  incremental. Nunca `--no-verify`, nunca `LEFTHOOK=0`, nunca force-push.
 
 ## Ambientes, CI e deploy
 
